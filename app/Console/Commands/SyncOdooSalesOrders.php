@@ -44,13 +44,13 @@ class SyncOdooSalesOrders extends Command
             'delivery_status',
             'amount_to_invoice',
             'x_studio_invoice_payment_status',
-            'internal_note_display',
+            // 'internal_note_display',
             'state',
             'user_id',
             'team_id',
             'tag_ids',
             'order_line',
-            'tax_totals',
+            'amount_untaxed',
         ];
 
         $limit = 500;
@@ -116,17 +116,27 @@ class SyncOdooSalesOrders extends Command
                     'x_studio_invoice_payment_status' => $order->x_studio_invoice_payment_status ?? null,
                     'state' => $order->state,
                     
-                    'internal_note_display' => $order->internal_note_display ?? null,
+                    // 'internal_note_display' => $order->internal_note_display ?? null,
                     
                     'tag_ids' => $order->tag_ids,
                     'order_line' => $order->order_line, // Keep array for reference
-                    'tax_totals' => $order->tax_totals,
+                    // 'base_amount' => $order->amount_untaxed,
                 ];
 
-                $localOrder = SalesOrder::updateOrCreate(
-                    ['odoo_id' => $order->id],
-                    $data
-                );
+                try {
+                    $localOrder = SalesOrder::updateOrCreate(
+                        ['odoo_id' => $order->id],
+                        $data
+                    );
+                } catch (\Illuminate\Database\QueryException $e) {
+                     $this->error("Query Exception Details:");
+                     $this->error("SQL: " . $e->getSql());
+                     $this->error("Bindings count: " . count($e->getBindings()));
+                     foreach ($e->getBindings() as $i => $binding) {
+                          $this->info("Binding $i: " . (is_array($binding) ? json_encode($binding) : $binding));
+                     }
+                     throw $e;
+                }
                 
                 $orderMap[$order->id] = $localOrder;
 
@@ -170,6 +180,33 @@ class SyncOdooSalesOrders extends Command
                     ->fields(['order_id', 'product_id', 'name', 'product_uom_qty', 'price_unit', 'price_subtotal', 'price_total'])
                     ->get();
 
+                // Prefetch/Create Products
+                $odooProductData = []; 
+                foreach ($lines as $line) {
+                    if (!empty($line->product_id) && is_array($line->product_id)) {
+                        $odooProductData[$line->product_id[0]] = $line->product_id[1];
+                    }
+                }
+
+                $localProductMap = [];
+                if (!empty($odooProductData)) {
+                    $odooIds = array_keys($odooProductData);
+                    $localProductMap = \App\Models\Product::whereIn('odoo_id', $odooIds)->pluck('id', 'odoo_id')->toArray();
+
+                    $missingIds = array_diff($odooIds, array_keys($localProductMap));
+                    foreach ($missingIds as $missingId) {
+                        try {
+                            $newProduct = \App\Models\Product::create([
+                                'odoo_id' => $missingId,
+                                'name' => $odooProductData[$missingId],
+                            ]);
+                            $localProductMap[$missingId] = $newProduct->id;
+                        } catch (\Exception $e) {
+                            Log::error("Failed to create missing product {$missingId}: " . $e->getMessage());
+                        }
+                    }
+                }
+
                 foreach ($lines as $line) {
                     $odooOrderId = is_array($line->order_id) ? $line->order_id[0] : $line->order_id;
                     
@@ -178,12 +215,15 @@ class SyncOdooSalesOrders extends Command
                     $localOrder = $orderMap[$odooOrderId] ?? SalesOrder::where('odoo_id', $odooOrderId)->first();
 
                     if ($localOrder) {
+                        $odooProductId = is_array($line->product_id) ? $line->product_id[0] : null;
+                        $localProductId = $odooProductId ? ($localProductMap[$odooProductId] ?? null) : null;
+
                         \App\Models\SalesOrderLine::updateOrCreate(
                             ['odoo_id' => $line->id],
                             [
                                 'sales_order_id' => $localOrder->id,
                                 'odoo_order_id' => $odooOrderId,
-                                'product_id' => is_array($line->product_id) ? $line->product_id[0] : null,
+                                'product_id' => $localProductId,
                                 'product_name' => is_array($line->product_id) ? $line->product_id[1] : null,
                                 'name' => $line->name,
                                 'product_uom_qty' => $line->product_uom_qty,

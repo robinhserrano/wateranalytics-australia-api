@@ -10,4 +10,12 @@ class Contact extends Model
     use HasFactory;
 
     protected $guarded = [];
+
+    /**
+     * Get the user that owns the contact.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

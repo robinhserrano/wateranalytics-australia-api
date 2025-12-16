@@ -12,10 +12,18 @@ class SalesOrder extends Model
         'create_date' => 'datetime',
         'tag_ids' => 'array',
         'order_line' => 'array',
-        'tax_totals' => 'array',
+        'has_commission_calculation' => 'boolean',
     ];
     public function lines()
     {
         return $this->hasMany(SalesOrderLine::class);
+    }
+
+    /**
+     * Get the commission calculation for this sales order.
+     */
+    public function commissionCalculation()
+    {
+        return $this->hasOne(CommissionCalculation::class);
     }
 }

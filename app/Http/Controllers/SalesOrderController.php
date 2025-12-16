@@ -8,6 +8,13 @@ use Inertia\Inertia;
 
 class SalesOrderController extends Controller
 {
+    protected $calculator;
+
+    public function __construct(\App\Services\CommissionCalculator $calculator)
+    {
+        $this->calculator = $calculator;
+    }
+
     public function index(Request $request)
     {
         $query = SalesOrder::query();
@@ -33,10 +40,34 @@ class SalesOrderController extends Controller
 
     public function show(SalesOrder $salesOrder)
     {
-        $salesOrder->load('lines');
+        $calculationError = null;
+
+        // Auto-calculate commission if missing and possible
+        if (!$salesOrder->commissionCalculation) {
+            try {
+                // Only attempt if we have enough info (e.g. user assigned)
+                // The calculator handles validation internally usually, or throws exception
+                $this->calculator->calculateCommission($salesOrder);
+                $salesOrder->refresh(); // Refresh to get the new relation
+            } catch (\Exception $e) {
+                // Log warning and capture error for UI
+                \Log::warning("Auto-calculation failed for order {$salesOrder->id}: " . $e->getMessage());
+                $calculationError = $e->getMessage();
+            }
+        }
+
+        $salesOrder->load([
+            'lines.product',
+            'lines.landingPrice',
+            'commissionCalculation.user',
+            'commissionCalculation.salesManager',
+            'commissionCalculation.adjustments.adjuster',
+            'commissionCalculation.approvals.approver',
+        ]);
 
         return Inertia::render('SalesOrders/Show', [
             'salesOrder' => $salesOrder,
+            'calculationError' => $calculationError,
         ]);
     }
 }

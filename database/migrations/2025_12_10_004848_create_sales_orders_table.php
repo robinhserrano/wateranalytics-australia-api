@@ -46,7 +46,7 @@ return new class extends Migration
             $table->string('state')->nullable();
 
             // Notes
-            $table->text('internal_note_display')->nullable();
+            // $table->text('internal_note_display')->nullable();
 
             // Arrays/JSON
             $table->json('tag_ids')->nullable();

@@ -65,7 +65,7 @@ class OdooController extends Controller
                 'delivery_status',
                 'amount_to_invoice',
                 'x_studio_invoice_payment_status',
-                'internal_note_display',
+                // 'internal_note_display',
                 'state',
                 'user_id',
                 'team_id',
