@@ -10,7 +10,7 @@ const props = defineProps<{
         id: number;
         name: string;
         email: string;
-        role?: { name: string };
+        roles: Array<{ name: string }>;
         commission_split: number;
         company_lead_base: number;
         self_gen_base: number;
@@ -51,8 +51,13 @@ const props = defineProps<{
                     </CardHeader>
                     <CardContent class="space-y-2">
                         <div class="flex justify-between">
-                            <span class="text-muted-foreground">Role:</span>
-                            <span class="font-medium">{{ user.role?.name || '-' }}</span>
+                            <span class="text-muted-foreground">Roles:</span>
+                            <div class="flex flex-wrap gap-1">
+                                <Badge v-for="role in user.roles" :key="role.name" variant="outline">
+                                    {{ role.name }}
+                                </Badge>
+                                <span v-if="!user.roles || user.roles.length === 0">-</span>
+                            </div>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-muted-foreground">Status:</span>

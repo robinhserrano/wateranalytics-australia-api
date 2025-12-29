@@ -11,7 +11,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, Notifiable, TwoFactorAuthenticatable, \Spatie\Permission\Traits\HasRoles;
 
     /**
      * Get the contacts for the user.
@@ -32,7 +32,6 @@ class User extends Authenticatable
         'password',
         'odoo_user_id',
         'odoo_salesperson_id',
-        'role_id',
         'sales_manager_id',
         'team_id',
         'self_gen_base',
@@ -71,13 +70,7 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * Get the role for this user.
-     */
-    public function role()
-    {
-        return $this->belongsTo(Role::class);
-    }
+
 
     /**
      * Get the team for this user.

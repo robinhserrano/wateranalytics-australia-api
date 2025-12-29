@@ -19,7 +19,7 @@ defineProps<{
             id: number;
             name: string;
             email: string;
-            role?: { name: string };
+            roles: Array<{ name: string }>;
             commission_split: number;
             is_active: boolean;
         }>;
@@ -69,10 +69,12 @@ defineProps<{
                                 </TableCell>
                                 <TableCell>{{ user.email }}</TableCell>
                                 <TableCell>
-                                    <Badge variant="outline" v-if="user.role">
-                                        {{ user.role.name }}
-                                    </Badge>
-                                    <span v-else class="text-muted-foreground">-</span>
+                                    <div class="flex flex-wrap gap-1">
+                                        <Badge v-for="role in user.roles" :key="role.name" variant="outline">
+                                            {{ role.name }}
+                                        </Badge>
+                                        <span v-if="!user.roles || user.roles.length === 0" class="text-muted-foreground">-</span>
+                                    </div>
                                 </TableCell>
                                 <TableCell>{{ user.commission_split }}%</TableCell>
                                 <TableCell>

@@ -26,7 +26,7 @@ const form = useForm({
     name: '',
     email: '',
     password: '',
-    role_id: '',
+    role_name: '',
     commission_split: 0,
     company_lead_base: 0,
     self_gen_base: 0,
@@ -95,17 +95,17 @@ const filteredContacts = computed(() => {
 
                             <div class="space-y-2">
                                 <Label for="role">Role</Label>
-                                <Select v-model="form.role_id">
+                                <Select v-model="form.role_name">
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a role" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem v-for="role in roles" :key="role.id" :value="role.id.toString()">
+                                        <SelectItem v-for="role in roles" :key="role.id" :value="role.name">
                                             {{ role.name }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <span v-if="form.errors.role_id" class="text-red-500 text-sm">{{ form.errors.role_id }}</span>
+                                <span v-if="form.errors.role_name" class="text-red-500 text-sm">{{ form.errors.role_name }}</span>
                             </div>
                         </CardContent>
                     </Card>

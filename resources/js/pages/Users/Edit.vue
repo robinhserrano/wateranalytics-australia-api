@@ -15,7 +15,7 @@ const props = defineProps<{
         id: number;
         name: string;
         email: string;
-        role_id: number;
+        roles: Array<{ name: string }>;
         commission_split: number;
         company_lead_base: number;
         self_gen_base: number;
@@ -36,7 +36,7 @@ const form = useForm({
     name: props.user.name,
     email: props.user.email,
     password: '',
-    role_id: props.user.role_id?.toString(),
+    role_name: props.user.roles?.[0]?.name || '',
     commission_split: props.user.commission_split,
     company_lead_base: props.user.company_lead_base,
     self_gen_base: props.user.self_gen_base,
@@ -105,17 +105,17 @@ const filteredContacts = computed(() => {
 
                             <div class="space-y-2">
                                 <Label for="role">Role</Label>
-                                <Select v-model="form.role_id">
+                                <Select v-model="form.role_name">
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select a role" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem v-for="role in roles" :key="role.id" :value="role.id.toString()">
+                                        <SelectItem v-for="role in roles" :key="role.id" :value="role.name">
                                             {{ role.name }}
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <span v-if="form.errors.role_id" class="text-red-500 text-sm">{{ form.errors.role_id }}</span>
+                                <span v-if="form.errors.role_name" class="text-red-500 text-sm">{{ form.errors.role_name }}</span>
                             </div>
                         </CardContent>
                     </Card>

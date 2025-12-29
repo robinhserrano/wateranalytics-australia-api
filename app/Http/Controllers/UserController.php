@@ -18,7 +18,7 @@ class UserController extends Controller
     public function index()
     {
         return Inertia::render('Users/Index', [
-            'users' => User::with('role', 'salesManager', 'team')->paginate(10),
+            'users' => User::with('roles', 'salesManager', 'team')->paginate(10),
         ]);
     }
 
@@ -27,7 +27,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        $user->load('contacts', 'role', 'salesManager', 'team');
+        $user->load('contacts', 'roles', 'salesManager', 'team');
 
         $commissionStats = [
             'total_commissions' => \App\Models\CommissionCalculation::where('user_id', $user->id)->count(),
@@ -56,7 +56,7 @@ class UserController extends Controller
     {
         return Inertia::render('Users/Create', [
             'contacts' => Contact::select('id', 'display_name', 'user_id')->get(),
-            'roles' => \App\Models\Role::all(),
+            'roles' => \Spatie\Permission\Models\Role::all(),
         ]);
     }
 
@@ -69,7 +69,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users',
             'password' => 'required|string|min:8',
-            'role_id' => 'nullable|exists:roles,id',
+            'role_name' => 'nullable|exists:roles,name', // Changed from role_id
             'sales_manager_id' => 'nullable|exists:users,id',
             'commission_split' => 'nullable|numeric|min:0|max:100',
             'company_lead_base' => 'nullable|numeric|min:0',
@@ -79,9 +79,11 @@ class UserController extends Controller
         ]);
 
         $user = DB::transaction(function () use ($validated, $request) {
-            // Remove contact_ids from validated data as it's not a column in users table
             $contactIds = $validated['contact_ids'] ?? null;
+            $roleName = $validated['role_name'] ?? null;
+            
             unset($validated['contact_ids']);
+            unset($validated['role_name']);
 
             Log::info('Creating user. Contact IDs received:', ['contact_ids' => $contactIds]);
             
@@ -89,6 +91,10 @@ class UserController extends Controller
             $validated['is_active'] = true;
 
             $user = User::create($validated);
+            
+            if ($roleName) {
+                $user->assignRole($roleName);
+            }
 
             if ($contactIds) {
                 Log::info('Assigning contacts to new user ' . $user->id, ['contact_ids' => $contactIds]);
@@ -109,9 +115,9 @@ class UserController extends Controller
     public function edit(User $user)
     {
          return Inertia::render('Users/Edit', [
-            'user' => $user->load('contacts', 'role', 'salesManager', 'team'),
-            'contacts' => Contact::select('id', 'display_name', 'user_id')->get(), // Optimization: Select only necessary fields
-            'roles' => \App\Models\Role::all(), // Assuming Role model exists
+            'user' => $user->load('contacts', 'roles', 'salesManager', 'team'),
+            'contacts' => Contact::select('id', 'display_name', 'user_id')->get(),
+            'roles' => \Spatie\Permission\Models\Role::all(),
         ]);
     }
 
@@ -124,7 +130,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8',
-            'role_id' => 'nullable|exists:roles,id',
+            'role_name' => 'nullable|exists:roles,name', // Changed from role_id
             'sales_manager_id' => 'nullable|exists:users,id',
             'commission_split' => 'nullable|numeric|min:0|max:100',
             'company_lead_base' => 'nullable|numeric|min:0',
@@ -134,9 +140,11 @@ class UserController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $request, $user) {
-            // Remove contact_ids from validated data as it's not a column in users table
             $contactIds = $validated['contact_ids'] ?? null;
+            $roleName = $validated['role_name'] ?? null;
+            
             unset($validated['contact_ids']);
+            unset($validated['role_name']);
 
             Log::info('Updating user ' . $user->id . '. Contact IDs received:', ['contact_ids' => $contactIds, 'has_contact_ids' => $request->has('contact_ids')]);
             
@@ -147,6 +155,14 @@ class UserController extends Controller
             }
 
             $user->update($validated);
+            
+            if ($roleName) {
+                $user->syncRoles([$roleName]);
+            } else {
+                // If role_name is explicitly null/empty in request (meaning removal), verify if we should detach?
+                // Typically if field is present but empty, we might unset role?
+                // For now assuming if provided, we sync.
+            }
 
             if ($request->has('contact_ids')) {
                 Log::info('Updating contacts for user ' . $user->id, ['contact_ids' => $contactIds]);

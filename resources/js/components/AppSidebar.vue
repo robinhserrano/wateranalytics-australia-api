@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { BookOpen, Box, DollarSign, Folder, LayoutGrid, Package, ShoppingCart, Users } from 'lucide-vue-next';
+import { BookOpen, Box, DollarSign, Folder, LayoutGrid, Package, ShoppingCart, Users, Shield } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 const mainNavItems: NavItem[] = [
@@ -51,6 +51,11 @@ const mainNavItems: NavItem[] = [
         title: 'Users',
         href: route('users.index'),
         icon: Users,
+    },
+    {
+        title: 'Roles & Permissions',
+        href: route('roles.index'),
+        icon: Shield,
     },
 ];
 
