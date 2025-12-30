@@ -38,6 +38,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('users', App\Http\Controllers\UserController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update']);
     Route::resource('roles', App\Http\Controllers\RoleController::class)->except(['show']);
     Route::resource('permissions', App\Http\Controllers\PermissionController::class)->only(['store', 'destroy']);
+    
+    // Teams routes
+    Route::resource('teams', App\Http\Controllers\TeamController::class);
+    Route::post('teams/{team}/members', [App\Http\Controllers\TeamController::class, 'addMember'])->name('teams.members.add');
+    Route::delete('teams/{team}/members/{user}', [App\Http\Controllers\TeamController::class, 'removeMember'])->name('teams.members.remove');
 });
 
 Route::get('/odoo-test', [App\Http\Controllers\OdooController::class, 'index']);

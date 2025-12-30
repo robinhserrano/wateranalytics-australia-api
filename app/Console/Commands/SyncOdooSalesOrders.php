@@ -165,6 +165,11 @@ class SyncOdooSalesOrders extends Command
         } while (count($orders) === $limit);
 
         $this->info("Sync complete. Total records: $totalSynced");
+        
+        // Auto-calculate commissions for newly synced orders
+        $this->info('Calculating commissions for sales orders...');
+        $this->call('commissions:calculate-missing', ['--limit' => $totalSynced]);
+        
         return 0;
     }
 

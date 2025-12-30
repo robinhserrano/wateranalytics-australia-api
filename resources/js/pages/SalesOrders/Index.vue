@@ -32,6 +32,7 @@ const props = defineProps<{
     filters: {
         search?: string;
     };
+    viewScope?: string;
 }>();
 
 const search = ref(props.filters.search || '');
@@ -68,7 +69,12 @@ const formatDate = (date: string | null) => {
     <AppLayout>
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold tracking-tight">Sales Orders</h1>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">Sales Orders</h1>
+                    <p v-if="viewScope" class="text-sm text-muted-foreground mt-1">
+                        Viewing: {{ viewScope }}
+                    </p>
+                </div>
                 <div class="flex items-center gap-2">
                     <div class="relative w-full max-w-sm items-center">
                         <Input
@@ -95,6 +101,7 @@ const formatDate = (date: string | null) => {
                             <TableHead>Customer</TableHead>
                             <TableHead>Salesperson</TableHead>
                             <TableHead>Total</TableHead>
+                            <TableHead>Final Commission</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead class="text-right">Actions</TableHead>
                         </TableRow>
@@ -112,6 +119,16 @@ const formatDate = (date: string | null) => {
                             <TableCell>{{ order.user_name }}</TableCell>
                             <TableCell>{{ formatCurrency(order.amount_total) }}</TableCell>
                             <TableCell>
+                                <span 
+                                    v-if="order.commission_calculation" 
+                                    class="font-medium"
+                                    :class="order.commission_calculation.final_commission > 0 ? 'text-green-600' : 'text-red-600'"
+                                >
+                                    {{ formatCurrency(order.commission_calculation.final_commission) }}
+                                </span>
+                                <span v-else class="text-muted-foreground">-</span>
+                            </TableCell>
+                            <TableCell>
                                 <div class="capitalize">{{ order.state }}</div>
                             </TableCell>
                             <TableCell class="text-right">
@@ -123,7 +140,7 @@ const formatDate = (date: string | null) => {
                             </TableCell>
                         </TableRow>
                         <TableRow v-if="salesOrders.data.length === 0">
-                            <TableCell colspan="7" class="h-24 text-center">
+                            <TableCell colspan="8" class="h-24 text-center">
                                 No results.
                             </TableCell>
                         </TableRow>

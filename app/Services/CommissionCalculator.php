@@ -37,7 +37,7 @@ class CommissionCalculator
      * @param SalesOrder $salesOrder
      * @return CommissionCalculation
      */
-    public function calculateCommission(SalesOrder $salesOrder): CommissionCalculation
+    public function calculateCommission(SalesOrder $salesOrder): ?CommissionCalculation
     {
         // Load necessary relationships
         $salesOrder->load(['lines.product', 'lines.landingPrice']);
@@ -69,7 +69,9 @@ class CommissionCalculator
         }
         
         if (!$user) {
-            throw new \Exception("User not found for sales order #{$salesOrder->id}");
+            // Skip this order if no user can be found
+            \Log::info("Skipping commission calculation for order #{$salesOrder->id}: No matching user found");
+            return null;
         }
 
         // Determine sales source from order data

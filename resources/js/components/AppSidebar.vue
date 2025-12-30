@@ -53,6 +53,11 @@ const mainNavItems: NavItem[] = [
         icon: Users,
     },
     {
+        title: 'Teams',
+        href: route('teams.index'),
+        icon: Users,
+    },
+    {
         title: 'Roles & Permissions',
         href: route('roles.index'),
         icon: Shield,

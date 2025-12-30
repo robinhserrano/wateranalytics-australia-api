@@ -160,14 +160,14 @@ const filteredContacts = computed(() => {
                                         v-for="contact in filteredContacts" 
                                         :key="contact.id" 
                                         class="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded"
-                                        @click.stop="toggleContact(contact.id)"
+                                        @click="toggleContact(Number(contact.id))"
                                     >
                                         <Checkbox 
                                             :id="`contact-${contact.id}`" 
-                                            :checked="form.contact_ids.includes(contact.id)"
+                                            :checked="form.contact_ids.includes(Number(contact.id))"
                                             class="pointer-events-none" 
                                         />
-                                        <label
+                                        <span
                                             :for="`contact-${contact.id}`"
                                             class="text-sm font-medium leading-none cursor-pointer pointer-events-none"
                                         >
@@ -175,7 +175,7 @@ const filteredContacts = computed(() => {
                                             <span v-if="contact.user_id" class="text-xs text-muted-foreground ml-1">
                                                 (Assigned to another user)
                                             </span>
-                                        </label>
+                                        </span>
                                     </div>
                                 </div>
                             </ScrollArea>
