@@ -23,7 +23,14 @@ defineProps<{
             commission_split: number;
             is_active: boolean;
         }>;
-        links: any[];
+        links: Array<{
+            url: string | null;
+            label: string;
+            active: boolean;
+        }>;
+        from: number;
+        to: number;
+        total: number;
     };
 }>();
 </script>
@@ -94,6 +101,34 @@ defineProps<{
                     </Table>
                 </CardContent>
             </Card>
+
+            <div v-if="users.links.length > 3" class="flex items-center justify-between py-4">
+                <div class="text-sm text-muted-foreground">
+                    Showing {{ users.from }} to {{ users.to }} of {{ users.total }} results
+                </div>
+                <div class="flex items-center space-x-2">
+                    <template v-for="(link, index) in users.links" :key="index">
+                        <Button
+                            v-if="link.url"
+                            :variant="link.active ? 'default' : 'outline'"
+                            size="sm"
+                            as-child
+                        >
+                            <Link :href="link.url" preserve-scroll>
+                                <span v-html="link.label"></span>
+                            </Link>
+                        </Button>
+                        <Button
+                            v-else
+                            variant="outline"
+                            size="sm"
+                            disabled
+                        >
+                            <span v-html="link.label"></span>
+                        </Button>
+                    </template>
+                </div>
+            </div>
         </div>
     </AppLayout>
 </template>
