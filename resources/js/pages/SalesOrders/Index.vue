@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import { Search } from 'lucide-vue-next';
@@ -61,6 +63,24 @@ const formatDate = (date: string | null) => {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('en-AU');
 };
+
+const formatSource = (source: string | null) => {
+    if (!source) return '-';
+    return source === 'self_gen' ? 'Self Gen' : 'Company Lead';
+};
+
+const formatBoolean = (val: any) => {
+    return val ? 'Yes' : 'No';
+};
+
+const getDeliveryStatusColor = (status: string | null) => {
+    if (!status) return 'text-muted-foreground';
+    const s = status.toLowerCase();
+    if (s.includes('full') || s.includes('done')) return 'text-green-600';
+    if (s.includes('cancel')) return 'text-red-600';
+    if (s.includes('ready') || s.includes('process')) return 'text-blue-600';
+    return 'text-amber-600';
+};
 </script>
 
 <template>
@@ -100,6 +120,11 @@ const formatDate = (date: string | null) => {
                             <TableHead>Date</TableHead>
                             <TableHead>Customer</TableHead>
                             <TableHead>Salesperson</TableHead>
+                            <TableHead>Sales Source</TableHead>
+                            <TableHead class="text-center">Comm. Paid</TableHead>
+                            <TableHead class="text-center">Confirmed By Manager</TableHead>
+                            <TableHead class="text-center">Entered to Odoo</TableHead>
+                            <TableHead>Delivery Status</TableHead>
                             <TableHead>Total</TableHead>
                             <TableHead>Final Commission</TableHead>
                             <TableHead>Status</TableHead>
@@ -117,6 +142,34 @@ const formatDate = (date: string | null) => {
                             <TableCell>{{ formatDate(order.create_date) }}</TableCell>
                             <TableCell>{{ order.partner_name }}</TableCell>
                             <TableCell>{{ order.user_name }}</TableCell>
+                            <TableCell>
+                                <Badge v-if="order.commission_calculation" variant="outline" class="whitespace-nowrap">
+                                    {{ formatSource(order.commission_calculation.sales_source) }}
+                                </Badge>
+                                <span v-else class="text-muted-foreground">-</span>
+                            </TableCell>
+                            <TableCell>
+                                <div class="flex justify-center">
+                                    <Checkbox :checked="order.x_studio_commission_paid == 1" disabled />
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div class="flex justify-center">
+                                    <Checkbox v-if="order.commission_calculation" :checked="order.commission_calculation.confirmed_by_manager == 1" disabled />
+                                    <span v-else class="text-muted-foreground">-</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div class="flex justify-center">
+                                    <Checkbox v-if="order.commission_calculation" :checked="order.commission_calculation.entered_to_odoo == 1" disabled />
+                                    <span v-else class="text-muted-foreground">-</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div :class="['text-xs capitalize', getDeliveryStatusColor(order.delivery_status)]">
+                                    {{ order.delivery_status || '-' }}
+                                </div>
+                            </TableCell>
                             <TableCell>{{ formatCurrency(order.amount_total) }}</TableCell>
                             <TableCell>
                                 <span 
@@ -140,7 +193,7 @@ const formatDate = (date: string | null) => {
                             </TableCell>
                         </TableRow>
                         <TableRow v-if="salesOrders.data.length === 0">
-                            <TableCell colspan="8" class="h-24 text-center">
+                            <TableCell colspan="13" class="h-24 text-center">
                                 No results.
                             </TableCell>
                         </TableRow>

@@ -23,7 +23,9 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { ref, watch } from 'vue';
+import { CheckCircle2, XCircle, AlertCircle, Send } from 'lucide-vue-next';
 
 const props = defineProps<{
     salesOrder: any;
@@ -32,7 +34,11 @@ const props = defineProps<{
 
 // Initialize manual adjustment ref
 const manualAdjustment = ref(props.salesOrder.commission_calculation?.manual_adjustment || 0);
-const isDialogOpen = ref(false);
+const isAdjustmentDialogOpen = ref(false);
+const isConfirmDialogOpen = ref(false);
+const isRejectDialogOpen = ref(false);
+const isOdooSyncDialogOpen = ref(false);
+const rejectionReason = ref('');
 
 // Update ref if prop changes (e.g. after recalculation)
 watch(() => props.salesOrder.commission_calculation?.manual_adjustment, (newVal) => {
@@ -42,7 +48,7 @@ watch(() => props.salesOrder.commission_calculation?.manual_adjustment, (newVal)
 const applyAdjustment = () => {
     // Prevent unnecessary calls
     if (manualAdjustment.value == props.salesOrder.commission_calculation?.manual_adjustment) {
-        isDialogOpen.value = false;
+        isAdjustmentDialogOpen.value = false;
         return;
     }
     
@@ -52,7 +58,42 @@ const applyAdjustment = () => {
     }, {
         preserveScroll: true,
         onSuccess: () => {
-            isDialogOpen.value = false;
+            isAdjustmentDialogOpen.value = false;
+        }
+    });
+};
+
+const confirmBreakdown = () => {
+    router.post(route('commissions.confirm', props.salesOrder.commission_calculation.id), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isConfirmDialogOpen.value = false;
+        }
+    });
+};
+
+const rejectBreakdown = () => {
+    if (!rejectionReason.value || rejectionReason.value.length < 10) {
+        alert('Please provide a reason (minimum 10 characters)');
+        return;
+    }
+
+    router.post(route('commissions.reject', props.salesOrder.commission_calculation.id), {
+        reason: rejectionReason.value
+    }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isRejectDialogOpen.value = false;
+            rejectionReason.value = '';
+        }
+    });
+};
+
+const markAsEnteredToOdoo = () => {
+    router.post(route('commissions.mark-odoo', props.salesOrder.commission_calculation.id), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isOdooSyncDialogOpen.value = false;
         }
     });
 };
@@ -256,7 +297,7 @@ const formatDate = (date: string | null) => {
                                         {{ formatCurrency(salesOrder.commission_calculation.manual_adjustment) }}
                                     </span>
                                     
-                                    <Dialog v-model:open="isDialogOpen">
+                                    <Dialog v-model:open="isAdjustmentDialogOpen">
                                         <DialogTrigger as-child>
                                             <Button variant="ghost" size="icon" class="h-6 w-6">
                                                 <Edit class="h-3 w-3" />
@@ -297,6 +338,115 @@ const formatDate = (date: string | null) => {
                                 <span class="text-blue-600 dark:text-blue-400">
                                     {{ formatCurrency(salesOrder.commission_calculation.final_commission) }}
                                 </span>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="pt-6 grid grid-cols-2 gap-2 border-t mt-4 pt-4">
+                                <!-- Manager Confirmation -->
+                                <div class="col-span-2 sm:col-span-1">
+                                    <template v-if="!salesOrder.commission_calculation.confirmed_by_manager">
+                                        <div class="flex gap-2">
+                                            <Dialog v-model:open="isConfirmDialogOpen">
+                                                <DialogTrigger as-child>
+                                                    <Button variant="default" size="sm" class="flex-1 bg-green-600 hover:bg-green-700">
+                                                        <CheckCircle2 class="size-4 mr-2" />
+                                                        Confirm Breakdown
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Confirm Commission Breakdown</DialogTitle>
+                                                        <DialogDescription>
+                                                            Are you sure you want to confirm this breakdown? This will signal to accounts that the commission is ready for processing.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <DialogFooter>
+                                                        <DialogClose as-child>
+                                                            <Button variant="outline">Cancel</Button>
+                                                        </DialogClose>
+                                                        <Button @click="confirmBreakdown" class="bg-green-600 hover:bg-green-700">Confirm</Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+
+                                            <Dialog v-model:open="isRejectDialogOpen">
+                                                <DialogTrigger as-child>
+                                                    <Button variant="outline" size="sm" class="flex-1 text-red-600 border-red-200 hover:bg-red-50">
+                                                        <XCircle class="size-4 mr-2" />
+                                                        Reject
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Reject Commission Breakdown</DialogTitle>
+                                                        <DialogDescription>
+                                                            Please provide a reason for rejecting this breakdown. This will notify the salesperson.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <div class="py-4">
+                                                        <Textarea 
+                                                            v-model="rejectionReason" 
+                                                            placeholder="Reason for rejection (min 10 characters)..."
+                                                            class="min-h-[100px]"
+                                                        />
+                                                    </div>
+                                                    <DialogFooter>
+                                                        <DialogClose as-child>
+                                                            <Button variant="outline">Cancel</Button>
+                                                        </DialogClose>
+                                                        <Button 
+                                                            variant="destructive" 
+                                                            @click="rejectBreakdown"
+                                                            :disabled="!rejectionReason || rejectionReason.length < 10"
+                                                        >
+                                                            Reject Breakdown
+                                                        </Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                    </template>
+                                    <div v-else class="flex items-center gap-2 text-green-600 font-medium text-sm p-2 bg-green-50 rounded-md border border-green-100 dark:bg-green-950/20 dark:border-green-800/30">
+                                        <CheckCircle2 class="size-4" />
+                                        <span>Confirmed by Manager</span>
+                                    </div>
+                                </div>
+
+                                <!-- Odoo Sync -->
+                                <div class="col-span-2 sm:col-span-1">
+                                    <template v-if="!salesOrder.commission_calculation.entered_to_odoo">
+                                        <Dialog v-model:open="isOdooSyncDialogOpen">
+                                            <DialogTrigger as-child>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    class="w-full"
+                                                >
+                                                    <Send class="size-4 mr-2" />
+                                                    Mark as Entered to Odoo
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Confirm Odoo Entry</DialogTitle>
+                                                    <DialogDescription>
+                                                        Confirm that this commission has been successfully entered into the Odoo system.
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <DialogFooter>
+                                                    <DialogClose as-child>
+                                                        <Button variant="outline">Cancel</Button>
+                                                    </DialogClose>
+                                                    <Button @click="markAsEnteredToOdoo">Proceed</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </template>
+                                    <div v-else class="flex items-center gap-2 text-blue-600 font-medium text-sm p-2 bg-blue-50 rounded-md border border-blue-100 dark:bg-blue-950/20 dark:border-blue-800/30">
+                                        <CheckCircle2 class="size-4" />
+                                        <span>Entered to Odoo</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
