@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     Table,
     TableBody,
@@ -24,7 +24,7 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { CheckCircle2, XCircle, AlertCircle, Send } from 'lucide-vue-next';
 
 const props = defineProps<{
@@ -38,7 +38,20 @@ const isAdjustmentDialogOpen = ref(false);
 const isConfirmDialogOpen = ref(false);
 const isRejectDialogOpen = ref(false);
 const isOdooSyncDialogOpen = ref(false);
+const isResetConfirmDialogOpen = ref(false);
+const isResetOdooSyncDialogOpen = ref(false);
 const rejectionReason = ref('');
+
+const page = usePage<any>();
+const isAdmin = computed(() => {
+    return (page.props.auth.user?.roles as any[])?.some((role: any) => role.name === 'Admin');
+});
+
+const getLatestLog = (action: string) => {
+    return props.salesOrder.commission_calculation?.approvals
+        ?.filter((log: any) => log.action === action)
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+};
 
 // Update ref if prop changes (e.g. after recalculation)
 watch(() => props.salesOrder.commission_calculation?.manual_adjustment, (newVal) => {
@@ -94,6 +107,24 @@ const markAsEnteredToOdoo = () => {
         preserveScroll: true,
         onSuccess: () => {
             isOdooSyncDialogOpen.value = false;
+        }
+    });
+};
+
+const resetConfirm = () => {
+    router.post(route('commissions.reset-confirm', props.salesOrder.commission_calculation.id), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isResetConfirmDialogOpen.value = false;
+        }
+    });
+};
+
+const resetOdooSync = () => {
+    router.post(route('commissions.reset-odoo', props.salesOrder.commission_calculation.id), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            isResetOdooSyncDialogOpen.value = false;
         }
     });
 };
@@ -217,9 +248,14 @@ const formatDate = (date: string | null) => {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw mr-2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
                                 Recalculate
                             </Button>
-                            <span class="text-sm font-normal px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                                {{ salesOrder.commission_calculation.status }}
-                            </span>
+                            <div class="flex flex-col items-end">
+                                <span class="text-sm font-normal px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 capitalize">
+                                    {{ salesOrder.commission_calculation.status }}
+                                </span>
+                                <div v-if="salesOrder.commission_calculation.status === 'rejected' && getLatestLog('rejected')" class="text-[10px] text-red-600 mt-1">
+                                    Rejected by {{ getLatestLog('rejected').approver?.name }} on {{ formatDate(getLatestLog('rejected').created_at) }}
+                                </div>
+                            </div>
                         </div>
                     </CardTitle>
                 </CardHeader>
@@ -406,9 +442,37 @@ const formatDate = (date: string | null) => {
                                             </Dialog>
                                         </div>
                                     </template>
-                                    <div v-else class="flex items-center gap-2 text-green-600 font-medium text-sm p-2 bg-green-50 rounded-md border border-green-100 dark:bg-green-950/20 dark:border-green-800/30">
-                                        <CheckCircle2 class="size-4" />
-                                        <span>Confirmed by Manager</span>
+                                    <div v-else class="space-y-2">
+                                        <div class="flex items-center justify-between p-2 bg-green-50 rounded-md border border-green-100 dark:bg-green-950/20 dark:border-green-800/30">
+                                            <div class="flex items-center gap-2 text-green-600 font-medium text-sm">
+                                                <CheckCircle2 class="size-4" />
+                                                <span>Confirmed by Manager</span>
+                                            </div>
+                                            
+                                            <Dialog v-if="isAdmin" v-model:open="isResetConfirmDialogOpen">
+                                                <DialogTrigger as-child>
+                                                    <Button variant="ghost" size="sm" class="h-7 text-xs text-muted-foreground hover:text-red-600">Reset</Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Reset Manager Confirmation</DialogTitle>
+                                                        <DialogDescription>
+                                                            Are you sure you want to reset this confirmation? This will set the status back to "Pending" and allow managers to re-confirm or reject.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <DialogFooter>
+                                                        <DialogClose as-child>
+                                                            <Button variant="outline">Cancel</Button>
+                                                        </DialogClose>
+                                                        <Button variant="destructive" @click="resetConfirm">Reset Confirmation</Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                        
+                                        <div v-if="getLatestLog('confirmed')" class="text-[10px] text-muted-foreground pl-1">
+                                            Last confirmed by {{ getLatestLog('confirmed').approver?.name }} on {{ formatDate(getLatestLog('confirmed').created_at) }}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -442,9 +506,37 @@ const formatDate = (date: string | null) => {
                                             </DialogContent>
                                         </Dialog>
                                     </template>
-                                    <div v-else class="flex items-center gap-2 text-blue-600 font-medium text-sm p-2 bg-blue-50 rounded-md border border-blue-100 dark:bg-blue-950/20 dark:border-blue-800/30">
-                                        <CheckCircle2 class="size-4" />
-                                        <span>Entered to Odoo</span>
+                                    <div v-else class="space-y-2">
+                                        <div class="flex items-center justify-between p-2 bg-blue-50 rounded-md border border-blue-100 dark:bg-blue-950/20 dark:border-blue-800/30">
+                                            <div class="flex items-center gap-2 text-blue-600 font-medium text-sm">
+                                                <CheckCircle2 class="size-4" />
+                                                <span>Entered to Odoo</span>
+                                            </div>
+                                            
+                                            <Dialog v-if="isAdmin" v-model:open="isResetOdooSyncDialogOpen">
+                                                <DialogTrigger as-child>
+                                                    <Button variant="ghost" size="sm" class="h-7 text-xs text-muted-foreground hover:text-red-600">Reset</Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Reset Odoo Sync Status</DialogTitle>
+                                                        <DialogDescription>
+                                                            Are you sure you want to reset the Odoo sync status?
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <DialogFooter>
+                                                        <DialogClose as-child>
+                                                            <Button variant="outline">Cancel</Button>
+                                                        </DialogClose>
+                                                        <Button variant="destructive" @click="resetOdooSync">Reset Sync Status</Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                        
+                                        <div v-if="getLatestLog('entered_to_odoo')" class="text-[10px] text-muted-foreground pl-1">
+                                            Last synced by {{ getLatestLog('entered_to_odoo').approver?.name }} on {{ formatDate(getLatestLog('entered_to_odoo').created_at) }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
