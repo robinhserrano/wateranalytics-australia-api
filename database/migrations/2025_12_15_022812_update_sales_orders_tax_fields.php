@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sales_orders', function (Blueprint $table) {
-            $table->dropColumn('tax_totals');
-            // $table->decimal('base_amount', 15, 2)->nullable()->after('amount_total');
-        });
+        if (Schema::hasColumn('sales_orders', 'tax_totals')) {
+            Schema::table('sales_orders', function (Blueprint $table) {
+                $table->dropColumn('tax_totals');
+            });
+        }
     }
 
     /**
