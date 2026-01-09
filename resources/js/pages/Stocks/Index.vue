@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
-import { Search } from 'lucide-vue-next';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 const props = defineProps<{
     stocks: {
@@ -85,7 +85,52 @@ const formatQty = (qty: number | null) => {
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
                 <h1 class="text-2xl font-bold tracking-tight">Product Stocks</h1>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-4">
+                    <!-- Simplified Pagination -->
+                    <div class="flex items-center gap-4">
+                        <div class="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                            {{ stocks.from }} - {{ stocks.to }} / {{ stocks.total }}
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                class="size-8"
+                                :disabled="!stocks.prev_page_url"
+                                as-child
+                            >
+                                <Link 
+                                    v-if="stocks.prev_page_url"
+                                    :href="stocks.prev_page_url" 
+                                    preserve-scroll
+                                >
+                                    <ChevronLeft class="size-4" />
+                                </Link>
+                                <span v-else>
+                                    <ChevronLeft class="size-4" />
+                                </span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                class="size-8"
+                                :disabled="!stocks.next_page_url"
+                                as-child
+                            >
+                                <Link 
+                                    v-if="stocks.next_page_url"
+                                    :href="stocks.next_page_url" 
+                                    preserve-scroll
+                                >
+                                    <ChevronRight class="size-4" />
+                                </Link>
+                                <span v-else>
+                                    <ChevronRight class="size-4" />
+                                </span>
+                            </Button>
+                        </div>
+                    </div>
+
                     <Select :model-value="warehouseId" @update:model-value="(value) => warehouseId = value as string">
                         <SelectTrigger class="w-[200px]">
                             <SelectValue placeholder="All Warehouses" />
@@ -164,33 +209,6 @@ const formatQty = (qty: number | null) => {
                 </Table>
             </div>
 
-            <div class="flex items-center justify-between py-4">
-                <div class="text-sm text-muted-foreground">
-                    Showing {{ stocks.from }} to {{ stocks.to }} of {{ stocks.total }} results
-                </div>
-                <div class="flex items-center space-x-2">
-                    <template v-for="(link, index) in stocks.links" :key="index">
-                        <Button
-                            v-if="link.url"
-                            :variant="link.active ? 'default' : 'outline'"
-                            size="sm"
-                            as-child
-                        >
-                            <Link :href="link.url" preserve-scroll>
-                                <span v-html="link.label"></span>
-                            </Link>
-                        </Button>
-                        <Button
-                            v-else
-                            variant="outline"
-                            size="sm"
-                            disabled
-                        >
-                            <span v-html="link.label"></span>
-                        </Button>
-                    </template>
-                </div>
-            </div>
         </div>
     </AppLayout>
 </template>

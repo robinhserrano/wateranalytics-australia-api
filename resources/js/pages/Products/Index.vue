@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
-import { Search, Package } from 'lucide-vue-next';
+import { Search, Package, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 const props = defineProps<{
     products: {
@@ -118,7 +118,52 @@ const getTypeLabel = (type: string) => {
                     <Package class="h-6 w-6" />
                     <h1 class="text-2xl font-bold tracking-tight">Products</h1>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-4">
+                    <!-- Simplified Pagination -->
+                    <div class="flex items-center gap-4">
+                        <div class="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                            {{ products.from }} - {{ products.to }} / {{ products.total }}
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                class="size-8"
+                                :disabled="!products.prev_page_url"
+                                as-child
+                            >
+                                <Link 
+                                    v-if="products.prev_page_url"
+                                    :href="products.prev_page_url" 
+                                    preserve-scroll
+                                >
+                                    <ChevronLeft class="size-4" />
+                                </Link>
+                                <span v-else>
+                                    <ChevronLeft class="size-4" />
+                                </span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                class="size-8"
+                                :disabled="!products.next_page_url"
+                                as-child
+                            >
+                                <Link 
+                                    v-if="products.next_page_url"
+                                    :href="products.next_page_url" 
+                                    preserve-scroll
+                                >
+                                    <ChevronRight class="size-4" />
+                                </Link>
+                                <span v-else>
+                                    <ChevronRight class="size-4" />
+                                </span>
+                            </Button>
+                        </div>
+                    </div>
+
                     <Select :model-value="categoryId" @update:model-value="(value) => categoryId = value as string">
                         <SelectTrigger class="w-[200px]">
                             <SelectValue placeholder="All Categories" />
@@ -226,33 +271,6 @@ const getTypeLabel = (type: string) => {
                 </Table>
             </div>
 
-            <div class="flex items-center justify-between py-4">
-                <div class="text-sm text-muted-foreground">
-                    Showing {{ products.from }} to {{ products.to }} of {{ products.total }} results
-                </div>
-                <div class="flex items-center space-x-2">
-                    <template v-for="(link, index) in products.links" :key="index">
-                        <Button
-                            v-if="link.url"
-                            :variant="link.active ? 'default' : 'outline'"
-                            size="sm"
-                            as-child
-                        >
-                            <Link :href="link.url" preserve-scroll>
-                                <span v-html="link.label"></span>
-                            </Link>
-                        </Button>
-                        <Button
-                            v-else
-                            variant="outline"
-                            size="sm"
-                            disabled
-                        >
-                            <span v-html="link.label"></span>
-                        </Button>
-                    </template>
-                </div>
-            </div>
         </div>
     </AppLayout>
 </template>

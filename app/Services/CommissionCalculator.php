@@ -66,6 +66,22 @@ class CommissionCalculator
             if (!$user && $salesOrder->user_name) {
                 $user = User::where('name', $salesOrder->user_name)->first();
             }
+
+            // 2c. [NEW] Try lookup by Salesperson Name match to Contact Display Name -> Resolve to Contact Owner
+            if (!$user && $salesOrder->user_name) {
+                $contact = \App\Models\Contact::where('display_name', $salesOrder->user_name)->first();
+                if ($contact && $contact->user_id) {
+                    $user = User::find($contact->user_id);
+                }
+            }
+
+            // 2d. [NEW] Try lookup by Salesperson ID match to Contact Odoo ID -> Resolve to Contact Owner
+            if (!$user && $salesOrder->user_id) {
+                $contact = \App\Models\Contact::where('odoo_id', $salesOrder->user_id)->first();
+                if ($contact && $contact->user_id) {
+                    $user = User::find($contact->user_id);
+                }
+            }
         }
         
         if (!$user) {

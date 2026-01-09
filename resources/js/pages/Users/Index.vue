@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import debounce from 'lodash/debounce';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 const props = defineProps<{
     users: {
@@ -35,6 +36,8 @@ const props = defineProps<{
         from: number;
         to: number;
         total: number;
+        prev_page_url: string | null;
+        next_page_url: string | null;
     };
     filters: {
         search: string;
@@ -61,9 +64,56 @@ watch(search, debounce((value) => {
                     <h2 class="text-2xl font-bold tracking-tight">Users</h2>
                     <p class="text-muted-foreground">Manage system users and their permissions.</p>
                 </div>
-                <Button as-child>
-                    <Link :href="route('users.create')">Create User</Link>
-                </Button>
+                <div class="flex items-center gap-4">
+                    <!-- Simplified Pagination -->
+                    <div class="flex items-center gap-4">
+                        <div class="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                            {{ users.from }} - {{ users.to }} / {{ users.total }}
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                class="size-8"
+                                :disabled="!users.prev_page_url"
+                                as-child
+                            >
+                                <Link 
+                                    v-if="users.prev_page_url"
+                                    :href="users.prev_page_url" 
+                                    preserve-scroll
+                                >
+                                    <ChevronLeft class="size-4" />
+                                </Link>
+                                <span v-else>
+                                    <ChevronLeft class="size-4" />
+                                </span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                class="size-8"
+                                :disabled="!users.next_page_url"
+                                as-child
+                            >
+                                <Link 
+                                    v-if="users.next_page_url"
+                                    :href="users.next_page_url" 
+                                    preserve-scroll
+                                >
+                                    <ChevronRight class="size-4" />
+                                </Link>
+                                <span v-else>
+                                    <ChevronRight class="size-4" />
+                                </span>
+                            </Button>
+                        </div>
+                    </div>
+
+                    <Button as-child>
+                        <Link :href="route('users.create')">Create User</Link>
+                    </Button>
+                </div>
             </div>
 
             <Card>
@@ -129,33 +179,6 @@ watch(search, debounce((value) => {
                 </CardContent>
             </Card>
 
-            <div v-if="users.links.length > 3" class="flex items-center justify-between py-4">
-                <div class="text-sm text-muted-foreground">
-                    Showing {{ users.from }} to {{ users.to }} of {{ users.total }} results
-                </div>
-                <div class="flex items-center space-x-2">
-                    <template v-for="(link, index) in users.links" :key="index">
-                        <Button
-                            v-if="link.url"
-                            :variant="link.active ? 'default' : 'outline'"
-                            size="sm"
-                            as-child
-                        >
-                            <Link :href="link.url" preserve-scroll>
-                                <span v-html="link.label"></span>
-                            </Link>
-                        </Button>
-                        <Button
-                            v-else
-                            variant="outline"
-                            size="sm"
-                            disabled
-                        >
-                            <span v-html="link.label"></span>
-                        </Button>
-                    </template>
-                </div>
-            </div>
         </div>
     </AppLayout>
 </template>

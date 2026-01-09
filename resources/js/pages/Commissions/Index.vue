@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
-import { Search, DollarSign, TrendingUp, CheckCircle, Clock } from 'lucide-vue-next';
+import { Search, DollarSign, TrendingUp, CheckCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 const props = defineProps<{
     commissions: {
@@ -35,6 +35,8 @@ const props = defineProps<{
         total: number;
         from: number;
         to: number;
+        next_page_url: string | null;
+        prev_page_url: string | null;
     };
     filters: {
         search?: string;
@@ -124,6 +126,51 @@ const getSalesSourceVariant = (source: string) => {
             <!-- Page Header -->
             <div class="flex items-center justify-between">
                 <h1 class="text-2xl font-bold tracking-tight">Commissions</h1>
+                
+                <!-- Simplified Pagination -->
+                <div class="flex items-center gap-4">
+                    <div class="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                        {{ commissions.from }} - {{ commissions.to }} / {{ commissions.total }}
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            class="size-8"
+                            :disabled="!commissions.prev_page_url"
+                            as-child
+                        >
+                            <Link 
+                                v-if="commissions.prev_page_url"
+                                :href="commissions.prev_page_url" 
+                                preserve-scroll
+                            >
+                                <ChevronLeft class="size-4" />
+                            </Link>
+                            <span v-else>
+                                <ChevronLeft class="size-4" />
+                            </span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            class="size-8"
+                            :disabled="!commissions.next_page_url"
+                            as-child
+                        >
+                            <Link 
+                                v-if="commissions.next_page_url"
+                                :href="commissions.next_page_url" 
+                                preserve-scroll
+                            >
+                                <ChevronRight class="size-4" />
+                            </Link>
+                            <span v-else>
+                                <ChevronRight class="size-4" />
+                            </span>
+                        </Button>
+                    </div>
+                </div>
             </div>
 
             <!-- Summary Cards -->
@@ -285,34 +332,6 @@ const getSalesSourceVariant = (source: string) => {
                 </Table>
             </div>
 
-            <!-- Pagination -->
-            <div class="flex items-center justify-between py-4">
-                <div class="text-sm text-muted-foreground">
-                    Showing {{ commissions.from }} to {{ commissions.to }} of {{ commissions.total }} results
-                </div>
-                <div class="flex items-center space-x-2">
-                    <template v-for="(link, index) in commissions.links" :key="index">
-                        <Button
-                            v-if="link.url"
-                            :variant="link.active ? 'default' : 'outline'"
-                            size="sm"
-                            as-child
-                        >
-                            <Link :href="link.url" preserve-scroll>
-                                <span v-html="link.label"></span>
-                            </Link>
-                        </Button>
-                        <Button
-                            v-else
-                            variant="outline"
-                            size="sm"
-                            disabled
-                        >
-                            <span v-html="link.label"></span>
-                        </Button>
-                    </template>
-                </div>
-            </div>
         </div>
     </AppLayout>
 </template>

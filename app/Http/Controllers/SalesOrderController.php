@@ -18,7 +18,7 @@ class SalesOrderController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $query = SalesOrder::query();
+        $query = SalesOrder::query()->where('state', 'sale');
 
         // Apply role-based filtering
         if ($user->hasPermissionTo('view-all-sales-orders')) {
@@ -71,7 +71,86 @@ class SalesOrderController extends Controller
             });
         }
 
-        $salesOrders = $query->with('commissionCalculation')
+        // Apply Commission Status filter
+        if ($request->filled('commission_status')) {
+            $statuses = is_array($request->commission_status) ? $request->commission_status : [$request->commission_status];
+            $query->where(function ($q) use ($statuses) {
+                if (in_array('Paid', $statuses)) {
+                    $q->orWhere('x_studio_commission_paid', 1);
+                }
+                if (in_array('Not Paid', $statuses)) {
+                    $q->orWhere('x_studio_commission_paid', 0);
+                }
+            });
+        }
+
+        // Apply Invoice Payment Status filter
+        if ($request->has('invoice_status')) {
+            $statuses = is_array($request->invoice_status) ? $request->invoice_status : [$request->invoice_status];
+            $query->where(function($q) use ($statuses) {
+                foreach ($statuses as $status) {
+                    if ($status === 'Paid') {
+                        $q->orWhereIn('x_studio_invoice_payment_status', ['paid', 'in_payment']);
+                    } elseif ($status === 'Partial') {
+                        $q->orWhere('x_studio_invoice_payment_status', 'partial');
+                    } elseif ($status === 'Not Paid') {
+                        $q->orWhere('x_studio_invoice_payment_status', 'not_paid');
+                    } elseif ($status === 'Not Set') {
+                        $q->orWhereNull('x_studio_invoice_payment_status')
+                          ->orWhere('x_studio_invoice_payment_status', '0');
+                    }
+                }
+            });
+        }
+
+        // Apply Delivery Status filter
+        if ($request->has('delivery_status')) {
+            $statuses = is_array($request->delivery_status) ? $request->delivery_status : [$request->delivery_status];
+            $query->where(function($q) use ($statuses) {
+                foreach ($statuses as $status) {
+                    if ($status === 'Fully Delivered') {
+                        $q->orWhere('delivery_status', 'full');
+                    } elseif ($status === 'Partially Delivered') {
+                        $q->orWhereIn('delivery_status', ['partial', 'started', 'pending']);
+                    } elseif ($status === 'Not Delivered') {
+                        $q->orWhereNull('delivery_status')
+                          ->orWhere('delivery_status', '0');
+                    }
+                }
+            });
+        }
+
+        // Apply Commission Owner (User) filter
+        if ($request->filled('user_ids')) {
+            $userIds = is_array($request->user_ids) ? $request->user_ids : [$request->user_ids];
+            $query->where(function ($q) use ($userIds) {
+                $hasPending = in_array('pending', $userIds);
+                $realUserIds = array_filter($userIds, fn($id) => $id !== 'pending');
+
+                if (count($realUserIds) > 0) {
+                    $q->whereHas('commissionCalculation', function($sub) use ($realUserIds) {
+                        $sub->whereIn('user_id', $realUserIds);
+                    });
+                }
+
+                if ($hasPending) {
+                    $q->orWhereDoesntHave('commissionCalculation')
+                      ->orWhereHas('commissionCalculation', function($sub) {
+                          $sub->whereNull('user_id');
+                      });
+                }
+            });
+        }
+
+        // Apply Date Range filter
+        if ($request->filled('date_from')) {
+            $query->whereDate('create_date', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('create_date', '<=', $request->date_to);
+        }
+
+        $salesOrders = $query->with(['commissionCalculation.user'])
             ->orderBy('create_date', 'desc')
             ->paginate(80)
             ->withQueryString();
@@ -84,9 +163,16 @@ class SalesOrderController extends Controller
             $viewScope = 'Team Orders';
         }
 
+        // Get list of users for the filter
+        $users = \App\Models\User::select('id', 'name')
+            ->whereHas('commissionCalculations')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('SalesOrders/Index', [
             'salesOrders' => $salesOrders,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'commission_status', 'invoice_status', 'delivery_status', 'user_ids', 'date_from', 'date_to']),
+            'users' => $users,
             'viewScope' => $viewScope,
         ]);
     }
