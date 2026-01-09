@@ -38,6 +38,7 @@ class User extends Authenticatable
         'company_lead_base',
         'commission_split',
         'is_active',
+        'legacy_id',
     ];
 
     /**

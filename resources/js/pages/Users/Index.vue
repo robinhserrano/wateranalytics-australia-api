@@ -12,8 +12,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { ref, watch } from 'vue';
+import { router } from '@inertiajs/vue3';
+import debounce from 'lodash/debounce';
 
-defineProps<{
+const props = defineProps<{
     users: {
         data: Array<{
             id: number;
@@ -32,7 +36,19 @@ defineProps<{
         to: number;
         total: number;
     };
+    filters: {
+        search: string;
+    };
 }>();
+
+const search = ref(props.filters.search || '');
+
+watch(search, debounce((value) => {
+    router.get(route('users.index'), { search: value }, {
+        preserveState: true,
+        replace: true,
+    });
+}, 300));
 </script>
 
 <template>
@@ -52,10 +68,21 @@ defineProps<{
 
             <Card>
                 <CardHeader>
-                    <CardTitle>All Users</CardTitle>
-                    <CardDescription>
-                        A list of all users including their name, role, and commission settings.
-                    </CardDescription>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <CardTitle>All Users</CardTitle>
+                            <CardDescription>
+                                A list of all users including their name, role, and commission settings.
+                            </CardDescription>
+                        </div>
+                        <div class="w-full max-w-sm">
+                            <Input
+                                v-model="search"
+                                placeholder="Search by name or email..."
+                                class="h-9"
+                            />
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Table>

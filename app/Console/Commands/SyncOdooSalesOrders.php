@@ -223,18 +223,23 @@ class SyncOdooSalesOrders extends Command
                         $odooProductId = is_array($line->product_id) ? $line->product_id[0] : null;
                         $localProductId = $odooProductId ? ($localProductMap[$odooProductId] ?? null) : null;
 
+                        $productName = is_array($line->product_id) ? $line->product_id[1] : ($line->product_name ?? '');
+                        $lowerName = strtolower($productName);
+
                         \App\Models\SalesOrderLine::updateOrCreate(
                             ['odoo_id' => $line->id],
                             [
                                 'sales_order_id' => $localOrder->id,
                                 'odoo_order_id' => $odooOrderId,
                                 'product_id' => $localProductId,
-                                'product_name' => is_array($line->product_id) ? $line->product_id[1] : null,
+                                'product_name' => $productName,
                                 'name' => $line->name,
                                 'product_uom_qty' => $line->product_uom_qty,
                                 'price_unit' => $line->price_unit,
                                 'price_subtotal' => $line->price_subtotal,
                                 'price_total' => $line->price_total,
+                                'is_supply_only' => str_contains($lowerName, 'supply only'),
+                                'is_installation_service' => str_contains($lowerName, 'installation service'),
                             ]
                         );
                     }

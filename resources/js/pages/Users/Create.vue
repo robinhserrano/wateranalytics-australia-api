@@ -30,6 +30,7 @@ const form = useForm({
     commission_split: 0,
     company_lead_base: 0,
     self_gen_base: 0,
+    legacy_id: null as number | null,
     contact_ids: [] as number[],
 });
 
@@ -106,6 +107,12 @@ const filteredContacts = computed(() => {
                                     </SelectContent>
                                 </Select>
                                 <span v-if="form.errors.role_name" class="text-red-500 text-sm">{{ form.errors.role_name }}</span>
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="legacy_id">Legacy ID (Optional)</Label>
+                                <Input id="legacy_id" type="number" :modelValue="form.legacy_id ?? undefined" @update:modelValue="val => form.legacy_id = val ? Number(val) : null" placeholder="V1 User ID" />
+                                <span v-if="form.errors.legacy_id" class="text-red-500 text-sm">{{ form.errors.legacy_id }}</span>
                             </div>
                         </CardContent>
                     </Card>

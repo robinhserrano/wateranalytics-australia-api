@@ -15,10 +15,23 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $search = $request->input('search');
+
+        $users = User::with('roles', 'salesManager', 'team')
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->paginate(50)
+            ->withQueryString();
+
         return Inertia::render('Users/Index', [
-            'users' => User::with('roles', 'salesManager', 'team')->paginate(50),
+            'users' => $users,
+            'filters' => $request->only(['search']),
         ]);
     }
 
@@ -74,6 +87,7 @@ class UserController extends Controller
             'commission_split' => 'nullable|numeric|min:0|max:100',
             'company_lead_base' => 'nullable|numeric|min:0',
             'self_gen_base' => 'nullable|numeric|min:0',
+            'legacy_id' => 'nullable|integer|unique:users,legacy_id',
             'contact_ids' => 'nullable|array',
             'contact_ids.*' => 'exists:contacts,id',
         ]);
@@ -135,6 +149,7 @@ class UserController extends Controller
             'commission_split' => 'nullable|numeric|min:0|max:100',
             'company_lead_base' => 'nullable|numeric|min:0',
             'self_gen_base' => 'nullable|numeric|min:0',
+            'legacy_id' => 'nullable|integer|unique:users,legacy_id,' . $user->id,
             'contact_ids' => 'nullable|array',
             'contact_ids.*' => 'exists:contacts,id',
         ]);

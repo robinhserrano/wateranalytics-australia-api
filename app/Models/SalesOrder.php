@@ -13,6 +13,9 @@ class SalesOrder extends Model
         'tag_ids' => 'array',
         'order_line' => 'array',
         'has_commission_calculation' => 'boolean',
+        'x_studio_commission_paid' => 'boolean',
+        'legacy_confirmed_by_manager' => 'boolean',
+        'legacy_is_entered_odoo' => 'boolean',
     ];
     public function lines()
     {

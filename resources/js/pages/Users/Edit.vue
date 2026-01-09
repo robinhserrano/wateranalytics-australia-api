@@ -19,6 +19,7 @@ const props = defineProps<{
         commission_split: number;
         company_lead_base: number;
         self_gen_base: number;
+        legacy_id: number | null;
         contacts: Array<{ id: number }>;
     };
     contacts: Array<{
@@ -40,6 +41,7 @@ const form = useForm({
     commission_split: props.user.commission_split,
     company_lead_base: props.user.company_lead_base,
     self_gen_base: props.user.self_gen_base,
+    legacy_id: props.user.legacy_id,
     contact_ids: props.user.contacts.map(c => Number(c.id)),
 });
 
@@ -116,6 +118,12 @@ const filteredContacts = computed(() => {
                                     </SelectContent>
                                 </Select>
                                 <span v-if="form.errors.role_name" class="text-red-500 text-sm">{{ form.errors.role_name }}</span>
+                            </div>
+
+                            <div class="space-y-2">
+                                <Label for="legacy_id">Legacy ID (Optional)</Label>
+                                <Input id="legacy_id" type="number" :modelValue="form.legacy_id ?? undefined" @update:modelValue="val => form.legacy_id = val ? Number(val) : null" placeholder="V1 User ID" />
+                                <span v-if="form.errors.legacy_id" class="text-red-500 text-sm">{{ form.errors.legacy_id }}</span>
                             </div>
                         </CardContent>
                     </Card>

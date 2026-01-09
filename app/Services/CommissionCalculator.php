@@ -169,20 +169,23 @@ class CommissionCalculator
         $additionalCost = 0;
 
         foreach ($salesOrder->lines as $line) {
-            // User Request: "this are the orderlines not in Products table"
-            // If the line is linked to a Product, it is NOT an additional cost.
-            // It should be handled by Landing Price (or 0 if missing).
-            if ($line->product_id) {
+            // Logic: If it has a landing price, it is NOT an additional cost (it's handled in calculateLandingPrice)
+            $hasLandingPrice = false;
+            if ($line->product) {
+                 $hasLandingPrice = $line->product->landingPrices()
+                    ->where('effective_from', '<=', $salesOrder->create_date ?? now())
+                    ->orderBy('effective_from', 'desc')
+                    ->exists();
+            }
+
+            if ($hasLandingPrice) {
                 continue;
             }
 
-            // Skip if line has a landing price (just in case)
-            if ($line->landingPrice) {
-                continue;
-            }
-
-            // Skip if it's installation service or supply only (flags)
-            if ($line->is_installation_service || $line->is_supply_only) {
+            // Skip if it's installation service or supply only (flags or name)
+            if ($line->is_installation_service || $line->is_supply_only || 
+                str_contains(strtolower($line->product_name ?? ''), 'installation service') ||
+                str_contains(strtolower($line->product_name ?? ''), 'supply only')) {
                 continue;
             }
 
@@ -211,15 +214,25 @@ class CommissionCalculator
     {
         $landingPrice = 0;
         
-        // Check if order has any supply-only items
-        $hasSupplyOnly = $salesOrder->lines->contains('is_supply_only', true);
+        // Check if order has any supply-only items (flag or name)
+        $hasSupplyOnly = $salesOrder->lines->contains(function ($line) {
+            return $line->is_supply_only || str_contains(strtolower($line->product_name ?? ''), 'supply only');
+        });
 
         foreach ($salesOrder->lines as $line) {
-            $lineLandingPrice = $line->landingPrice;
-            
-            // Fallback to Product's Landing Price if not on line
-            if (!$lineLandingPrice && $line->product) {
-                 $lineLandingPrice = $line->product->landingPrices()->first();
+            $lineLandingPrice = null;
+
+            // Find best matching LandingPrice record based on effective_from date
+            if ($line->product) {
+                 $lineLandingPrice = $line->product->landingPrices()
+                    ->where('effective_from', '<=', $salesOrder->create_date ?? now())
+                    ->orderBy('effective_from', 'desc')
+                    ->first();
+                 
+                 // Fallback if no effective record found
+                 if (!$lineLandingPrice) {
+                    $lineLandingPrice = $line->product->landingPrices()->first();
+                 }
             }
 
             if (!$lineLandingPrice) {

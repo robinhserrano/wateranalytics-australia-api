@@ -150,18 +150,18 @@ const getDeliveryStatusColor = (status: string | null) => {
                             </TableCell>
                             <TableCell>
                                 <div class="flex justify-center">
-                                    <Checkbox :checked="order.x_studio_commission_paid == 1" disabled />
+                                    <Checkbox :model-value="!!order.x_studio_commission_paid" disabled />
                                 </div>
                             </TableCell>
                             <TableCell>
                                 <div class="flex justify-center">
-                                    <Checkbox v-if="order.commission_calculation" :checked="order.commission_calculation.confirmed_by_manager == 1" disabled />
+                                    <Checkbox v-if="order.commission_calculation" :model-value="!!order.commission_calculation.confirmed_by_manager" disabled />
                                     <span v-else class="text-muted-foreground">-</span>
                                 </div>
                             </TableCell>
                             <TableCell>
                                 <div class="flex justify-center">
-                                    <Checkbox v-if="order.commission_calculation" :checked="order.commission_calculation.entered_to_odoo == 1" disabled />
+                                    <Checkbox v-if="order.commission_calculation" :model-value="!!order.commission_calculation.entered_to_odoo" disabled />
                                     <span v-else class="text-muted-foreground">-</span>
                                 </div>
                             </TableCell>
