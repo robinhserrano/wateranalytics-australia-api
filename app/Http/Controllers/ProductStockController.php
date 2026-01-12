@@ -13,9 +13,16 @@ class ProductStockController extends Controller
     {
         $query = ProductStock::with('warehouse');
 
-        // Filter by warehouse if provided (and not '0' which means "All")
-        if ($request->has('warehouse_id') && $request->warehouse_id !== '' && $request->warehouse_id !== '0') {
-            $query->where('warehouse_id', $request->warehouse_id);
+        // Filter by warehouse. If '0' or not provided, default to "All Warehouses" (odoo_id = 0)
+        $selectedWarehouseId = $request->input('warehouse_id', '0');
+        
+        if ($selectedWarehouseId === '0') {
+            $allWarehouse = Warehouse::where('odoo_id', 0)->first();
+            if ($allWarehouse) {
+                $query->where('warehouse_id', $allWarehouse->id);
+            }
+        } else {
+            $query->where('warehouse_id', $selectedWarehouseId);
         }
 
         // Search functionality
@@ -31,7 +38,7 @@ class ProductStockController extends Controller
             ->paginate(80)
             ->withQueryString();
 
-        $warehouses = Warehouse::orderBy('name')->get();
+        $warehouses = Warehouse::where('odoo_id', '>', 0)->orderBy('name')->get();
 
         return Inertia::render('Stocks/Index', [
             'stocks' => $stocks,

@@ -49,9 +49,9 @@ const warehouseId = ref(props.filters.warehouse_id || '0');
 const handleSearch = useDebounceFn(() => {
     router.get(
         route('stocks.index'),
-        { 
+        {
             search: search.value,
-            warehouse_id: warehouseId.value 
+            warehouse_id: warehouseId.value
         },
         { preserveState: true, replace: true }
     );
@@ -79,6 +79,7 @@ const formatQty = (qty: number | null) => {
 </script>
 
 <template>
+
     <Head title="Product Stocks" />
 
     <AppLayout>
@@ -92,36 +93,18 @@ const formatQty = (qty: number | null) => {
                             {{ stocks.from }} - {{ stocks.to }} / {{ stocks.total }}
                         </div>
                         <div class="flex items-center gap-1">
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                class="size-8"
-                                :disabled="!stocks.prev_page_url"
-                                as-child
-                            >
-                                <Link 
-                                    v-if="stocks.prev_page_url"
-                                    :href="stocks.prev_page_url" 
-                                    preserve-scroll
-                                >
+                            <Button variant="outline" size="icon" class="size-8" :disabled="!stocks.prev_page_url"
+                                as-child>
+                                <Link v-if="stocks.prev_page_url" :href="stocks.prev_page_url" preserve-scroll>
                                     <ChevronLeft class="size-4" />
                                 </Link>
                                 <span v-else>
                                     <ChevronLeft class="size-4" />
                                 </span>
                             </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                class="size-8"
-                                :disabled="!stocks.next_page_url"
-                                as-child
-                            >
-                                <Link 
-                                    v-if="stocks.next_page_url"
-                                    :href="stocks.next_page_url" 
-                                    preserve-scroll
-                                >
+                            <Button variant="outline" size="icon" class="size-8" :disabled="!stocks.next_page_url"
+                                as-child>
+                                <Link v-if="stocks.next_page_url" :href="stocks.next_page_url" preserve-scroll>
                                     <ChevronRight class="size-4" />
                                 </Link>
                                 <span v-else>
@@ -137,25 +120,15 @@ const formatQty = (qty: number | null) => {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="0">All Warehouses</SelectItem>
-                            <SelectItem 
-                                v-for="warehouse in warehouses" 
-                                :key="warehouse.id"
-                                :value="warehouse.id.toString()"
-                            >
+                            <SelectItem v-for="warehouse in warehouses" :key="warehouse.id"
+                                :value="warehouse.id.toString()">
                                 {{ warehouse.name }}
                             </SelectItem>
                         </SelectContent>
                     </Select>
                     <div class="relative w-full max-w-sm items-center">
-                        <Input
-                            v-model="search"
-                            type="text"
-                            placeholder="Search products..."
-                            class="pl-10"
-                        />
-                        <span
-                            class="absolute start-0 inset-y-0 flex items-center justify-center px-2"
-                        >
+                        <Input v-model="search" type="text" placeholder="Search products..." class="pl-10" />
+                        <span class="absolute start-0 inset-y-0 flex items-center justify-center px-2">
                             <Search class="size-4 text-muted-foreground" />
                         </span>
                     </div>
@@ -178,10 +151,7 @@ const formatQty = (qty: number | null) => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow
-                            v-for="stock in stocks.data"
-                            :key="stock.id"
-                        >
+                        <TableRow v-for="stock in stocks.data" :key="stock.id">
                             <TableCell class="font-medium">
                                 {{ stock.display_name }}
                             </TableCell>
