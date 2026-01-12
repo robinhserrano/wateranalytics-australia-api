@@ -35,7 +35,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('commissions/{commission}/reset-odoo', [App\Http\Controllers\CommissionController::class, 'resetOdooSync'])->name('commissions.reset-odoo');
     Route::post('commissions/bulk-approve', [App\Http\Controllers\CommissionController::class, 'bulkApprove'])->name('commissions.bulk-approve');
     Route::get('users/{user}/commission-stats', [App\Http\Controllers\CommissionController::class, 'userStats'])->name('users.commission-stats');
-    Route::resource('users', App\Http\Controllers\UserController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update']);
+    Route::resource('users', App\Http\Controllers\UserController::class)->only(['index', 'show', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::resource('roles', App\Http\Controllers\RoleController::class)->except(['show']);
     Route::resource('permissions', App\Http\Controllers\PermissionController::class)->only(['store', 'destroy']);
     

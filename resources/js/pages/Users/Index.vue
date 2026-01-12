@@ -13,10 +13,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ref, watch } from 'vue';
-import { router } from '@inertiajs/vue3';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogClose,
+} from '@/components/ui/dialog';
+import { ref, watch, computed } from 'vue';
+import { router, usePage } from '@inertiajs/vue3';
 import debounce from 'lodash/debounce';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-vue-next';
 
 const props = defineProps<{
     users: {
@@ -44,7 +54,21 @@ const props = defineProps<{
     };
 }>();
 
+const page = usePage();
 const search = ref(props.filters.search || '');
+
+const isAdmin = computed(() => {
+    return (page.props.auth.user as any)?.roles?.some((role: any) => role.name === 'Admin');
+});
+
+const deleteUser = (id: number) => {
+    router.delete(route('users.destroy', id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Flash message handled by backend
+        },
+    });
+};
 
 watch(search, debounce((value) => {
     router.get(route('users.index'), { search: value }, {
@@ -55,6 +79,7 @@ watch(search, debounce((value) => {
 </script>
 
 <template>
+
     <Head title="Users" />
 
     <AppLayout>
@@ -71,36 +96,18 @@ watch(search, debounce((value) => {
                             {{ users.from }} - {{ users.to }} / {{ users.total }}
                         </div>
                         <div class="flex items-center gap-1">
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                class="size-8"
-                                :disabled="!users.prev_page_url"
-                                as-child
-                            >
-                                <Link 
-                                    v-if="users.prev_page_url"
-                                    :href="users.prev_page_url" 
-                                    preserve-scroll
-                                >
+                            <Button variant="outline" size="icon" class="size-8" :disabled="!users.prev_page_url"
+                                as-child>
+                                <Link v-if="users.prev_page_url" :href="users.prev_page_url" preserve-scroll>
                                     <ChevronLeft class="size-4" />
                                 </Link>
                                 <span v-else>
                                     <ChevronLeft class="size-4" />
                                 </span>
                             </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                class="size-8"
-                                :disabled="!users.next_page_url"
-                                as-child
-                            >
-                                <Link 
-                                    v-if="users.next_page_url"
-                                    :href="users.next_page_url" 
-                                    preserve-scroll
-                                >
+                            <Button variant="outline" size="icon" class="size-8" :disabled="!users.next_page_url"
+                                as-child>
+                                <Link v-if="users.next_page_url" :href="users.next_page_url" preserve-scroll>
                                     <ChevronRight class="size-4" />
                                 </Link>
                                 <span v-else>
@@ -126,11 +133,7 @@ watch(search, debounce((value) => {
                             </CardDescription>
                         </div>
                         <div class="w-full max-w-sm">
-                            <Input
-                                v-model="search"
-                                placeholder="Search by name or email..."
-                                class="h-9"
-                            />
+                            <Input v-model="search" placeholder="Search by name or email..." class="h-9" />
                         </div>
                     </div>
                 </CardHeader>
@@ -157,7 +160,8 @@ watch(search, debounce((value) => {
                                         <Badge v-for="role in user.roles" :key="role.name" variant="outline">
                                             {{ role.name }}
                                         </Badge>
-                                        <span v-if="!user.roles || user.roles.length === 0" class="text-muted-foreground">-</span>
+                                        <span v-if="!user.roles || user.roles.length === 0"
+                                            class="text-muted-foreground">-</span>
                                     </div>
                                 </TableCell>
                                 <TableCell>{{ user.commission_split }}%</TableCell>
@@ -167,11 +171,39 @@ watch(search, debounce((value) => {
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">
-                                    <Button variant="ghost" size="sm" as-child>
-                                        <Link :href="route('users.show', user.id)">
-                                            View
-                                        </Link>
-                                    </Button>
+                                    <div class="flex justify-end gap-2">
+                                        <Button variant="ghost" size="sm" as-child>
+                                            <Link :href="route('users.show', user.id)">
+                                                View
+                                            </Link>
+                                        </Button>
+
+                                        <Dialog v-if="isAdmin && (page.props.auth.user as any).id !== user.id">
+                                            <DialogTrigger as-child>
+                                                <Button variant="ghost" size="icon"
+                                                    class="size-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                                                    <Trash2 class="size-4" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Delete User</DialogTitle>
+                                                    <DialogDescription>
+                                                        Are you sure you want to delete <strong>{{ user.name
+                                                            }}</strong>? This action cannot be undone and will remove
+                                                        all associated data.
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <DialogFooter>
+                                                    <DialogClose as-child>
+                                                        <Button variant="outline">Cancel</Button>
+                                                    </DialogClose>
+                                                    <Button variant="destructive" @click="deleteUser(user.id)">Delete
+                                                        User</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         </TableBody>

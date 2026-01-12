@@ -198,4 +198,24 @@ class UserController extends Controller
 
         return redirect()->back()->with('success', 'User updated successfully.');
     }
+
+    /**
+     * Remove the specified resource from storage.
+     */
+    public function destroy(User $user)
+    {
+        // Prevent deleting yourself
+        if (auth()->id() === $user->id) {
+            return redirect()->back()->with('error', 'You cannot delete your own account.');
+        }
+
+        // Check if user is admin (using spatie permission)
+        if (!auth()->user()->hasRole('Admin')) {
+            abort(403, 'Only admins can delete users.');
+        }
+
+        $user->delete();
+
+        return redirect()->route('users.index')->with('success', 'User deleted successfully.');
+    }
 }
