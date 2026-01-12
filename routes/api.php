@@ -38,9 +38,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sales-orders/{id}', [SalesOrderController::class, 'show']);
     
     // Commissions
+    Route::get('/commissions/stats', [CommissionController::class, 'stats']);
     Route::get('/commissions', [CommissionController::class, 'index']);
     Route::get('/commissions/{id}', [CommissionController::class, 'show']);
-    Route::get('/commissions/stats', [CommissionController::class, 'stats']);
     
     // Teams
     Route::get('/teams', [TeamController::class, 'index']);

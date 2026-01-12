@@ -25,7 +25,7 @@ class SalesOrderController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $query = SalesOrder::query();
+        $query = SalesOrder::query()->where('state', 'sale');
 
         // Apply role-based filtering (same logic as web)
         if ($user->hasPermissionTo('view-all-sales-orders')) {
@@ -75,7 +75,7 @@ class SalesOrderController extends Controller
         }
 
         $perPage = $request->input('per_page', 15);
-        $orders = $query->with(['lines', 'commissionCalculation'])
+        $orders = $query->with(['lines', 'commissionCalculation.user'])
             ->orderBy('create_date', 'desc')
             ->paginate($perPage);
 

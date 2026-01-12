@@ -14,7 +14,7 @@ class DashboardController extends Controller
         $user = $request->user();
         
         // Get user's sales orders count
-        $salesQuery = SalesOrder::query();
+        $salesQuery = SalesOrder::query()->where('state', 'sale');
         if (!$user->hasPermissionTo('view-all-sales-orders')) {
             if ($user->hasPermissionTo('view-team-sales-orders')) {
                 $teamUserIds = $this->getTeamUserIds($user);
@@ -51,7 +51,7 @@ class DashboardController extends Controller
                 'paid' => (clone $commissionQuery)->where('status', 'paid')->sum('final_commission'),
                 'this_month' => (clone $commissionQuery)->whereMonth('created_at', now()->month)->sum('final_commission'),
             ],
-            'recent_orders' => $salesQuery->with('commissionCalculation')
+            'recent_orders' => $salesQuery->with('commissionCalculation.user')
                 ->orderBy('create_date', 'desc')
                 ->limit(5)
                 ->get(),

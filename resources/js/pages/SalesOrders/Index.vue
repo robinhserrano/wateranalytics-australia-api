@@ -223,6 +223,22 @@ const formatSource = (source: string | null) => {
     return source === 'self_gen' ? 'Self Gen' : 'Company Lead';
 };
 
+const getBadgeStyles = (source: string | null) => {
+    if (source === 'self_gen') {
+        return {
+            color: '#5850e6',
+            backgroundColor: '#eef2ff',
+            borderColor: '#5850e6'
+        };
+    }
+    // Default for Company Lead and others
+    return {
+        color: '#475569',
+        backgroundColor: '#f1f5f9',
+        borderColor: '#cbd5e1'
+    };
+};
+
 const formatBoolean = (val: any) => {
     return val ? 'Yes' : 'No';
 };
@@ -233,6 +249,40 @@ const formatDeliveryStatus = (status: string | null) => {
     if (s === 'full' || s === 'done') return 'Fully Delivered';
     if (s === 'partial' || s === 'started' || s === 'pending') return 'Partially Delivered';
     return status.charAt(0).toUpperCase() + status.slice(1);
+};
+
+const getDeliveryBadgeStyles = (status: string | null) => {
+    if (!status || status === '0') {
+        // Not Delivered - default slate colors
+        return {
+            color: '#475569',
+            backgroundColor: '#f1f5f9',
+            borderColor: '#cbd5e1'
+        };
+    }
+    const s = status.toLowerCase();
+    if (s === 'full' || s === 'done') {
+        // Fully Delivered - green
+        return {
+            color: '#077959',
+            backgroundColor: '#ecfdf5',
+            borderColor: '#a7f3d0'
+        };
+    }
+    if (s === 'partial' || s === 'started' || s === 'pending') {
+        // Partially Delivered - amber
+        return {
+            color: '#b5550c',
+            backgroundColor: '#fffbeb',
+            borderColor: '#fde68a'
+        };
+    }
+    // Default - slate colors
+    return {
+        color: '#475569',
+        backgroundColor: '#f1f5f9',
+        borderColor: '#cbd5e1'
+    };
 };
 </script>
 
@@ -539,7 +589,12 @@ const formatDeliveryStatus = (status: string | null) => {
                                 <span v-else class="text-muted-foreground text-xs italic">Pending Mapping</span>
                             </TableCell>
                             <TableCell>
-                                <Badge v-if="order.commission_calculation" variant="outline" class="whitespace-nowrap">
+                                <Badge 
+                                    v-if="order.commission_calculation" 
+                                    variant="outline" 
+                                    class="whitespace-nowrap border"
+                                    :style="getBadgeStyles(order.commission_calculation.sales_source)"
+                                >
                                     {{ formatSource(order.commission_calculation.sales_source) }}
                                 </Badge>
                                 <span v-else class="text-muted-foreground">-</span>
@@ -562,16 +617,20 @@ const formatDeliveryStatus = (status: string | null) => {
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <div class="text-xs font-medium text-foreground">
+                                <Badge 
+                                    variant="outline" 
+                                    class="whitespace-nowrap border text-xs font-medium"
+                                    :style="getDeliveryBadgeStyles(order.delivery_status)"
+                                >
                                     {{ formatDeliveryStatus(order.delivery_status) }}
-                                </div>
+                                </Badge>
                             </TableCell>
                             <TableCell>{{ formatCurrency(order.amount_total) }}</TableCell>
                             <TableCell>
                                 <span 
                                     v-if="order.commission_calculation" 
                                     class="font-medium"
-                                    :class="order.commission_calculation.final_commission > 0 ? 'text-green-600' : 'text-red-600'"
+                                    :class="order.commission_calculation.final_commission > 0 ? 'text-emerald-600' : 'text-red-600'"
                                 >
                                     {{ formatCurrency(order.commission_calculation.final_commission) }}
                                 </span>
