@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'legacy_api' => [
+        'base_url' => env('LEGACY_API_BASE_URL'),
+        'token' => env('LEGACY_API_TOKEN'),
+    ],
+
 ];

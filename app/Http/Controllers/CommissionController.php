@@ -30,7 +30,27 @@ class CommissionController extends Controller
 
         // Filter by status
         if ($request->has('status') && $request->status !== 'all') {
-            $query->where('status', $request->status);
+            if ($request->status === 'paid') {
+                // Paid: Based on Odoo field
+                $query->whereHas('salesOrder', function ($q) {
+                    $q->where('x_studio_commission_paid', true);
+                });
+            } elseif ($request->status === 'pending') {
+                // Pending: Status is pending AND NOT paid in Odoo
+                $query->where('status', 'pending')
+                    ->whereDoesntHave('salesOrder', function ($q) {
+                        $q->where('x_studio_commission_paid', true);
+                    });
+            } elseif ($request->status === 'approved') {
+                // Approved: Status is approved AND NOT paid in Odoo
+                $query->where('status', 'approved')
+                    ->whereDoesntHave('salesOrder', function ($q) {
+                        $q->where('x_studio_commission_paid', true);
+                    });
+            } else {
+                // Other statuses (rejected, etc.)
+                $query->where('status', $request->status);
+            }
         }
 
         // Filter by sales source
@@ -62,13 +82,30 @@ class CommissionController extends Controller
         $commissions = $query->paginate(50)->withQueryString();
 
         // Calculate summary statistics
+        // Paid: Based on Odoo field
+        $paidQuery = CommissionCalculation::whereHas('salesOrder', function ($q) {
+            $q->where('x_studio_commission_paid', true);
+        });
+
+        // Pending: Status is pending AND NOT paid in Odoo
+        $pendingQuery = CommissionCalculation::where('status', 'pending')
+            ->whereDoesntHave('salesOrder', function ($q) {
+                $q->where('x_studio_commission_paid', true);
+            });
+
+        // Approved: Status is approved AND NOT paid in Odoo
+        $approvedQuery = CommissionCalculation::where('status', 'approved')
+            ->whereDoesntHave('salesOrder', function ($q) {
+                $q->where('x_studio_commission_paid', true);
+            });
+
         $summary = [
-            'total_pending' => CommissionCalculation::where('status', 'pending')->sum('final_commission'),
-            'total_approved' => CommissionCalculation::where('status', 'approved')->sum('final_commission'),
-            'total_paid' => CommissionCalculation::where('status', 'paid')->sum('final_commission'),
-            'count_pending' => CommissionCalculation::where('status', 'pending')->count(),
-            'count_approved' => CommissionCalculation::where('status', 'approved')->count(),
-            'count_paid' => CommissionCalculation::where('status', 'paid')->count(),
+            'total_pending' => $pendingQuery->sum('final_commission'),
+            'total_approved' => $approvedQuery->sum('final_commission'),
+            'total_paid' => $paidQuery->sum('final_commission'),
+            'count_pending' => $pendingQuery->count(),
+            'count_approved' => $approvedQuery->count(),
+            'count_paid' => $paidQuery->count(),
         ];
 
         return Inertia::render('Commissions/Index', [

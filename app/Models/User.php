@@ -39,6 +39,8 @@ class User extends Authenticatable
         'commission_split',
         'is_active',
         'legacy_id',
+        'current_login_at',
+        'last_login_at',
     ];
 
     /**
@@ -68,6 +70,8 @@ class User extends Authenticatable
             'company_lead_base' => 'decimal:2',
             'commission_split' => 'decimal:2',
             'is_active' => 'boolean',
+            'current_login_at' => 'datetime',
+            'last_login_at' => 'datetime',
         ];
     }
 

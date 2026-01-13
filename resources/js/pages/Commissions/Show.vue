@@ -60,6 +60,11 @@ const rejectForm = useForm({
     reason: '',
 });
 
+const openAdjustmentDialog = () => {
+    adjustmentForm.adjustment_amount = props.commission.manual_adjustment || 0;
+    adjustmentForm.reason = '';
+};
+
 const submitAdjustment = () => {
     adjustmentForm.post(route('commissions.adjust', props.commission.id), {
         onSuccess: () => {
@@ -228,36 +233,39 @@ const getStatusBadgeVariant = (status: string) => {
                 <!-- Adjust Button -->
                 <Dialog v-model:open="adjustmentDialogOpen">
                     <DialogTrigger as-child>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" @click="openAdjustmentDialog">
                             <Edit class="mr-2 h-4 w-4" />
-                            Add Adjustment
+                            Edit Adjustment
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Manual Adjustment</DialogTitle>
+                            <DialogTitle>Edit Total Manual Adjustment</DialogTitle>
                             <DialogDescription>
-                                Add a manual adjustment to this commission (positive or negative).
+                                Set the final total manual adjustment for this commission. The system will record any changes in the history.
                             </DialogDescription>
                         </DialogHeader>
                         <div class="grid gap-4 py-4">
                             <div class="grid gap-2">
-                                <Label for="amount">Adjustment Amount *</Label>
+                                <Label for="amount">Total Adjustment Amount *</Label>
                                 <Input
                                     id="amount"
                                     v-model.number="adjustmentForm.adjustment_amount"
                                     type="number"
                                     step="0.01"
-                                    placeholder="100.00 or -100.00"
+                                    placeholder="-1200.00"
                                     required
                                 />
+                                <p class="text-xs text-muted-foreground">
+                                    Current Total: {{ formatCurrency(commission.manual_adjustment) }}
+                                </p>
                             </div>
                             <div class="grid gap-2">
                                 <Label for="adj-reason">Reason *</Label>
-                                <Textarea
+                                <Input
                                     id="adj-reason"
                                     v-model="adjustmentForm.reason"
-                                    placeholder="Explain the reason for this adjustment..."
+                                    placeholder="e.g. Setting fixed commission to -1200"
                                     required
                                 />
                             </div>
@@ -266,9 +274,9 @@ const getStatusBadgeVariant = (status: string) => {
                             <Button variant="outline" @click="adjustmentDialogOpen = false">Cancel</Button>
                             <Button
                                 @click="submitAdjustment"
-                                :disabled="adjustmentForm.processing || adjustmentForm.reason.length < 10"
+                                :disabled="adjustmentForm.processing || !adjustmentForm.reason"
                             >
-                                Apply Adjustment
+                                Update Total Adjustment
                             </Button>
                         </DialogFooter>
                     </DialogContent>

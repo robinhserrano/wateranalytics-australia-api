@@ -67,6 +67,8 @@ class SyncLegacySalesOrders extends Command
                     'legacy_last_manual_add_by' => $legacyOrder['last_manual_add_by'] ?? null,
                     'legacy_confirmed_by_manager' => isset($legacyOrder['confirmed_by_manager']) ? (bool)$legacyOrder['confirmed_by_manager'] : false,
                     'legacy_is_entered_odoo' => isset($legacyOrder['is_entered_odoo']) ? (bool)$legacyOrder['is_entered_odoo'] : false,
+                    'legacy_additional_deduction' => $legacyOrder['additional_deduction'] ?? null,
+                    'legacy_manual_notes' => $legacyOrder['manual_notes'] ?? null,
                     'x_studio_commission_paid' => isset($legacyOrder['x_studio_commission_paid']) ? (bool)$legacyOrder['x_studio_commission_paid'] : false,
                     'x_studio_invoice_payment_status' => $legacyOrder['x_studio_invoice_payment_status'] ?? null,
                     'x_studio_payment_type' => $legacyOrder['x_studio_payment_type'] ?? null,

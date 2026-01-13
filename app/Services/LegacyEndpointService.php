@@ -26,6 +26,7 @@ class LegacyEndpointService
         Log::info('Fetching sales orders from legacy API...');
 
         $response = Http::withToken($this->token)
+            ->timeout(120)
             ->get("{$this->baseUrl}/salesOrder");
 
         if ($response->failed()) {

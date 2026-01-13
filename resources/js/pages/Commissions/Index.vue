@@ -213,19 +213,6 @@ const getSalesSourceVariant = (source: string) => {
                         </p>
                     </CardContent>
                 </Card>
-
-                <Card>
-                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle class="text-sm font-medium">Total Earnings</CardTitle>
-                        <TrendingUp class="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div class="text-2xl font-bold">
-                            {{ formatCurrency(summary.total_approved + summary.total_paid) }}
-                        </div>
-                        <p class="text-xs text-muted-foreground">Approved & Paid</p>
-                    </CardContent>
-                </Card>
             </div>
 
             <!-- Filters -->
@@ -242,7 +229,7 @@ const getSalesSourceVariant = (source: string) => {
                     </span>
                 </div>
 
-                <Select v-model="status">
+                <Select v-model="status" @update:model-value="(value) => { if (value) status = String(value); }">
                     <SelectTrigger class="w-[180px]">
                         <SelectValue placeholder="All Statuses" />
                     </SelectTrigger>
@@ -255,7 +242,7 @@ const getSalesSourceVariant = (source: string) => {
                     </SelectContent>
                 </Select>
 
-                <Select v-model="salesSource">
+                <Select v-model="salesSource" @update:model-value="(value) => { if (value) salesSource = String(value); }">
                     <SelectTrigger class="w-[180px]">
                         <SelectValue placeholder="All Sources" />
                     </SelectTrigger>

@@ -342,25 +342,31 @@ class CommissionCalculator
      */
     public function applyManualAdjustment(
         CommissionCalculation $calculation,
-        float $adjustmentAmount,
+        float $targetTotal,
         int $adjustedBy,
         string $reason
     ): CommissionCalculation {
-        DB::transaction(function () use ($calculation, $adjustmentAmount, $adjustedBy, $reason) {
-            // Create adjustment record
-            $calculation->adjustments()->create([
-                'adjusted_by' => $adjustedBy,
-                'adjustment_amount' => $adjustmentAmount,
-                'reason' => $reason,
-            ]);
+        DB::transaction(function () use ($calculation, $targetTotal, $adjustedBy, $reason) {
+            $currentTotal = (float) $calculation->manual_adjustment;
+            $difference = $targetTotal - $currentTotal;
 
-            // Update commission calculation
-            $calculation->manual_adjustment = $calculation->adjustments()->sum('adjustment_amount');
-            $calculation->final_commission = 
-                $calculation->base_commission + 
-                $calculation->extra_commission + 
-                $calculation->manual_adjustment;
-            $calculation->save();
+            // Only create an entry if there's actually a change
+            if ($difference !== 0.0) {
+                // Create adjustment record for the difference
+                $calculation->adjustments()->create([
+                    'adjusted_by' => $adjustedBy,
+                    'adjustment_amount' => $difference,
+                    'reason' => $reason . " (Adjusted total to $targetTotal)",
+                ]);
+
+                // Update commission calculation
+                $calculation->manual_adjustment = $targetTotal;
+                $calculation->final_commission = 
+                    $calculation->base_commission + 
+                    $calculation->extra_commission + 
+                    $calculation->manual_adjustment;
+                $calculation->save();
+            }
         });
 
         return $calculation->fresh();
