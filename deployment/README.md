@@ -20,8 +20,10 @@ Before touching AWS, we need to save your deployment configuration to GitHub.
 ## Phase 2: AWS Infrastructure (Manual Setup)
 
 1.  **Launch EC2 Instance**:
-    *   **OS**: Ubuntu 24.04 LTS (64-bit x86).
-    *   **Type**: `t3.micro` is the bare minimum, `t3.small` is heavily recommended.
+    *   **OS**: Ubuntu 24.04 LTS (64-bit Arm).
+    *   **Type**: `t4g.small` (ARM64) is highly recommended. It is faster and cheaper than the x86 `t3` series.
+    *   **Architecture**: Ensure you select **64-bit (Arm)** when launching the instance.
+    *   **Note**: Docker (and the images we use like PHP, Node, MySQL) automatically supports ARM64, so no code changes are needed!
     *   **Elastic IP**: Go to EC2 Dashboard -> "Elastic IPs", allocate one, and associate it with your new instance. This gives you a permanent IP address.
 
 2.  **Configure Security Group**:

@@ -7,6 +7,7 @@ use App\Models\Warehouse;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Obuchmann\OdooJsonRpc\Odoo;
+use App\Services\SyncLogger;
 
 class SyncStocks extends Command
 {
@@ -27,9 +28,11 @@ class SyncStocks extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo)
+    public function handle(Odoo $odoo, SyncLogger $logger)
     {
+        $log = $logger->start('odoo:sync-stocks');
         $this->info('Starting Odoo Warehouse and Stock Sync...');
+        $totalSynced = 0;
 
         // Step 1: Sync Global Stocks (All Warehouses)
         $this->info('Syncing Global Stocks (All Warehouses)...');
@@ -40,7 +43,7 @@ class SyncStocks extends Command
                 'name' => 'All Warehouses',
             ]
         );
-        $this->syncProductStocks($odoo, $allWarehouse);
+        $totalSynced += $this->syncProductStocks($odoo, $allWarehouse);
 
         // Step 2: Sync Warehouses
         $this->info('Fetching individual warehouses...');
@@ -51,10 +54,11 @@ class SyncStocks extends Command
             if ($warehouse->odoo_id === 0) continue;
             
             $this->info("Syncing stocks for warehouse: {$warehouse->name} (ID: {$warehouse->odoo_id})");
-            $this->syncProductStocks($odoo, $warehouse);
+            $totalSynced += $this->syncProductStocks($odoo, $warehouse);
         }
 
         $this->info('Sync complete!');
+        $logger->complete($log, $totalSynced);
         return 0;
     }
 
@@ -195,9 +199,11 @@ class SyncStocks extends Command
             }
 
             $this->info('Synced ' . count($syncedOdooIds) . ' products for warehouse ' . $warehouse->name);
+            return count($syncedOdooIds);
         } catch (\Exception $e) {
             $this->error("Failed to fetch stocks for warehouse {$warehouse->name}: " . $e->getMessage());
             Log::error("Odoo Stock Sync Error for warehouse {$warehouse->odoo_id}: " . $e->getMessage());
+            return 0;
         }
     }
 }

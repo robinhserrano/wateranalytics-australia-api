@@ -43,6 +43,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('teams', App\Http\Controllers\TeamController::class);
     Route::post('teams/{team}/members', [App\Http\Controllers\TeamController::class, 'addMember'])->name('teams.members.add');
     Route::delete('teams/{team}/members/{user}', [App\Http\Controllers\TeamController::class, 'removeMember'])->name('teams.members.remove');
+    Route::delete('teams/{team}/members/{user}', [App\Http\Controllers\TeamController::class, 'removeMember'])->name('teams.members.remove');
+    
+    // Admin Routes
+    Route::get('admin/logs', [App\Http\Controllers\Admin\SyncLogController::class, 'index'])->name('admin.logs.index');
 });
 
 Route::get('/odoo-test', [App\Http\Controllers\OdooController::class, 'index']);

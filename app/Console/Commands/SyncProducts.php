@@ -6,6 +6,7 @@ use App\Models\Product;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Obuchmann\OdooJsonRpc\Odoo;
+use App\Services\SyncLogger;
 
 class SyncProducts extends Command
 {
@@ -26,8 +27,9 @@ class SyncProducts extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo)
+    public function handle(Odoo $odoo, SyncLogger $logger)
     {
+        $log = $logger->start('odoo:sync-products');
         $this->info('Starting Odoo Products Sync...');
 
         try {
@@ -137,10 +139,12 @@ class SyncProducts extends Command
             }
 
             $this->info('Successfully synced all products. Total records: ' . count($allRecords));
+            $logger->complete($log, count($allRecords));
             return 0;
         } catch (\Exception $e) {
             $this->error('Error syncing products: ' . $e->getMessage());
             Log::error('Odoo Products Sync Error: ' . $e->getMessage());
+            $logger->fail($log, $e);
             return 1;
         }
     }

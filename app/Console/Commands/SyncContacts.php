@@ -6,6 +6,7 @@ use App\Models\Contact;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Obuchmann\OdooJsonRpc\Odoo;
+use App\Services\SyncLogger;
 
 class SyncContacts extends Command
 {
@@ -26,8 +27,9 @@ class SyncContacts extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo)
+    public function handle(Odoo $odoo, SyncLogger $logger)
     {
+        $log = $logger->start('odoo:sync-contacts');
         $this->info('Starting Odoo Contact Sync...');
 
         $limit = 500;
@@ -57,6 +59,7 @@ class SyncContacts extends Command
             } catch (\Exception $e) {
                 $this->error("Failed to fetch from Odoo: " . $e->getMessage());
                 Log::error("Odoo Contact Sync Error: " . $e->getMessage());
+                $logger->fail($log, $e);
                 return 1;
             }
 
@@ -108,6 +111,7 @@ class SyncContacts extends Command
         } while (true);
 
         $this->info("Sync complete. Total records: $totalSynced");
+        $logger->complete($log, $totalSynced);
         return 0;
     }
 }

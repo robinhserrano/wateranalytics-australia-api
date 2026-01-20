@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Obuchmann\OdooJsonRpc\Odoo;
 use App\Models\SalesOrder;
 use Illuminate\Support\Facades\Log;
+use App\Services\SyncLogger;
 
 class SyncOdooSalesOrders extends Command
 {
@@ -26,8 +27,9 @@ class SyncOdooSalesOrders extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo)
+    public function handle(Odoo $odoo, SyncLogger $logger)
     {
+        $log = $logger->start('odoo:sync-sales');
         $this->info('Starting Odoo Sales Order Sync...');
 
         $fields = [
@@ -58,6 +60,7 @@ class SyncOdooSalesOrders extends Command
         $totalSynced = 0;
 
         // Loop to fetch all pages
+        try {
         do {
             $this->info("Fetching records offset $offset...");
             
@@ -72,6 +75,7 @@ class SyncOdooSalesOrders extends Command
             } catch (\Exception $e) {
                 $this->error("Failed to fetch from Odoo: " . $e->getMessage());
                 Log::error("Odoo Sync Error: " . $e->getMessage());
+                $logger->fail($log, $e);
                 return 1;
             }
 
@@ -169,8 +173,15 @@ class SyncOdooSalesOrders extends Command
         // Auto-calculate commissions for newly synced orders
         $this->info('Calculating commissions for sales orders...');
         $this->call('commissions:calculate-missing', ['--limit' => $totalSynced]);
+
+        $logger->complete($log, $totalSynced);
         
         return 0;
+        } catch (\Exception $e) {
+            $logger->fail($log, $e);
+            $this->error("Sync failed: " . $e->getMessage());
+            return 1;
+        }
     }
 
     protected function syncOrderLines(Odoo $odoo, array $lineIds, array $orderMap)

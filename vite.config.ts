@@ -12,7 +12,7 @@ export default defineConfig({
             refresh: true,
         }),
         tailwindcss(),
-        wayfinder({
+        process.env.SKIP_WAYFINDER ? null : wayfinder({
             formVariants: true,
         }),
         vue({
