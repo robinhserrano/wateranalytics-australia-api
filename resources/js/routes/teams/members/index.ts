@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 * @see app/Http/Controllers/TeamController.php:111
 * @route '/teams/{team}/members'
 */
-export const add = (args: { team: string | number | { id: string | number } } | [team: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const add = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: add.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ add.definition = {
 * @see app/Http/Controllers/TeamController.php:111
 * @route '/teams/{team}/members'
 */
-add.url = (args: { team: string | number | { id: string | number } } | [team: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+add.url = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { team: args }
     }
@@ -52,7 +52,7 @@ add.url = (args: { team: string | number | { id: string | number } } | [team: st
 * @see app/Http/Controllers/TeamController.php:111
 * @route '/teams/{team}/members'
 */
-add.post = (args: { team: string | number | { id: string | number } } | [team: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+add.post = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: add.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ add.post = (args: { team: string | number | { id: string | number } } | [team: s
 * @see app/Http/Controllers/TeamController.php:111
 * @route '/teams/{team}/members'
 */
-const addForm = (args: { team: string | number | { id: string | number } } | [team: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const addForm = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: add.url(args, options),
     method: 'post',
 })
@@ -72,7 +72,7 @@ const addForm = (args: { team: string | number | { id: string | number } } | [te
 * @see app/Http/Controllers/TeamController.php:111
 * @route '/teams/{team}/members'
 */
-addForm.post = (args: { team: string | number | { id: string | number } } | [team: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+addForm.post = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: add.url(args, options),
     method: 'post',
 })
@@ -84,7 +84,7 @@ add.form = addForm
 * @see app/Http/Controllers/TeamController.php:125
 * @route '/teams/{team}/members/{user}'
 */
-export const remove = (args: { team: string | number | { id: string | number }, user: string | number | { id: string | number } } | [team: string | number | { id: string | number }, user: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const remove = (args: { team: number | { id: number }, user: number | { id: number } } | [team: number | { id: number }, user: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: remove.url(args, options),
     method: 'delete',
 })
@@ -99,7 +99,7 @@ remove.definition = {
 * @see app/Http/Controllers/TeamController.php:125
 * @route '/teams/{team}/members/{user}'
 */
-remove.url = (args: { team: string | number | { id: string | number }, user: string | number | { id: string | number } } | [team: string | number | { id: string | number }, user: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
+remove.url = (args: { team: number | { id: number }, user: number | { id: number } } | [team: number | { id: number }, user: number | { id: number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             team: args[0],
@@ -129,7 +129,7 @@ remove.url = (args: { team: string | number | { id: string | number }, user: str
 * @see app/Http/Controllers/TeamController.php:125
 * @route '/teams/{team}/members/{user}'
 */
-remove.delete = (args: { team: string | number | { id: string | number }, user: string | number | { id: string | number } } | [team: string | number | { id: string | number }, user: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+remove.delete = (args: { team: number | { id: number }, user: number | { id: number } } | [team: number | { id: number }, user: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: remove.url(args, options),
     method: 'delete',
 })
@@ -139,7 +139,7 @@ remove.delete = (args: { team: string | number | { id: string | number }, user: 
 * @see app/Http/Controllers/TeamController.php:125
 * @route '/teams/{team}/members/{user}'
 */
-const removeForm = (args: { team: string | number | { id: string | number }, user: string | number | { id: string | number } } | [team: string | number | { id: string | number }, user: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const removeForm = (args: { team: number | { id: number }, user: number | { id: number } } | [team: number | { id: number }, user: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: remove.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'DELETE',
@@ -154,7 +154,7 @@ const removeForm = (args: { team: string | number | { id: string | number }, use
 * @see app/Http/Controllers/TeamController.php:125
 * @route '/teams/{team}/members/{user}'
 */
-removeForm.delete = (args: { team: string | number | { id: string | number }, user: string | number | { id: string | number } } | [team: string | number | { id: string | number }, user: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+removeForm.delete = (args: { team: number | { id: number }, user: number | { id: number } } | [team: number | { id: number }, user: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: remove.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'DELETE',

@@ -26,7 +26,7 @@ class SalesOrderController extends Controller
             // No filter needed
         } elseif ($user->hasPermissionTo('view-team-sales-orders')) {
             // Sales Manager or Sales Team Manager - see team orders
-            $teamUserIds = $this->getTeamUserIds($user);
+            $teamUserIds = $user->getTeamUserIds();
             
             // Filter by user_id (Odoo user ID) or user_name
             $query->where(function ($q) use ($teamUserIds, $user) {
@@ -177,32 +177,7 @@ class SalesOrderController extends Controller
         ]);
     }
 
-    /**
-     * Get all user IDs in the team hierarchy (recursive)
-     */
-    private function getTeamUserIds($user): array
-    {
-        $userIds = [$user->id];
-        
-        // Get direct reports (users who have this user as sales_manager_id)
-        $directReports = \App\Models\User::where('sales_manager_id', $user->id)->get();
-        
-        foreach ($directReports as $report) {
-            // Recursively get their team members
-            $userIds = array_merge($userIds, $this->getTeamUserIds($report));
-        }
-        
-        // Also get team members if user is a team manager
-        if ($user->team_id) {
-            $team = $user->team;
-            if ($team && $team->team_manager_id === $user->id) {
-                $teamMemberIds = $team->members()->pluck('id')->toArray();
-                $userIds = array_merge($userIds, $teamMemberIds);
-            }
-        }
-        
-        return array_unique($userIds);
-    }
+
 
     public function show(SalesOrder $salesOrder)
     {

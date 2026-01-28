@@ -124,4 +124,29 @@ class User extends Authenticatable
     {
         return $this->hasMany(CommissionApproval::class, 'approver_id');
     }
+    /**
+     * Get all user IDs in the team hierarchy (recursive).
+     * This includes direct reports and team members if this user is a team manager.
+     */
+    public function getTeamUserIds(): array
+    {
+        $userIds = [$this->id];
+        
+        // Get direct reports (users who have this user as sales_manager_id)
+        $directReports = User::where('sales_manager_id', $this->id)->get();
+        
+        foreach ($directReports as $report) {
+            // Recursively get their team members
+            $userIds = array_merge($userIds, $report->getTeamUserIds());
+        }
+        
+        // Also get team members if user is a team manager (even if not a member of that team)
+        $managedTeams = Team::where('team_manager_id', $this->id)->get();
+        foreach ($managedTeams as $managedTeam) {
+            $teamMemberIds = $managedTeam->members()->pluck('users.id')->toArray();
+            $userIds = array_merge($userIds, $teamMemberIds);
+        }
+        
+        return array_values(array_unique($userIds));
+    }
 }

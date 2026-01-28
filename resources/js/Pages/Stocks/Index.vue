@@ -146,7 +146,6 @@ const formatQty = (qty: number | null) => {
                             <TableHead class="text-right">Available</TableHead>
                             <TableHead class="text-right">Incoming</TableHead>
                             <TableHead class="text-right">Outgoing</TableHead>
-                            <TableHead class="text-right">Value</TableHead>
                             <TableHead class="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -161,7 +160,6 @@ const formatQty = (qty: number | null) => {
                             <TableCell class="text-right">{{ formatQty(stock.free_qty) }}</TableCell>
                             <TableCell class="text-right">{{ formatQty(stock.incoming_qty) }}</TableCell>
                             <TableCell class="text-right">{{ formatQty(stock.outgoing_qty) }}</TableCell>
-                            <TableCell class="text-right">{{ formatCurrency(stock.total_value) }}</TableCell>
                             <TableCell class="text-right">
                                 <Button variant="ghost" size="sm" as-child>
                                     <Link :href="route('stocks.show', stock.id)">
@@ -171,7 +169,7 @@ const formatQty = (qty: number | null) => {
                             </TableCell>
                         </TableRow>
                         <TableRow v-if="stocks.data.length === 0">
-                            <TableCell colspan="9" class="h-24 text-center">
+                            <TableCell colspan="8" class="h-24 text-center">
                                 No results.
                             </TableCell>
                         </TableRow>

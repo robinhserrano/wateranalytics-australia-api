@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,6 +71,11 @@ const filteredContacts = computed(() => {
         contact.display_name.toLowerCase().includes(query)
     );
 });
+
+const isAdmin = computed(() => {
+    const user = usePage().props.auth.user;
+    return user?.roles?.some((role: { name: string }) => role.name === 'Admin') ?? false;
+});
 </script>
 
 <template>
@@ -120,7 +125,7 @@ const filteredContacts = computed(() => {
                                 <span v-if="form.errors.role_name" class="text-red-500 text-sm">{{ form.errors.role_name }}</span>
                             </div>
 
-                            <div class="space-y-2">
+                            <div v-if="isAdmin" class="space-y-2">
                                 <Label for="legacy_id">Legacy ID (Optional)</Label>
                                 <Input id="legacy_id" type="number" :modelValue="form.legacy_id ?? undefined" @update:modelValue="val => form.legacy_id = val ? Number(val) : null" placeholder="V1 User ID" />
                                 <span v-if="form.errors.legacy_id" class="text-red-500 text-sm">{{ form.errors.legacy_id }}</span>
@@ -151,7 +156,7 @@ const filteredContacts = computed(() => {
                         </CardContent>
                     </Card>
 
-                     <Card class="md:col-span-2">
+                     <Card v-if="isAdmin" class="md:col-span-2">
                         <CardHeader>
                             <CardTitle>Assign Contacts</CardTitle>
                         </CardHeader>

@@ -57,15 +57,6 @@ const formatQty = (qty: number | null) => {
                             
                             <div class="text-sm font-medium text-muted-foreground">Category</div>
                             <div class="text-sm">{{ stock.categ_name || '-' }}</div>
-
-                            <div class="text-sm font-medium text-muted-foreground">Cost Method</div>
-                            <div class="text-sm capitalize">{{ stock.cost_method || '-' }}</div>
-
-                            <div class="text-sm font-medium text-muted-foreground">Average Cost</div>
-                            <div class="text-sm">{{ formatCurrency(stock.avg_cost) }}</div>
-
-                            <div class="text-sm font-medium text-muted-foreground">Total Value</div>
-                            <div class="text-sm font-semibold">{{ formatCurrency(stock.total_value) }}</div>
                         </div>
                     </CardContent>
                 </Card>

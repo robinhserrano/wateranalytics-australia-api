@@ -85,7 +85,7 @@ index.form = indexForm
 * @see app/Http/Controllers/CommissionController.php:121
 * @route '/commissions/{commission}'
 */
-export const show = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -100,7 +100,7 @@ show.definition = {
 * @see app/Http/Controllers/CommissionController.php:121
 * @route '/commissions/{commission}'
 */
-show.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+show.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -133,7 +133,7 @@ show.url = (args: { commission: string | number | { id: string | number } } | [c
 * @see app/Http/Controllers/CommissionController.php:121
 * @route '/commissions/{commission}'
 */
-show.get = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -143,7 +143,7 @@ show.get = (args: { commission: string | number | { id: string | number } } | [c
 * @see app/Http/Controllers/CommissionController.php:121
 * @route '/commissions/{commission}'
 */
-show.head = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -153,7 +153,7 @@ show.head = (args: { commission: string | number | { id: string | number } } | [
 * @see app/Http/Controllers/CommissionController.php:121
 * @route '/commissions/{commission}'
 */
-const showForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const showForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -163,7 +163,7 @@ const showForm = (args: { commission: string | number | { id: string | number } 
 * @see app/Http/Controllers/CommissionController.php:121
 * @route '/commissions/{commission}'
 */
-showForm.get = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.get = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -173,7 +173,7 @@ showForm.get = (args: { commission: string | number | { id: string | number } } 
 * @see app/Http/Controllers/CommissionController.php:121
 * @route '/commissions/{commission}'
 */
-showForm.head = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.head = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
@@ -246,7 +246,7 @@ calculate.form = calculateForm
 * @see app/Http/Controllers/CommissionController.php:169
 * @route '/commissions/{commission}/recalculate'
 */
-export const recalculate = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const recalculate = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: recalculate.url(args, options),
     method: 'post',
 })
@@ -261,7 +261,7 @@ recalculate.definition = {
 * @see app/Http/Controllers/CommissionController.php:169
 * @route '/commissions/{commission}/recalculate'
 */
-recalculate.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+recalculate.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -294,7 +294,7 @@ recalculate.url = (args: { commission: string | number | { id: string | number }
 * @see app/Http/Controllers/CommissionController.php:169
 * @route '/commissions/{commission}/recalculate'
 */
-recalculate.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+recalculate.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: recalculate.url(args, options),
     method: 'post',
 })
@@ -304,7 +304,7 @@ recalculate.post = (args: { commission: string | number | { id: string | number 
 * @see app/Http/Controllers/CommissionController.php:169
 * @route '/commissions/{commission}/recalculate'
 */
-const recalculateForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const recalculateForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: recalculate.url(args, options),
     method: 'post',
 })
@@ -314,7 +314,7 @@ const recalculateForm = (args: { commission: string | number | { id: string | nu
 * @see app/Http/Controllers/CommissionController.php:169
 * @route '/commissions/{commission}/recalculate'
 */
-recalculateForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+recalculateForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: recalculate.url(args, options),
     method: 'post',
 })
@@ -326,7 +326,7 @@ recalculate.form = recalculateForm
 * @see app/Http/Controllers/CommissionController.php:185
 * @route '/commissions/{commission}/adjust'
 */
-export const adjust = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const adjust = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: adjust.url(args, options),
     method: 'post',
 })
@@ -341,7 +341,7 @@ adjust.definition = {
 * @see app/Http/Controllers/CommissionController.php:185
 * @route '/commissions/{commission}/adjust'
 */
-adjust.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+adjust.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -374,7 +374,7 @@ adjust.url = (args: { commission: string | number | { id: string | number } } | 
 * @see app/Http/Controllers/CommissionController.php:185
 * @route '/commissions/{commission}/adjust'
 */
-adjust.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+adjust.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: adjust.url(args, options),
     method: 'post',
 })
@@ -384,7 +384,7 @@ adjust.post = (args: { commission: string | number | { id: string | number } } |
 * @see app/Http/Controllers/CommissionController.php:185
 * @route '/commissions/{commission}/adjust'
 */
-const adjustForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const adjustForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: adjust.url(args, options),
     method: 'post',
 })
@@ -394,7 +394,7 @@ const adjustForm = (args: { commission: string | number | { id: string | number 
 * @see app/Http/Controllers/CommissionController.php:185
 * @route '/commissions/{commission}/adjust'
 */
-adjustForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+adjustForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: adjust.url(args, options),
     method: 'post',
 })
@@ -406,7 +406,7 @@ adjust.form = adjustForm
 * @see app/Http/Controllers/CommissionController.php:209
 * @route '/commissions/{commission}/approve'
 */
-export const approve = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const approve = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: approve.url(args, options),
     method: 'post',
 })
@@ -421,7 +421,7 @@ approve.definition = {
 * @see app/Http/Controllers/CommissionController.php:209
 * @route '/commissions/{commission}/approve'
 */
-approve.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+approve.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -454,7 +454,7 @@ approve.url = (args: { commission: string | number | { id: string | number } } |
 * @see app/Http/Controllers/CommissionController.php:209
 * @route '/commissions/{commission}/approve'
 */
-approve.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+approve.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: approve.url(args, options),
     method: 'post',
 })
@@ -464,7 +464,7 @@ approve.post = (args: { commission: string | number | { id: string | number } } 
 * @see app/Http/Controllers/CommissionController.php:209
 * @route '/commissions/{commission}/approve'
 */
-const approveForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const approveForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: approve.url(args, options),
     method: 'post',
 })
@@ -474,7 +474,7 @@ const approveForm = (args: { commission: string | number | { id: string | number
 * @see app/Http/Controllers/CommissionController.php:209
 * @route '/commissions/{commission}/approve'
 */
-approveForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+approveForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: approve.url(args, options),
     method: 'post',
 })
@@ -486,7 +486,7 @@ approve.form = approveForm
 * @see app/Http/Controllers/CommissionController.php:243
 * @route '/commissions/{commission}/reject'
 */
-export const reject = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const reject = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: reject.url(args, options),
     method: 'post',
 })
@@ -501,7 +501,7 @@ reject.definition = {
 * @see app/Http/Controllers/CommissionController.php:243
 * @route '/commissions/{commission}/reject'
 */
-reject.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+reject.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -534,7 +534,7 @@ reject.url = (args: { commission: string | number | { id: string | number } } | 
 * @see app/Http/Controllers/CommissionController.php:243
 * @route '/commissions/{commission}/reject'
 */
-reject.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+reject.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: reject.url(args, options),
     method: 'post',
 })
@@ -544,7 +544,7 @@ reject.post = (args: { commission: string | number | { id: string | number } } |
 * @see app/Http/Controllers/CommissionController.php:243
 * @route '/commissions/{commission}/reject'
 */
-const rejectForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const rejectForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: reject.url(args, options),
     method: 'post',
 })
@@ -554,7 +554,7 @@ const rejectForm = (args: { commission: string | number | { id: string | number 
 * @see app/Http/Controllers/CommissionController.php:243
 * @route '/commissions/{commission}/reject'
 */
-rejectForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+rejectForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: reject.url(args, options),
     method: 'post',
 })
@@ -566,7 +566,7 @@ reject.form = rejectForm
 * @see app/Http/Controllers/CommissionController.php:278
 * @route '/commissions/{commission}/confirm'
 */
-export const confirm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const confirm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: confirm.url(args, options),
     method: 'post',
 })
@@ -581,7 +581,7 @@ confirm.definition = {
 * @see app/Http/Controllers/CommissionController.php:278
 * @route '/commissions/{commission}/confirm'
 */
-confirm.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+confirm.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -614,7 +614,7 @@ confirm.url = (args: { commission: string | number | { id: string | number } } |
 * @see app/Http/Controllers/CommissionController.php:278
 * @route '/commissions/{commission}/confirm'
 */
-confirm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+confirm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: confirm.url(args, options),
     method: 'post',
 })
@@ -624,7 +624,7 @@ confirm.post = (args: { commission: string | number | { id: string | number } } 
 * @see app/Http/Controllers/CommissionController.php:278
 * @route '/commissions/{commission}/confirm'
 */
-const confirmForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const confirmForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: confirm.url(args, options),
     method: 'post',
 })
@@ -634,7 +634,7 @@ const confirmForm = (args: { commission: string | number | { id: string | number
 * @see app/Http/Controllers/CommissionController.php:278
 * @route '/commissions/{commission}/confirm'
 */
-confirmForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+confirmForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: confirm.url(args, options),
     method: 'post',
 })
@@ -646,7 +646,7 @@ confirm.form = confirmForm
 * @see app/Http/Controllers/CommissionController.php:310
 * @route '/commissions/{commission}/mark-paid'
 */
-export const markPaid = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const markPaid = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: markPaid.url(args, options),
     method: 'post',
 })
@@ -661,7 +661,7 @@ markPaid.definition = {
 * @see app/Http/Controllers/CommissionController.php:310
 * @route '/commissions/{commission}/mark-paid'
 */
-markPaid.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+markPaid.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -694,7 +694,7 @@ markPaid.url = (args: { commission: string | number | { id: string | number } } 
 * @see app/Http/Controllers/CommissionController.php:310
 * @route '/commissions/{commission}/mark-paid'
 */
-markPaid.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+markPaid.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: markPaid.url(args, options),
     method: 'post',
 })
@@ -704,7 +704,7 @@ markPaid.post = (args: { commission: string | number | { id: string | number } }
 * @see app/Http/Controllers/CommissionController.php:310
 * @route '/commissions/{commission}/mark-paid'
 */
-const markPaidForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const markPaidForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: markPaid.url(args, options),
     method: 'post',
 })
@@ -714,7 +714,7 @@ const markPaidForm = (args: { commission: string | number | { id: string | numbe
 * @see app/Http/Controllers/CommissionController.php:310
 * @route '/commissions/{commission}/mark-paid'
 */
-markPaidForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+markPaidForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: markPaid.url(args, options),
     method: 'post',
 })
@@ -726,7 +726,7 @@ markPaid.form = markPaidForm
 * @see app/Http/Controllers/CommissionController.php:338
 * @route '/commissions/{commission}/mark-odoo'
 */
-export const markOdoo = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const markOdoo = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: markOdoo.url(args, options),
     method: 'post',
 })
@@ -741,7 +741,7 @@ markOdoo.definition = {
 * @see app/Http/Controllers/CommissionController.php:338
 * @route '/commissions/{commission}/mark-odoo'
 */
-markOdoo.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+markOdoo.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -774,7 +774,7 @@ markOdoo.url = (args: { commission: string | number | { id: string | number } } 
 * @see app/Http/Controllers/CommissionController.php:338
 * @route '/commissions/{commission}/mark-odoo'
 */
-markOdoo.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+markOdoo.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: markOdoo.url(args, options),
     method: 'post',
 })
@@ -784,7 +784,7 @@ markOdoo.post = (args: { commission: string | number | { id: string | number } }
 * @see app/Http/Controllers/CommissionController.php:338
 * @route '/commissions/{commission}/mark-odoo'
 */
-const markOdooForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const markOdooForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: markOdoo.url(args, options),
     method: 'post',
 })
@@ -794,7 +794,7 @@ const markOdooForm = (args: { commission: string | number | { id: string | numbe
 * @see app/Http/Controllers/CommissionController.php:338
 * @route '/commissions/{commission}/mark-odoo'
 */
-markOdooForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+markOdooForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: markOdoo.url(args, options),
     method: 'post',
 })
@@ -806,7 +806,7 @@ markOdoo.form = markOdooForm
 * @see app/Http/Controllers/CommissionController.php:366
 * @route '/commissions/{commission}/reset-confirm'
 */
-export const resetConfirm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const resetConfirm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: resetConfirm.url(args, options),
     method: 'post',
 })
@@ -821,7 +821,7 @@ resetConfirm.definition = {
 * @see app/Http/Controllers/CommissionController.php:366
 * @route '/commissions/{commission}/reset-confirm'
 */
-resetConfirm.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+resetConfirm.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -854,7 +854,7 @@ resetConfirm.url = (args: { commission: string | number | { id: string | number 
 * @see app/Http/Controllers/CommissionController.php:366
 * @route '/commissions/{commission}/reset-confirm'
 */
-resetConfirm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+resetConfirm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: resetConfirm.url(args, options),
     method: 'post',
 })
@@ -864,7 +864,7 @@ resetConfirm.post = (args: { commission: string | number | { id: string | number
 * @see app/Http/Controllers/CommissionController.php:366
 * @route '/commissions/{commission}/reset-confirm'
 */
-const resetConfirmForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const resetConfirmForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: resetConfirm.url(args, options),
     method: 'post',
 })
@@ -874,7 +874,7 @@ const resetConfirmForm = (args: { commission: string | number | { id: string | n
 * @see app/Http/Controllers/CommissionController.php:366
 * @route '/commissions/{commission}/reset-confirm'
 */
-resetConfirmForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+resetConfirmForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: resetConfirm.url(args, options),
     method: 'post',
 })
@@ -886,7 +886,7 @@ resetConfirm.form = resetConfirmForm
 * @see app/Http/Controllers/CommissionController.php:399
 * @route '/commissions/{commission}/reset-odoo'
 */
-export const resetOdoo = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const resetOdoo = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: resetOdoo.url(args, options),
     method: 'post',
 })
@@ -901,7 +901,7 @@ resetOdoo.definition = {
 * @see app/Http/Controllers/CommissionController.php:399
 * @route '/commissions/{commission}/reset-odoo'
 */
-resetOdoo.url = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+resetOdoo.url = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { commission: args }
     }
@@ -934,7 +934,7 @@ resetOdoo.url = (args: { commission: string | number | { id: string | number } }
 * @see app/Http/Controllers/CommissionController.php:399
 * @route '/commissions/{commission}/reset-odoo'
 */
-resetOdoo.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+resetOdoo.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: resetOdoo.url(args, options),
     method: 'post',
 })
@@ -944,7 +944,7 @@ resetOdoo.post = (args: { commission: string | number | { id: string | number } 
 * @see app/Http/Controllers/CommissionController.php:399
 * @route '/commissions/{commission}/reset-odoo'
 */
-const resetOdooForm = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const resetOdooForm = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: resetOdoo.url(args, options),
     method: 'post',
 })
@@ -954,7 +954,7 @@ const resetOdooForm = (args: { commission: string | number | { id: string | numb
 * @see app/Http/Controllers/CommissionController.php:399
 * @route '/commissions/{commission}/reset-odoo'
 */
-resetOdooForm.post = (args: { commission: string | number | { id: string | number } } | [commission: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+resetOdooForm.post = (args: { commission: number | { id: number } } | [commission: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: resetOdoo.url(args, options),
     method: 'post',
 })
