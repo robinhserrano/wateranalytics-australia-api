@@ -171,6 +171,17 @@ docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisa
 
 # 3. Standard optimizations
 docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan migrate --force
+
+# Seed roles and permissions if not already seeded
+echo "🌱 Checking roles and permissions..."
+PERM_COUNT=$(docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan tinker --execute="echo \Spatie\Permission\Models\Permission::count();" 2>/dev/null | tail -n 1 || echo "0")
+if [ "$PERM_COUNT" = "0" ]; then
+    echo "🌱 Seeding roles and permissions..."
+    docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan db:seed --class=RolesAndPermissionsSeeder --force
+else
+    echo "✅ Roles and permissions already exist."
+fi
+
 docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan config:cache
 docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan route:cache
 docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan view:cache

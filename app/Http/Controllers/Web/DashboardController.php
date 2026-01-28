@@ -18,8 +18,8 @@ class DashboardController extends Controller
         $salesQuery = SalesOrder::query()->where('state', 'sale');
         
         // Apply Role Filters
-        if (!$user->hasPermissionTo('view-all-sales-orders')) {
-            if ($user->hasPermissionTo('view-team-sales-orders')) {
+        if (!$user->can('view-all-sales-orders')) {
+            if ($user->can('view-team-sales-orders')) {
                 // Team Manager view
                 $teamUserIds = $this->getTeamUserIds($user);
                 
@@ -58,8 +58,8 @@ class DashboardController extends Controller
 
         // 2. Commission Query Base
         $commissionQuery = CommissionCalculation::query();
-        if (!$user->hasPermissionTo('view-all-commissions')) {
-            if ($user->hasPermissionTo('view-team-commissions')) {
+        if (!$user->can('view-all-commissions')) {
+            if ($user->can('view-team-commissions')) {
                 $teamUserIds = $this->getTeamUserIds($user);
                 $commissionQuery->whereIn('user_id', $teamUserIds);
             } else {

@@ -21,13 +21,8 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
         $this->call([
-            // Example of a system user seeder (must run first for authentication)
-            // You can keep your test user creation here OR move it to a dedicated seeder.
-            // UserSeeder::class, 
-
-            // ProductSeeder::class, 
-            LandingPriceSeeder::class, 
-            // Add any other seeders here (e.g., RolesSeeder::class, PermissionsSeeder::class)
+            RolesAndPermissionsSeeder::class,
+            LandingPriceSeeder::class,
         ]);
     }
 }
