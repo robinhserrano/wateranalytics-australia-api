@@ -1,346 +1,884 @@
 # Water Analytics Australia - Commission Management System
 
-A comprehensive commission tracking and management system built for Water Analytics Australia, featuring seamless integration with Odoo ERP, automated commission calculations, and a modern web interface.
-
-## 🚀 Features
-
-### Core Functionality
-- **Automated Commission Calculations**: Real-time commission calculations based on sales orders, product margins, and user-specific rates
-- **Odoo Integration**: Bi-directional sync with Odoo ERP for sales orders, products, contacts, and inventory
-- **Role-Based Access Control**: Granular permissions for Admin, Account Officer, Sales Manager, Team Manager, and Salesperson roles
-- **Legacy System Migration**: Seamless migration from legacy commission tracking system with data reconciliation
-
-### Commission Management
-- **Multi-Source Tracking**: Separate commission rates for self-generated leads vs. company leads
-- **Commission Breakdown**: Detailed breakdown showing base commission, extra commission, manual adjustments, and deductions
-- **Approval Workflow**: Manager confirmation and payment tracking
-- **Status Filtering**: Filter by pending, approved, rejected, or paid commissions
-
-### Sales Order Management
-- **Advanced Filtering**: Filter by user, commission status, delivery status, invoice status, and date range
-- **Pending Mapping**: Identify sales orders without assigned commission owners
-- **Status-Based Views**: Focus on active 'sale' status orders
-- **Delivery Tracking**: Track fully delivered, partially delivered, and not delivered orders
-
-## 🛠️ Tech Stack
-
-### Backend
-- **Framework**: Laravel 12
-- **Authentication**: Laravel Sanctum (API) + Fortify (Web)
-- **Permissions**: Spatie Laravel Permission
-- **Database**: MySQL
-- **Odoo Integration**: obuchmann/odoo-jsonrpc
-- **Backup**: Spatie Laravel Backup
-
-### Frontend
-- **Framework**: Vue 3 (Composition API)
-- **Routing**: Inertia.js
-- **UI Components**: Reka UI (Shadcn-style components)
-- **Icons**: Lucide Vue Next
-- **Styling**: Tailwind CSS
-- **Date Handling**: @internationalized/date
-- **Utilities**: @vueuse/core
-
-### Development
-- **Container**: Laravel Sail (Docker)
-- **Build Tool**: Vite
-- **Code Quality**: Laravel Pint
-- **Debugging**: Laravel Debugbar
-
-## 📱 Pages Overview
-
-### Dashboard
-- **Route**: `/dashboard`
-- **Features**: Overview of sales, commissions, and key metrics
-- **Access**: All authenticated users (role-based data)
-
-### Sales Orders
-- **Route**: `/sales-orders`
-- **Features**: 
-  - Searchable and filterable sales order list
-  - Advanced filters (users, status, dates)
-  - Minimalist top-aligned pagination
-  - Badge-based status indicators
-  - Commission owner assignment
-- **Access**: Role-based (own orders, team orders, or all orders)
-
-### Sales Order Details
-- **Route**: `/sales-orders/{id}`
-- **Features**:
-  - Complete order information
-  - Line items with product details and margins
-  - Commission breakdown
-  - Manager confirmation controls
-  - Odoo entry tracking
-- **Access**: Role-based
-
-### Commissions
-- **Route**: `/commissions`
-- **Features**:
-  - Commission calculations list
-  - Filter by status and sales source
-  - Summary cards (pending, approved, paid, total earnings)
-  - Searchable by order or salesperson
-- **Access**: Role-based
-
-### Commission Details
-- **Route**: `/commissions/{id}`
-- **Features**:
-  - Detailed commission breakdown
-  - Adjustment history
-  - Approval workflow
-  - Related sales order information
-- **Access**: Role-based
-
-### Users
-- **Route**: `/users`
-- **Features**:
-  - User management
-  - Commission split configuration
-  - Self-gen and company lead base rates
-  - Role assignment
-  - Contact assignment
-  - Password management
-- **Access**: Admin only
-
-### Teams
-- **Route**: `/teams`
-- **Features**:
-  - Team management
-  - Team manager assignment
-  - Member management
-- **Access**: Managers and above
-
-### Contacts
-- **Route**: `/contacts`
-- **Features**:
-  - Customer/contact directory
-  - Search functionality
-  - Synced from Odoo
-- **Access**: All authenticated users
-
-### Products
-- **Route**: `/products`
-- **Features**:
-  - Product catalog
-  - Category and type filtering
-  - Landing price tracking
-  - Synced from Odoo
-- **Access**: All authenticated users
-
-### Product Stocks
-- **Route**: `/stocks`
-- **Features**:
-  - Inventory levels by warehouse
-  - On-hand, available, incoming, outgoing quantities
-  - Stock value tracking
-- **Access**: All authenticated users
-
-### Roles & Permissions
-- **Route**: `/roles`
-- **Features**:
-  - Role management
-  - Permission assignment
-- **Access**: Admin only
-
-## 🔌 API Endpoints
-
-All API endpoints are prefixed with `/api` and require Sanctum authentication (except login).
-
-### Authentication
-- `POST /api/login` - User login
-- `POST /api/logout` - User logout
-- `GET /api/user` - Get authenticated user details
-
-### Dashboard
-- `GET /api/dashboard` - Get dashboard statistics
-
-### Sales Orders
-- `GET /api/sales-orders` - List sales orders (paginated, filterable)
-- `GET /api/sales-orders/{id}` - Get sales order details
-
-### Commissions
-- `GET /api/commissions/stats` - Get user commission statistics
-- `GET /api/commissions` - List commissions (paginated, filterable)
-- `GET /api/commissions/{id}` - Get commission details
-
-### Teams
-- `GET /api/teams` - List all teams
-- `GET /api/teams/{id}` - Get team details
-
-### Contacts
-- `GET /api/contacts` - List contacts (paginated, searchable)
-- `GET /api/contacts/{id}` - Get contact details
-
-### Products
-- `GET /api/products` - List products (paginated, searchable)
-- `GET /api/products/{id}` - Get product details
-
-## 🎨 UI/UX Features
-
-### Design System
-- **Shadcn-style Components**: Modern, accessible UI components
-- **Consistent Theming**: Unified color palette and spacing
-- **Responsive Design**: Mobile-first approach
-
-### Custom Features
-- **Badge System**: Color-coded badges for sales sources and delivery statuses
-  - Self Gen: Indigo (`#5850e6`)
-  - Company Lead: Slate (`#475569`)
-  - Fully Delivered: Emerald (`#077959`)
-  - Partially Delivered: Amber (`#b5550c`)
-- **Advanced Date Picker**: Shadcn-style calendar with timezone handling
-- **Searchable Dropdowns**: User picker with "Pending Mapping" option
-- **Minimalist Pagination**: Top-aligned with arrows and result ranges
-
-## 🔧 Setup Instructions
-
-### Prerequisites
-- Docker Desktop
-- Git
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/robinhserrano/wateranalytics-australia-api.git
-   cd wateranalytics-australia-api
-   ```
-
-2. **Copy environment file**
-   ```bash
-   cp .env.example .env
-   ```
-
-3. **Configure environment variables**
-   Edit `.env` and set:
-   - Database credentials
-   - Odoo connection details
-   - App URL and key
-
-4. **Start Docker containers**
-   ```bash
-   ./vendor/bin/sail up -d
-   ```
-
-5. **Install dependencies**
-   ```bash
-   ./vendor/bin/sail composer install
-   ./vendor/bin/sail npm install
-   ```
-
-6. **Generate application key**
-   ```bash
-   ./vendor/bin/sail artisan key:generate
-   ```
-
-7. **Run migrations**
-   ```bash
-   ./vendor/bin/sail artisan migrate
-   ```
-
-8. **Seed database (optional)**
-   ```bash
-   ./vendor/bin/sail artisan db:seed
-   ```
-
-9. **Build frontend assets**
-   ```bash
-   ./vendor/bin/sail npm run dev
-   ```
-
-10. **Access the application**
-    - Web: http://localhost
-    - API: http://localhost/api
-
-## 📊 Key Artisan Commands
-
-### Odoo Synchronization
-```bash
-# Sync legacy sales orders from old system
-./vendor/bin/sail artisan legacy:sync-sales-orders
-
-# Sync products from Odoo
-./vendor/bin/sail artisan odoo:sync-products
-
-# Sync contacts from Odoo
-./vendor/bin/sail artisan odoo:sync-contacts
-
-# Sync stock levels from Odoo
-./vendor/bin/sail artisan odoo:sync-stocks
-```
-
-### Commission Management
-```bash
-# Recalculate all commissions
-./vendor/bin/sail artisan commissions:recalculate
-```
-
-### Backup
-```bash
-# Run backup
-./vendor/bin/sail artisan backup:run
-```
-
-## 🔐 Roles & Permissions
-
-### Admin
-- Full system access
-- User management
-- Role and permission management
-
-### Account Officer
-- View all sales orders and commissions
-- Financial reporting access
-
-### Sales Manager
-- View team sales orders and commissions
-- Approve commission calculations
-- Manage direct reports
-
-### Team Manager
-- View team sales orders and commissions
-- Manage team members
-
-### Salesperson
-- View own sales orders and commissions
-- Track personal performance
-
-## 📝 Commission Calculation Logic
-
-```
-Base Commission = (Sales Amount - Total Cost) × Commission Split × Base Rate
-Extra Commission = Additional bonuses or incentives
-Manual Adjustment = Manager-applied adjustments
-Deductions = Any applicable deductions
-
-Final Commission = Base + Extra + Manual Adjustment - Deductions
-```
-
-### Sales Source Rates
-- **Self Generated**: Higher commission rate (configurable per user)
-- **Company Lead**: Standard commission rate (configurable per user)
-
-## 🔄 Data Flow
-
-1. **Sales Order Created in Odoo** → Synced to Laravel
-2. **Commission Calculation** → Automated based on product margins and user rates
-3. **Manager Review** → Confirmation and adjustments
-4. **Payment Tracking** → Status updates (pending → approved → paid)
-5. **Mobile Access** → Real-time data via API
-
-## 🤝 Contributing
-
-This is a private internal application for Water Analytics Australia.
-
-## 📄 License
-
-Proprietary - All rights reserved by Water Analytics Australia
-
-## 👥 Support
-
-For technical support or questions, contact the development team.
+A sophisticated, enterprise-grade commission tracking and management platform for Water Analytics Australia. Engineered for real-time calculations, seamless Odoo ERP integration, and complex multi-tier approval workflows.
 
 ---
 
-**Built with ❤️ for Water Analytics Australia**
+## 📋 Table of Contents
+
+- Overview
+- Core Features
+- Tech Stack
+- System Architecture
+- Prerequisites
+- Getting Started
+- Project Structure
+- API Documentation
+- Configuration
+- Development Workflow
+- Testing
+- Deployment
+- Troubleshooting
+
+---
+
+## Overview
+
+Water Analytics Australia Commission Management System is a full-stack application designed to revolutionize how sales commissions are tracked, calculated, and managed. Built with modern technologies and enterprise-grade practices, it provides:
+
+- **Real-time Commission Calculations** leveraging complex business rules and multi-tier approval workflows
+- **Bi-directional Odoo Integration** ensuring single source of truth across systems
+- **Role-Based Access Control** with granular permission management
+- **Legacy System Migration** capabilities with full data reconciliation and audit trails
+- **Comprehensive Analytics** and reporting for business intelligence
+
+Perfect for organizations managing complex sales commission structures with multiple team hierarchies and approval workflows.
+
+---
+
+## 🚀 Core Features
+
+### Commission Management
+
+- **Automated Real-Time Calculations**: Instantly compute commissions based on sales orders, product margins, and configurable user-specific rates
+- **Multi-Source Commission Tracking**: Distinguish between self-generated leads and company-provided leads with separate milestone-based rates
+- **Advanced Commission Breakdown**: Granular visibility into base commission, extra commission, manual adjustments, penalties, and deductions
+- **Intelligent Approval Workflows**: Multi-level manager review and approval process with status tracking and audit trails
+- **Commission Status Lifecycle**: Comprehensive tracking through pending → approved → paid states with historical records
+
+### Sales Order Management
+
+- **Intelligent Filtering System**: Advanced filters by salesperson, commission status, delivery status, invoice status, and date ranges
+- **Pending Commission Resolution**: Quick identification of sales orders requiring commission owner assignment
+- **Order Status Views**: Visibility into active 'sale' status orders with delivery state tracking
+- **Inventory Integration**: Track fully delivered, partially delivered, and pending orders with warehouse synchronization
+
+### Odoo ERP Integration
+
+- **Bi-Directional Sync**: Automatic synchronization of sales orders, products, contacts, and inventory levels
+- **Conflict Resolution**: Intelligent handling of data conflicts with audit logging and resolution history
+- **Real-Time Webhooks**: Event-driven updates ensuring data consistency across systems
+- **Migration Tools**: Comprehensive legacy system data import with validation and reconciliation
+
+### Access Control & Security
+
+- **Role-Based Permissions**: Admin, Account Officer, Sales Manager, Team Manager, Salesperson
+- **Row-Level Security**: Restrict data access based on team hierarchy and manager relationships
+- **Audit Logging**: Complete tracking of all commission modifications with user attribution
+- **API Authentication**: Secure Sanctum-based API authentication with token management
+
+---
+
+## 🛠️ Tech Stack
+
+### Backend Architecture
+
+- **Framework**: [Laravel 12](https://laravel.com/) - Modern PHP framework with elegant syntax
+- **Authentication**: [Laravel Sanctum](https://laravel.com/docs/12/sanctum) - Token-based API authentication
+- **Web Auth**: [Laravel Fortify](https://laravel.com/docs/12/fortify) - Backend authentication scaffolding
+- **Permissions**: [Spatie Laravel Permission](https://spatie.be/docs/laravel-permission) - Role and permission management
+- **Database**: MySQL 8.4 with full-text search capabilities
+- **Odoo Connector**: [obuchmann/odoo-jsonrpc](https://github.com/obuchmann/php-odoo-jsonrpc) - JSON-RPC Odoo integration
+- **Backups**: [Spatie Laravel Backup](https://spatie.be/docs/laravel-backup) - Automated backup solutions
+- **API Documentation**: [Scribe](https://scribe.knuckles.rocks/) - Auto-generated API documentation
+
+### Frontend Architecture
+
+- **Framework**: [Vue 3](https://vuejs.org/) with Composition API - Reactive, modern UI framework
+- **Routing & SSR**: [Inertia.js](https://inertiajs.com/) - Seamless server-driven UI
+- **UI Components**: [Reka UI](https://reka-ui.com/) - Headless, unstyled component library
+- **Icons**: [Lucide Vue Next](https://lucide.dev/) - Consistent icon system
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/) with JIT compilation
+- **Date Handling**: [@internationalized/date](https://react-spectrum.adobe.com/internationalized/date/) - Timezone-aware date utilities
+- **Utilities**: [@vueuse/core](https://vueuse.org/) - Essential Vue composition utilities
+
+### Development & DevOps
+
+- **Containerization**: [Laravel Sail](https://laravel.com/docs/12/sail) - Docker-based development environment
+- **Build Tool**: [Vite 7](https://vitejs.dev/) - Lightning-fast module bundler
+- **Code Quality**: [Laravel Pint](https://laravel.com/docs/12/pint) - Opinionated PHP code style fixer
+- **Debugging**: [Laravel Debugbar](https://github.com/barryvdh/laravel-debugbar) - Development debugging toolbar
+- **Testing**: [Pest](https://pestphp.com/) - Elegant PHP testing framework
+- **Linting**: [ESLint](https://eslint.org/) with TypeScript support
+- **Formatting**: [Prettier](https://prettier.io/) - Code formatter for JavaScript/Vue
+
+### Infrastructure
+
+- **Container Orchestration**: Docker & Docker Compose
+- **Deployment**: AWS EC2 (Ubuntu 24.04 LTS ARM64)
+- **Web Server**: Nginx with HTTP/2 support
+- **SSL/TLS**: Let's Encrypt certificates with auto-renewal
+- **Reverse Proxy**: Nginx load balancing and caching
+
+---
+
+## 🏗️ System Architecture
+
+### High-Level Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Client Layer                          │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Vue 3 + Inertia.js (SSR-capable)                    │   │
+│  │  Tailwind CSS, Reka UI Components                    │   │
+│  └──────────────────────────────────────────────────────┘   │
+└────────────────────┬────────────────────────────────────────┘
+                     │ HTTP/HTTPS
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      API Layer                               │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Laravel 12 REST API with Sanctum Auth              │   │
+│  │  ├─ Commission Controller                            │   │
+│  │  ├─ Sales Order Controller                           │   │
+│  │  ├─ Dashboard Controller                             │   │
+│  │  └─ Sync Controllers (Odoo)                          │   │
+│  └──────────────────────────────────────────────────────┘   │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+         ┌───────────┴───────────┬──────────────┐
+         ▼                       ▼              ▼
+    ┌─────────┐          ┌────────────┐   ┌─────────────┐
+    │ Business│          │ Odoo ERP   │   │ Database    │
+    │ Logic   │          │ Integration│   │ (MySQL)     │
+    │ Services│          │ Layer      │   │             │
+    └─────────┘          └────────────┘   │ ├─ Users    │
+         │                    │           │ ├─ Commissions
+         │                    │           │ ├─ Orders   │
+         └────────────────────┴───────────┤ └─ Products │
+                              │           └─────────────┘
+                              ▼
+                      ┌──────────────────┐
+                      │ Odoo ERP System  │
+                      │ (External SaaS)  │
+                      └──────────────────┘
+
+                    ┌──────────────────┐
+                    │ Queue System     │
+                    │ (Background Jobs)│
+                    └──────────────────┘
+```
+
+### Data Flow
+
+**Commission Calculation Flow**:
+
+1. Sales Order received via Odoo webhook
+2. System validates and maps commission owner
+3. Commission calculated based on business rules
+4. Record stored with 'pending' status
+5. Manager receives notification for approval
+6. Approved commissions marked for payment processing
+
+**Odoo Sync Flow**:
+
+1. Periodic sync or webhook trigger
+2. Fetch updates from Odoo via JSON-RPC
+3. Local conflict detection
+4. Upsert with audit logging
+5. Notification system updated
+
+---
+
+## Prerequisites
+
+### System Requirements
+
+- **PHP**: ≥ 8.2 (recommended: ≥ 8.3)
+- **Node.js**: ≥ 20.0
+- **Docker**: ≥ 24.0 (for local development)
+- **Composer**: ≥ 2.5
+- **npm**: ≥ 10.0
+
+### External Services
+
+- **Odoo Instance**: Version 16.0+ (self-hosted or cloud)
+- **MySQL Database**: ≥ 8.4 (included in Sail)
+- **SMTP Server**: For email notifications (Mailgun, SendGrid, or custom)
+- **Optional**: Redis for caching and queue management
+
+### Credentials
+
+You'll need:
+
+- Odoo JSON-RPC login credentials
+- SMTP email configuration
+- AWS account (for production deployment)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone Repository
+
+```bash
+git clone <https://github.com/yourusername/wateranalytics-australia-api.git>
+cd wateranalytics-australia-api
+```
+
+### 2. Environment Configuration
+
+Copy the example environment file and customize:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your configuration:
+
+```
+APP_NAME="Water Analytics Commission System"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost
+
+# Database
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=commission_system
+DB_USERNAME=sail
+DB_PASSWORD=password
+
+# Odoo Integration
+ODOO_URL=https://your-odoo-instance.com
+ODOO_DATABASE=your_database
+ODOO_USERNAME=your_email@example.com
+ODOO_PASSWORD=your_password
+
+# Mail
+MAIL_MAILER=smtp
+MAIL_HOST=your-smtp-host.com
+MAIL_PORT=587
+MAIL_USERNAME=your_email
+MAIL_PASSWORD=your_password
+MAIL_FROM_ADDRESS=noreply@wateranalytics.com.au
+MAIL_FROM_NAME="Water Analytics"
+
+# App Key
+APP_KEY=  # Generated in next step
+```
+
+### 3. Install Dependencies
+
+```bash
+# PHP dependencies
+composer install
+
+# Generate application key
+php artisan key:generate
+
+# Node dependencies
+npm install
+```
+
+### 4. Database Setup
+
+Using Laravel Sail:
+
+```bash
+# Start Docker containers
+./vendor/bin/sail up -d
+
+# Run migrations
+./vendor/bin/sail artisan migrate
+
+# Seed database with sample data (optional)
+./vendor/bin/sail artisan db:seed
+```
+
+### 5. Build Frontend Assets
+
+```bash
+npm run build
+```
+
+### 6. Start Development Server
+
+```bash
+# Using Sail (includes Laravel, Queue, and Vite)
+composer run dev
+
+# OR manually in separate terminals
+./vendor/bin/sail php artisan serve     # Terminal 1
+./vendor/bin/sail php artisan queue:listen  # Terminal 2 (optional)
+npm run dev                              # Terminal 3
+```
+
+The application will be available at: [**http://localhost**](http://localhost/)
+
+---
+
+## 📁 Project Structure
+
+```
+wateranalytics-australia-api/
+├── app/
+│   ├── Actions/              # Fortify authentication actions
+│   ├── Console/Commands/     # Custom Artisan commands
+│   ├── Http/
+│   │   ├── Controllers/
+│   │   │   ├── Api/         # REST API controllers
+│   │   │   ├── Admin/       # Admin panel controllers
+│   │   │   ├── Web/         # Web controllers
+│   │   │   └── Settings/    # Settings management
+│   │   ├── Middleware/      # HTTP middleware
+│   │   ├── Requests/        # Form request validations
+│   │   └── Resources/       # API response resources
+│   ├── Models/              # Eloquent models
+│   │   ├── Commission.php
+│   │   ├── SalesOrder.php
+│   │   ├── Product.php
+│   │   ├── User.php
+│   │   └── Team.php
+│   ├── Services/            # Business logic services
+│   │   ├── CommissionService.php
+│   │   ├── OdooService.php
+│   │   └── SyncService.php
+│   ├── Listeners/           # Event listeners
+│   └── Providers/           # Service providers
+│
+├── bootstrap/               # Application bootstrap
+├── config/                  # Configuration files
+│   ├── app.php
+│   ├── database.php
+│   ├── odoo.php            # Odoo configuration
+│   └── permission.php      # Permission configuration
+│
+├── database/
+│   ├── factories/          # Model factories for testing
+│   ├── migrations/         # Database migrations
+│   └── seeders/            # Database seeders
+│
+├── resources/
+│   ├── css/               # Tailwind CSS entry points
+│   ├── js/
+│   │   ├── Pages/        # Vue page components
+│   │   ├── Components/   # Reusable Vue components
+│   │   ├── Layouts/      # Layout components
+│   │   └── app.ts        # Vue app entry point
+│   └── views/            # Blade templates (if needed)
+│
+├── routes/
+│   ├── api.php           # API routes
+│   ├── web.php           # Web routes
+│   └── console.php       # Console commands
+│
+├── deployment/
+│   ├── Dockerfile        # Production Docker image
+│   ├── nginx.conf        # Nginx configuration
+│   └── deploy.sh         # Deployment script
+│
+├── storage/
+│   ├── app/              # Application storage
+│   ├── logs/             # Application logs
+│   └── debugbar/         # DebugBar data
+│
+├── tests/
+│   ├── Feature/          # Feature tests
+│   ├── Unit/             # Unit tests
+│   └── Pest.php          # Pest configuration
+│
+├── vendor/               # Composer dependencies
+├── node_modules/         # NPM dependencies
+├── compose.yaml          # Docker Compose for development
+├── docker-compose.prod.yml # Production Docker Compose
+├── vite.config.ts        # Vite configuration
+├── tsconfig.json         # TypeScript configuration
+├── tailwind.config.ts    # Tailwind CSS configuration
+├── eslint.config.js      # ESLint configuration
+├── phpunit.xml           # PHPUnit configuration
+├── composer.json         # PHP dependencies
+├── package.json          # Node dependencies
+└── README.md             # This file
+```
+
+---
+
+## 🔌 API Documentation
+
+### Base URL
+
+```
+<https://api.wateranalytics.com.au/api>
+```
+
+### Authentication
+
+All API endpoints (except login) require Bearer token authentication:
+
+```
+Authorization: Bearer {your_token}
+```
+
+Obtain a token by logging in:
+
+```bash
+curl -X POST <http://localhost/api/login> \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "email": "user@example.com",
+    "password": "password"
+  }'
+```
+
+### Core Endpoints
+
+### Commissions
+
+```
+GET    /api/commissions          # List commissions with filters
+GET    /api/commissions/{id}     # Get commission details
+GET    /api/commissions/stats    # Get commission statistics
+```
+
+Query Parameters:
+
+```
+?user_id=123&status=pending&from_date=2024-01-01&to_date=2024-12-31
+?page=1&per_page=50
+```
+
+### Sales Orders
+
+```
+GET    /api/sales-orders         # List sales orders
+GET    /api/sales-orders/{id}    # Get order details
+```
+
+### Dashboard
+
+```
+GET    /api/dashboard            # Get dashboard metrics
+```
+
+### Teams
+
+```
+GET    /api/teams                # List teams
+GET    /api/teams/{id}           # Get team details
+```
+
+### Products
+
+```
+GET    /api/products             # List products
+GET    /api/products/{id}        # Get product details
+```
+
+### Response Format
+
+**Success Response**:
+
+```json
+{
+  "data": { /* ... */ },
+  "meta": {
+    "total": 100,
+    "per_page": 20,
+    "current_page": 1
+  }
+}
+```
+
+**Error Response**:
+
+```json
+{
+  "message": "Validation failed",
+  "errors": {
+    "email": ["The email field is required."]
+  }
+}
+```
+
+### Full API Documentation
+
+Generate interactive API documentation:
+
+```bash
+php artisan scribe:generate
+```
+
+Documentation will be available at: `/api/documentation`
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+### Application
+
+```
+APP_NAME              # Application display name
+APP_ENV              # Environment (local, production)
+APP_DEBUG            # Debug mode toggle
+APP_URL              # Application URL
+APP_KEY              # Encryption key (auto-generated)
+APP_TIMEZONE         # Application timezone (default: UTC)
+```
+
+### Database
+
+```
+DB_CONNECTION        # Database driver (mysql)
+DB_HOST              # Database host
+DB_PORT              # Database port
+DB_DATABASE          # Database name
+DB_USERNAME          # Database user
+DB_PASSWORD          # Database password
+```
+
+### Odoo Integration
+
+```
+ODOO_URL             # Odoo instance URL
+ODOO_DATABASE        # Odoo database name
+ODOO_USERNAME        # Odoo login email
+ODOO_PASSWORD        # Odoo password
+ODOO_SYNC_INTERVAL   # Sync interval in minutes (default: 60)
+ODOO_WEBHOOK_SECRET  # Webhook signature verification secret
+```
+
+### Mail
+
+```
+MAIL_MAILER          # Mail driver (smtp, mailgun, sendgrid)
+MAIL_HOST            # SMTP host
+MAIL_PORT            # SMTP port (usually 587 or 465)
+MAIL_USERNAME        # SMTP username
+MAIL_PASSWORD        # SMTP password
+MAIL_FROM_ADDRESS    # From email address
+MAIL_FROM_NAME       # From display name
+```
+
+### Queue (for background jobs)
+
+```
+QUEUE_CONNECTION     # Queue driver (sync, database, redis, sqs)
+QUEUE_RETRIES        # Default retry attempts
+```
+
+### Permission Configuration
+
+Edit `config/permission.php` to define roles and permissions:
+
+```php
+'roles' => [
+    'admin',
+    'account_officer',
+    'sales_manager',
+    'team_manager',
+    'salesperson',
+],
+
+'permissions' => [
+    'view_commissions',
+    'approve_commissions',
+    'adjust_commissions',
+    'view_reports',
+]
+```
+
+### Odoo Configuration
+
+Configure Odoo sync in `config/odoo.php`:
+
+```php
+return [
+    'sync' => [
+        'enabled' => env('ODOO_SYNC_ENABLED', true),
+        'interval' => env('ODOO_SYNC_INTERVAL', 60),
+        'models' => [
+            'SalesOrder',
+            'Product',
+            'Contact',
+        ],
+    ],
+];
+```
+
+---
+
+## 👨‍💻 Development Workflow
+
+### Code Quality
+
+### Format Code
+
+```bash
+npm run format        # Format Vue/TypeScript/CSS
+composer run pint    # Format PHP code
+```
+
+### Lint Code
+
+```bash
+npm run lint         # Run ESLint
+php artisan pint --test  # Check PHP code style
+```
+
+### Type Check
+
+```bash
+npm run type-check   # TypeScript validation
+```
+
+### Database Management
+
+### Create Migration
+
+```bash
+php artisan make:migration create_commissions_table
+```
+
+### Run Migrations
+
+```bash
+php artisan migrate
+```
+
+### Rollback
+
+```bash
+php artisan migrate:rollback
+```
+
+### Fresh Database
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+### Generate Code
+
+### Create Controller
+
+```bash
+php artisan make:controller CommissionController --api
+```
+
+### Create Model with Migration
+
+```bash
+php artisan make:model Commission -m
+```
+
+### Create Request Validator
+
+```bash
+php artisan make:request StoreCommissionRequest
+```
+
+---
+
+## 🧪 Testing
+
+### Run All Tests
+
+```bash
+composer test
+```
+
+### Run Specific Test Suite
+
+```bash
+# Feature tests only
+php artisan test tests/Feature
+
+# Unit tests only
+php artisan test tests/Unit
+```
+
+### Run Single Test
+
+```bash
+php artisan test tests/Feature/CommissionTest.php
+```
+
+### Generate Coverage Report
+
+```bash
+php artisan test --coverage
+```
+
+### Test Structure
+
+```
+tests/
+├── Feature/
+│   ├── CommissionTest.php
+│   ├── SalesOrderTest.php
+│   ├── AuthTest.php
+│   └── OdooSyncTest.php
+├── Unit/
+│   ├── CommissionServiceTest.php
+│   └── OdooServiceTest.php
+└── Pest.php              # Pest configuration
+```
+
+---
+
+## 🚢 Deployment
+
+### Prerequisites
+
+- AWS account with EC2 access
+- Domain registered and DNS configured
+- SSH key pair for EC2 access
+- GitHub personal access token (for deploying from Git)
+
+### Quick Deployment
+
+Follow the complete deployment guide in [deployment/README.md](https://www.notion.so/deployment/README.md)
+
+### Environment for Production
+
+Create `.env.production`:
+
+```
+APP_NAME="Water Analytics Commission System"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://api.wateranalytics.com.au
+
+# Database (Production RDS or similar)
+DB_CONNECTION=mysql
+DB_HOST=mysql.production.internal
+DB_PORT=3306
+DB_DATABASE=commission_prod
+DB_USERNAME=prod_user
+DB_PASSWORD=secure_password_here
+
+# Odoo
+ODOO_URL=https://your-odoo-instance.com
+ODOO_SYNC_ENABLED=true
+
+# Mail
+MAIL_MAILER=mailgun
+MAIL_FROM_ADDRESS=noreply@wateranalytics.com.au
+
+# Security
+SESSION_DRIVER=cookie
+SESSION_SECURE_COOKIES=true
+SANCTUM_STATEFUL_DOMAINS=api.wateranalytics.com.au
+```
+
+### Docker Deployment
+
+```bash
+# Build production image
+docker-compose -f docker-compose.prod.yml build
+
+# Deploy
+docker-compose -f docker-compose.prod.yml up -d
+
+# Run migrations
+docker-compose -f docker-compose.prod.yml exec app php artisan migrate --force
+```
+
+### Monitoring & Logs
+
+```bash
+# View application logs
+docker-compose logs -f app
+
+# View database logs
+docker-compose logs -f mysql
+
+# Health check
+curl <https://api.wateranalytics.com.au/health>
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+### "CORS Policy" Error in Browser
+
+```
+Solution: Check CORS configuration in config/cors.php
+Ensure frontend domain is in ALLOWED_ORIGINS
+```
+
+### Commission Not Calculating
+
+```
+1. Check CommissionService logic
+2. Verify user has commission rates configured
+3. Check sales order status is 'sale'
+4. Review error logs: storage/logs/laravel.log
+```
+
+### Odoo Sync Fails
+
+```
+1. Verify ODOO credentials in .env
+2. Check Odoo instance is accessible
+3. Review queue logs: storage/logs/queue.log
+4. Run manual sync: php artisan odoo:sync --debug
+```
+
+### Docker Port Already in Use
+
+```bash
+# Find and kill process
+lsof -i :80
+kill -9 <PID>
+
+# Or change port in compose.yaml
+APP_PORT=8080
+```
+
+### Database Connection Error
+
+```
+1. Ensure MySQL container is running: docker ps
+2. Verify DB credentials in .env
+3. Check network configuration in compose.yaml
+```
+
+### Debug Commands
+
+```bash
+# Test Odoo connection
+php artisan odoo:test-connection
+
+# Clear all caches
+php artisan cache:clear
+php artisan config:clear
+php artisan route:clear
+
+# View queued jobs
+php artisan queue:failed
+
+# Retry failed jobs
+php artisan queue:retry all
+```
+
+---
+
+## 📊 Performance Considerations
+
+- **Database Indexing**: All foreign keys and frequently filtered columns are indexed
+- **Query Optimization**: Use `select()` and `with()` for efficient querying
+- **Caching**: Leverage Redis for commission rate caching
+- **Queue System**: Background jobs for sync operations prevent blocking
+- **API Response**: Paginated endpoints default to 50 items per page
+
+---
+
+## 🔒 Security
+
+- **Authentication**: JWT tokens with Sanctum
+- **Authorization**: Row-level permissions with spatie/laravel-permission
+- **Input Validation**: All user inputs validated with Form Requests
+- **CSRF Protection**: Enabled for all state-changing operations
+- **SQL Injection**: Parameterized queries via Eloquent ORM
+- **XSS Protection**: Vue 3 automatic escaping + Tailwind sanitization
+- **Rate Limiting**: API endpoints limited to prevent abuse
+- **Audit Logging**: All commission changes tracked with user attribution
