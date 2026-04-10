@@ -18,4 +18,22 @@ class Contact extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * The tags that belong to the contact.
+     */
+    public function tags()
+    {
+        return $this->belongsToMany(Tag::class);
+    }
+
+    /**
+     * Refresh aggregated/denormalized columns based on relations.
+     */
+    public function refreshDenormalizedData()
+    {
+        // Placeholder for future logic (e.g., total sales, last interaction date)
+        // For now, this just ensures the method exists for the sync commands.
+        return $this;
+    }
 }

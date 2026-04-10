@@ -5,6 +5,10 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Obuchmann\OdooJsonRpc\Odoo;
 use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
+use App\Models\Product;
+use App\Models\SyncLog;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use App\Services\SyncLogger;
 
@@ -22,243 +26,287 @@ class SyncOdooSalesOrders extends Command
      *
      * @var string
      */
-    protected $description = 'Sync Sales Orders from Odoo to local database';
+    protected $description = 'Sync Sales Orders from Odoo to local database (Golden Sync)';
 
     /**
      * Execute the console command.
      */
     public function handle(Odoo $odoo, SyncLogger $logger)
     {
-        $log = $logger->start('odoo:sync-sales');
-        $this->info('Starting Odoo Sales Order Sync...');
+        $log = $logger->start($this->signature);
+        $this->info('Starting Odoo Sales Order Sync (Golden Sync)...');
 
-        $fields = [
-            'name',
-            'create_date',
-            'partner_id',
-            'x_studio_sales_rep_1',
-            'x_studio_sales_source',
-            'x_studio_commission_paid',
-            'x_studio_referred_by',
-            'x_studio_referrer_processed',
-            'x_studio_payment_type',
-            'amount_total',
-            'delivery_status',
-            'amount_to_invoice',
-            'x_studio_invoice_payment_status',
-            // 'internal_note_display',
-            'state',
-            'user_id',
-            'team_id',
-            'tag_ids',
-            'order_line',
-            'amount_untaxed',
+        $specification = [
+            'name' => (object)[],
+            'create_date' => (object)[],
+            'write_date' => (object)[],
+            'partner_id' => (object)['fields' => (object)['display_name' => (object)[]]],
+            'partner_shipping_id' => (object)['fields' => (object)[
+                'display_name' => (object)[],
+                'contact_address_complete' => (object)[],
+                'state_id' => (object)['fields' => (object)['display_name' => (object)[]]],
+            ]],
+            'user_id' => (object)['fields' => (object)['display_name' => (object)[]]],
+            'team_id' => (object)['fields' => (object)['display_name' => (object)[]]],
+            'amount_total' => (object)[],
+            'amount_to_invoice' => (object)[],
+            'delivery_status' => (object)[],
+            'state' => (object)[],
+            'tag_ids' => (object)[],
+            'is_subscription' => (object)[],
+            'subscription_state' => (object)[],
+            'end_date' => (object)[],
+            'x_studio_sales_rep_1' => (object)[],
+            'x_studio_sales_source' => (object)[],
+            'x_studio_commission_paid' => (object)[],
+            'x_studio_referred_by' => (object)[],
+            'x_studio_referrer_processed' => (object)[],
+            'x_studio_payment_type' => (object)[],
+            'x_studio_invoice_payment_status' => (object)[],
+            'recurring_total' => (object)[],
+            'plan_id' => (object)['fields' => (object)['display_name' => (object)[]]],
+            'start_date' => (object)[],
+            'next_invoice_date' => (object)[],
+            'order_line' => (object)[
+                'fields' => (object)[
+                    'id' => (object)[],
+                    'name' => (object)[],
+                    'product_uom_qty' => (object)[],
+                    'price_unit' => (object)[],
+                    'price_subtotal' => (object)[],
+                    'price_total' => (object)[],
+                    'product_id' => (object)[
+                        'fields' => (object)[
+                            'id' => (object)[],
+                            'display_name' => (object)[],
+                            'default_code' => (object)[],
+                            'categ_id' => (object)['fields' => (object)['display_name' => (object)[]]],
+                            'list_price' => (object)[],
+                            'type' => (object)[],
+                            'write_date' => (object)[],
+                        ]
+                    ],
+                ]
+            ],
         ];
 
-        $limit = 500;
+        $limit = 500; 
         $offset = 0;
         $totalSynced = 0;
+        $domain = [];
 
-        // Loop to fetch all pages
-        try {
-        do {
-            $this->info("Fetching records offset $offset...");
-            
-            try {
-                $orders = $odoo->model('sale.order')
-                    ->fields($fields)
-                    ->where('tag_ids', 'in', [2]) // Filter as per controller usage
-                    ->limit($limit)
-                    ->offset($offset)
-                    ->orderBy('id', 'desc')
-                    ->get();
-            } catch (\Exception $e) {
-                $this->error("Failed to fetch from Odoo: " . $e->getMessage());
-                Log::error("Odoo Sync Error: " . $e->getMessage());
-                $logger->fail($log, $e);
-                return 1;
+        // Incremental Sync logic
+        if (!$this->option('all')) {
+            $lastSuccessfulSync = SyncLog::where('command', $this->signature)
+                ->where('status', 'completed')
+                ->latest('completed_at')
+                ->first();
+
+            if ($lastSuccessfulSync) {
+                $lastSyncDate = $lastSuccessfulSync->completed_at->toDateTimeString();
+                $domain = [['write_date', '>', $lastSyncDate]];
+                $this->info("Fetching records modified since $lastSyncDate...");
             }
-
-            if (empty($orders)) {
-                break;
-            }
-
-            $bar = $this->output->createProgressBar(count($orders));
-            $bar->start();
-
-            $allOrderLineIds = [];
-            $orderMap = []; // Map Odoo ID to Local Model
-
-            foreach ($orders as $order) {
-                // Map Odoo data to local model
-                $data = [
-                    'odoo_id' => $order->id,
-                    'name' => $order->name,
-                    'create_date' => $order->create_date,
-                    
-                    'partner_id' => is_array($order->partner_id) ? $order->partner_id[0] : null,
-                    'partner_name' => is_array($order->partner_id) ? $order->partner_id[1] : null,
-                    
-                    'user_id' => is_array($order->user_id) ? $order->user_id[0] : null,
-                    'user_name' => is_array($order->user_id) ? $order->user_id[1] : null,
-                    
-                    'team_id' => is_array($order->team_id) ? $order->team_id[0] : null,
-                    'team_name' => is_array($order->team_id) ? $order->team_id[1] : null,
-
-                    // Custom Fields
-                    'x_studio_sales_rep_1' => is_array($order->x_studio_sales_rep_1) ? $order->x_studio_sales_rep_1[1] : ($order->x_studio_sales_rep_1 ?? null),
-                    'x_studio_sales_source' => is_array($order->x_studio_sales_source) ? $order->x_studio_sales_source[1] : ($order->x_studio_sales_source ?? null),
-                    'x_studio_commission_paid' => $order->x_studio_commission_paid ?? null,
-                    'x_studio_referred_by' => is_array($order->x_studio_referred_by) ? $order->x_studio_referred_by[1] : ($order->x_studio_referred_by ?? null),
-                    'x_studio_referrer_processed' => $order->x_studio_referrer_processed ?? null,
-                    'x_studio_payment_type' => is_array($order->x_studio_payment_type) ? $order->x_studio_payment_type[1] : ($order->x_studio_payment_type ?? null),
-                    
-                    'amount_total' => $order->amount_total,
-                    'amount_to_invoice' => $order->amount_to_invoice,
-                    
-                    'delivery_status' => $order->delivery_status ?? null,
-                    'x_studio_invoice_payment_status' => $order->x_studio_invoice_payment_status ?? null,
-                    'state' => $order->state,
-                    
-                    // 'internal_note_display' => $order->internal_note_display ?? null,
-                    
-                    'tag_ids' => $order->tag_ids,
-                    'order_line' => $order->order_line, // Keep array for reference
-                    // 'base_amount' => $order->amount_untaxed,
-                ];
-
-                try {
-                    $localOrder = SalesOrder::updateOrCreate(
-                        ['odoo_id' => $order->id],
-                        $data
-                    );
-                } catch (\Illuminate\Database\QueryException $e) {
-                     $this->error("Query Exception Details:");
-                     $this->error("SQL: " . $e->getSql());
-                     $this->error("Bindings count: " . count($e->getBindings()));
-                     foreach ($e->getBindings() as $i => $binding) {
-                          $this->info("Binding $i: " . (is_array($binding) ? json_encode($binding) : $binding));
-                     }
-                     throw $e;
-                }
-                
-                $orderMap[$order->id] = $localOrder;
-
-                // Collect line IDs
-                if (!empty($order->order_line)) {
-                    foreach ($order->order_line as $lineId) {
-                        $allOrderLineIds[] = $lineId;
-                    }
-                }
-                
-                $totalSynced++;
-                $bar->advance();
-            }
-
-            $bar->finish();
-            $this->newLine();
-
-            // Sync Lines
-            if (!empty($allOrderLineIds)) {
-                $this->info("Syncing " . count($allOrderLineIds) . " order lines...");
-                $this->syncOrderLines($odoo, $allOrderLineIds, $orderMap);
-            }
-
-            $offset += $limit;
-
-        } while (count($orders) === $limit);
-
-        $this->info("Sync complete. Total records: $totalSynced");
-        
-        // Auto-calculate commissions for newly synced orders
-        $this->info('Calculating commissions for sales orders...');
-        $this->call('commissions:calculate-missing', ['--limit' => $totalSynced]);
-
-        $logger->complete($log, $totalSynced);
-        
-        return 0;
-        } catch (\Exception $e) {
-            $logger->fail($log, $e);
-            $this->error("Sync failed: " . $e->getMessage());
-            return 1;
         }
-    }
 
-    protected function syncOrderLines(Odoo $odoo, array $lineIds, array $orderMap)
-    {
-        $chunkSize = 500; // Fetch lines in chunks to avoid huge requests
-        $chunks = array_chunk($lineIds, $chunkSize);
+        try {
+            // Loop to fetch all pages
+            do {
+                $this->info("Fetching records offset $offset...");
+                
+                $response = $odoo->executeKw('sale.order', 'web_search_read', [
+                    $domain,
+                    $specification,
+                    $offset,
+                    $limit,
+                    'write_date desc'
+                ]);
 
-        foreach ($chunks as $chunk) {
-            try {
-                $lines = $odoo->model('sale.order.line')
-                    ->where('id', 'in', $chunk)
-                    ->fields(['order_id', 'product_id', 'name', 'product_uom_qty', 'price_unit', 'price_subtotal', 'price_total'])
-                    ->get();
+                $orders = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
 
-                // Prefetch/Create Products
-                $odooProductData = []; 
-                foreach ($lines as $line) {
-                    if (!empty($line->product_id) && is_array($line->product_id)) {
-                        $odooProductData[$line->product_id[0]] = $line->product_id[1];
-                    }
+                if (empty($orders)) {
+                    break;
                 }
 
-                $localProductMap = [];
-                if (!empty($odooProductData)) {
-                    $odooIds = array_keys($odooProductData);
-                    $localProductMap = \App\Models\Product::whereIn('odoo_id', $odooIds)->pluck('id', 'odoo_id')->toArray();
+                $syncData = [];
+                $orderLineSyncData = [];
+                $odooIds = [];
+                $odooProductMetadata = [];
 
-                    $missingIds = array_diff($odooIds, array_keys($localProductMap));
-                    foreach ($missingIds as $missingId) {
-                        try {
-                            $newProduct = \App\Models\Product::create([
-                                'odoo_id' => $missingId,
-                                'name' => $odooProductData[$missingId],
-                            ]);
-                            $localProductMap[$missingId] = $newProduct->id;
-                        } catch (\Exception $e) {
-                            Log::error("Failed to create missing product {$missingId}: " . $e->getMessage());
-                        }
-                    }
-                }
+                foreach ($orders as $order) {
+                    $order = (object)$order;
+                    $odooIds[] = $order->id;
 
-                foreach ($lines as $line) {
-                    $odooOrderId = is_array($line->order_id) ? $line->order_id[0] : $line->order_id;
-                    
-                    // Find local sales order
-                    // We might have it in $orderMap, or we might need to query if it was from a previous batch (unlikely given logic but safe to check)
-                    $localOrder = $orderMap[$odooOrderId] ?? SalesOrder::where('odoo_id', $odooOrderId)->first();
+                    $syncData[] = [
+                        'odoo_id' => $order->id,
+                        'name' => $order->name,
+                        'create_date' => $order->create_date,
+                        'write_date' => $order->write_date,
+                        
+                        'partner_id' => $order->partner_id->id ?? null,
+                        'partner_name' => $order->partner_id->display_name ?? null,
+                        'partner_shipping_id' => $order->partner_shipping_id->id ?? null,
+                        'partner_shipping_name' => $order->partner_shipping_id->display_name ?? null,
+                        'partner_shipping_address' => $order->partner_shipping_id->contact_address_complete ?? null,
+                        'partner_shipping_state' => $order->partner_shipping_id->state_id->display_name ?? null,
+                        
+                        'user_id' => $order->user_id->id ?? null,
+                        'user_name' => $order->user_id->display_name ?? null,
+                        
+                        'team_id' => $order->team_id->id ?? null,
+                        'team_name' => $order->team_id->display_name ?? null,
 
-                    if ($localOrder) {
-                        $odooProductId = is_array($line->product_id) ? $line->product_id[0] : null;
-                        $localProductId = $odooProductId ? ($localProductMap[$odooProductId] ?? null) : null;
+                        'x_studio_sales_rep_1' => is_array($order->x_studio_sales_rep_1) ? $order->x_studio_sales_rep_1[1] : ($order->x_studio_sales_rep_1 ?? null),
+                        'x_studio_sales_source' => is_array($order->x_studio_sales_source) ? $order->x_studio_sales_source[1] : ($order->x_studio_sales_source ?? null),
+                        'x_studio_commission_paid' => $order->x_studio_commission_paid ?? null,
+                        'x_studio_referred_by' => is_array($order->x_studio_referred_by) ? $order->x_studio_referred_by[1] : ($order->x_studio_referred_by ?? null),
+                        'x_studio_referrer_processed' => $order->x_studio_referrer_processed ?? null,
+                        'x_studio_payment_type' => is_array($order->x_studio_payment_type) ? $order->x_studio_payment_type[1] : ($order->x_studio_payment_type ?? null),
+                        
+                        'amount_total' => $order->amount_total,
+                        'recurring_total' => $order->recurring_total ?? 0,
+                        'plan_name' => $order->plan_id->display_name ?? null,
+                        'subscription_plan_id' => $order->plan_id->id ?? null,
+                        'amount_to_invoice' => $order->amount_to_invoice,
+                        
+                        'delivery_status' => $order->delivery_status ?? null,
+                        'x_studio_invoice_payment_status' => $order->x_studio_invoice_payment_status ?? null,
+                        'state' => $order->state,
+                        
+                        'tag_ids' => json_encode($order->tag_ids ?? []),
+                        
+                        'is_subscription' => $order->is_subscription ?? false,
+                        'subscription_state' => $order->subscription_state ?? null,
+                        'start_date' => (!empty($order->start_date) && !str_starts_with($order->start_date, '1970')) ? $order->start_date : null,
+                        'next_invoice_date' => (!empty($order->next_invoice_date) && !str_starts_with($order->next_invoice_date, '1970')) ? $order->next_invoice_date : null,
+                        'end_date' => (!empty($order->end_date) && !str_starts_with($order->end_date, '1970')) ? $order->end_date : null,
+                        'updated_at' => Carbon::now(),
+                    ];
 
-                        $productName = is_array($line->product_id) ? $line->product_id[1] : ($line->product_name ?? '');
-                        $lowerName = strtolower($productName);
+                    // Process Nested Order Lines
+                    if (!empty($order->order_line)) {
+                        foreach ($order->order_line as $line) {
+                            $line = (object)$line;
+                            $productId = $line->product_id->id ?? null;
+                            
+                            // Collect Product Metadata for missing local products
+                            if ($productId) {
+                                $odooProductMetadata[$productId] = $line->product_id;
+                            }
 
-                        \App\Models\SalesOrderLine::updateOrCreate(
-                            ['odoo_id' => $line->id],
-                            [
-                                'sales_order_id' => $localOrder->id,
-                                'odoo_order_id' => $odooOrderId,
-                                'product_id' => $localProductId,
-                                'product_name' => $productName,
+                            $orderLineSyncData[] = [
+                                'odoo_id' => $line->id,
+                                'odoo_order_id' => $order->id,
+                                'odoo_product_id' => $productId,
+                                'product_name' => $line->product_id->display_name ?? '',
                                 'name' => $line->name,
                                 'product_uom_qty' => $line->product_uom_qty,
                                 'price_unit' => $line->price_unit,
                                 'price_subtotal' => $line->price_subtotal,
                                 'price_total' => $line->price_total,
-                                'is_supply_only' => str_contains($lowerName, 'supply only'),
-                                'is_installation_service' => str_contains($lowerName, 'installation service'),
-                            ]
-                        );
+                                'lower_name' => strtolower($line->product_id->display_name ?? ''),
+                            ];
+                        }
                     }
                 }
-            } catch (\Exception $e) {
-                $this->error("Failed to fetch lines chunk: " . $e->getMessage());
-                Log::error("Odoo Line Sync Error: " . $e->getMessage());
-            }
+
+                // Sync missing products from metadata
+                if (!empty($odooProductMetadata)) {
+                    $odooProductIds = array_keys($odooProductMetadata);
+                    $existingLocalProductIds = Product::whereIn('odoo_id', $odooProductIds)->pluck('odoo_id')->toArray();
+                    $missingProductIds = array_diff($odooProductIds, $existingLocalProductIds);
+
+                    if (!empty($missingProductIds)) {
+                        $this->info("Adding " . count($missingProductIds) . " missing products from Golden Sync metadata...");
+                        foreach ($missingProductIds as $mId) {
+                            $mp = (object)$odooProductMetadata[$mId];
+                            Product::create([
+                                'odoo_id' => $mp->id,
+                                'name' => $mp->display_name,
+                                'default_code' => $mp->default_code ?? null,
+                                'categ_id' => $mp->categ_id->id ?? null,
+                                'categ_name' => $mp->categ_id->display_name ?? null,
+                                'list_price' => $mp->list_price ?? 0,
+                                'type' => $mp->type ?? null,
+                                'write_date' => $mp->write_date ?? null,
+                            ]);
+                        }
+                    }
+                }
+
+                // Batch Upsert Sales Orders
+                $this->info("Upserting " . count($syncData) . " sales orders...");
+                SalesOrder::upsert($syncData, ['odoo_id'], [
+                    'name', 'create_date', 'write_date', 'partner_id', 'partner_name', 
+                    'partner_shipping_id', 'partner_shipping_name', 'partner_shipping_address', 'partner_shipping_state', 
+                    'user_id', 'user_name', 'team_id', 'team_name', 'x_studio_sales_rep_1', 'x_studio_sales_source', 
+                    'x_studio_commission_paid', 'x_studio_referred_by', 'x_studio_referrer_processed', 'x_studio_payment_type', 
+                    'amount_total', 'recurring_total', 'plan_name', 'subscription_plan_id', 'amount_to_invoice', 
+                    'delivery_status', 'x_studio_invoice_payment_status', 'state', 'tag_ids', 
+                    'is_subscription', 'subscription_state', 'start_date', 'next_invoice_date', 'end_date', 'updated_at'
+                ]);
+
+                // Re-fetch to get local IDs for line mapping
+                $orderMap = SalesOrder::whereIn('odoo_id', $odooIds)->get()->keyBy('odoo_id')->all();
+                $productMap = Product::whereIn('odoo_id', array_keys($odooProductMetadata))->pluck('id', 'odoo_id')->toArray();
+
+                // Prepare final Line data with local IDs
+                $finalLineData = [];
+                foreach ($orderLineSyncData as $ld) {
+                    $localOrder = $orderMap[$ld['odoo_order_id']] ?? null;
+                    if ($localOrder) {
+                        $finalLineData[] = [
+                            'odoo_id' => $ld['odoo_id'],
+                            'sales_order_id' => $localOrder->id,
+                            'odoo_order_id' => $ld['odoo_order_id'],
+                            'product_id' => $ld['odoo_product_id'] ? ($productMap[$ld['odoo_product_id']] ?? null) : null,
+                            'product_name' => $ld['product_name'],
+                            'name' => $ld['name'],
+                            'product_uom_qty' => $ld['product_uom_qty'],
+                            'price_unit' => $ld['price_unit'],
+                            'price_subtotal' => $ld['price_subtotal'],
+                            'price_total' => $ld['price_total'],
+                            'is_supply_only' => str_contains($ld['lower_name'], 'supply only'),
+                            'is_installation_service' => str_contains($ld['lower_name'], 'installation service'),
+                            'updated_at' => Carbon::now(),
+                        ];
+                    }
+                }
+
+                if (!empty($finalLineData)) {
+                    $this->info("Upserting " . count($finalLineData) . " order lines...");
+                    SalesOrderLine::upsert($finalLineData, ['odoo_id'], [
+                        'sales_order_id', 'odoo_order_id', 'product_id', 'product_name', 'name', 
+                        'product_uom_qty', 'price_unit', 'price_subtotal', 'price_total', 
+                        'is_supply_only', 'is_installation_service', 'updated_at'
+                    ]);
+
+                    // Refresh denormalized data for affected contacts
+                    $affectedSalesOrderIds = array_unique(array_column($finalLineData, 'sales_order_id'));
+                    $partnerOdooIds = SalesOrder::whereIn('id', $affectedSalesOrderIds)->pluck('partner_id')->unique()->toArray();
+                    \App\Models\Contact::whereIn('odoo_id', $partnerOdooIds)->get()->each->refreshDenormalizedData();
+                }
+
+                $totalSynced += count($orders);
+                $offset += $limit;
+
+            } while (count($orders) === $limit);
+
+            $this->info("Sync complete. Total records: $totalSynced");
+
+            // Auto-calculate commissions for newly synced orders
+            $this->info('Calculating commissions for sales orders...');
+            $this->call('commissions:calculate-missing', ['--limit' => $totalSynced]);
+
+            $logger->complete($log, $totalSynced, (isset($domain) && !empty($domain)) ? "Incremental sync completed." : "Full sync completed.");
+            \Illuminate\Support\Facades\Cache::forget('contacts_dashboard_stats');
+            return 0;
+
+        } catch (\Exception $e) {
+            $this->error("Failed to fetch from Odoo: " . $e->getMessage());
+            Log::error("Odoo Sync Error: " . $e->getMessage());
+            $logger->fail($log, $e);
+            return 1;
         }
     }
 }

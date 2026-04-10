@@ -24,5 +24,16 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             LandingPriceSeeder::class,
         ]);
+
+        $adminUser = User::updateOrCreate(
+            ['email' => 'it@wateranalytics.com.au'],
+            [
+                'name' => 'Digital Support',
+                'password' => \Illuminate\Support\Facades\Hash::make('Water@2022!'),
+                'email_verified_at' => now(),
+            ]
+        );
+
+        $adminUser->assignRole('Admin');
     }
 }

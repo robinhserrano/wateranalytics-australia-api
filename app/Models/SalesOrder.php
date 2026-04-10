@@ -10,8 +10,13 @@ class SalesOrder extends Model
 
     protected $casts = [
         'create_date' => 'datetime',
+        'write_date' => 'datetime',
+        'start_date' => 'date',
+        'next_invoice_date' => 'date',
+        'end_date' => 'date',
         'tag_ids' => 'array',
         'order_line' => 'array',
+        'is_subscription' => 'boolean',
         'has_commission_calculation' => 'boolean',
         'x_studio_commission_paid' => 'boolean',
         'legacy_confirmed_by_manager' => 'boolean',

@@ -97,6 +97,13 @@ defineProps<{
                     Log in
                 </Button>
             </div>
+            <div
+                v-if="canRegister"
+                class="mt-4 text-center text-sm text-muted-foreground"
+            >
+                Don't have an account?
+                <TextLink :href="register()" class="ml-1">Sign up</TextLink>
+            </div>
 
         </Form>
     </AuthBase>

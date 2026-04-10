@@ -66,6 +66,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // For now, let's expose 'edit' and 'update' to authenticated users, but rely on Policy/Permissions or Controller logic if it exists.
     // Or simpler: put edit/update outside Admin group but protect with Policy.
     // Given the requirement "Sales Manager can edit user details", let's ensure the route is accessible.
+    Route::get('users/{user}', [App\Http\Controllers\UserController::class, 'show'])->name('users.show');
     Route::get('users/{user}/edit', [App\Http\Controllers\UserController::class, 'edit'])->name('users.edit');
     Route::put('users/{user}', [App\Http\Controllers\UserController::class, 'update'])->name('users.update');
     // Note: index/create/store/destroy remain Admin only above.

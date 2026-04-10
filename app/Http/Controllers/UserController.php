@@ -81,7 +81,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|min:6',
             'role_name' => 'nullable|exists:roles,name', // Changed from role_id
             'sales_manager_id' => 'nullable|exists:users,id',
             'commission_split' => 'nullable|numeric|min:0|max:100',
@@ -143,7 +143,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:8',
+            'password' => 'nullable|string|min:6',
             'role_name' => 'nullable|exists:roles,name', // Changed from role_id
             'sales_manager_id' => 'nullable|exists:users,id',
             'commission_split' => 'nullable|numeric|min:0|max:100',

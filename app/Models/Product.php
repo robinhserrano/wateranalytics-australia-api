@@ -17,6 +17,7 @@ class Product extends Model
         'list_price' => 'decimal:2',
         'qty_available' => 'decimal:2',
         'product_properties' => 'array',
+        'write_date' => 'datetime',
     ];
 
     public function landingPrices(): HasMany
