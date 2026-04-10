@@ -12,6 +12,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import {
     Dialog,
@@ -26,7 +32,7 @@ import {
 import { ref, watch, computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import debounce from 'lodash/debounce';
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-vue-next';
 
 const props = defineProps<{
     users: {
@@ -37,6 +43,7 @@ const props = defineProps<{
             roles: Array<{ name: string }>;
             commission_split: number;
             is_active: boolean;
+            contacts: Array<{ id: number; odoo_id: number; display_name: string }>;
         }>;
         links: Array<{
             url: string | null;
@@ -76,6 +83,15 @@ watch(search, debounce((value) => {
         replace: true,
     });
 }, 300));
+
+const getInitials = (name: string) => {
+    return name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+};
 </script>
 
 <template>
@@ -144,6 +160,7 @@ watch(search, debounce((value) => {
                                 <TableHead>Name</TableHead>
                                 <TableHead>Email</TableHead>
                                 <TableHead>Role</TableHead>
+                                <TableHead>Contacts</TableHead>
                                 <TableHead>Commission Split</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead class="text-right">Actions</TableHead>
@@ -164,6 +181,23 @@ watch(search, debounce((value) => {
                                             class="text-muted-foreground">-</span>
                                     </div>
                                 </TableCell>
+                                <TableCell>
+                                    <div class="flex flex-wrap gap-1 max-w-[200px]">
+                                        <TooltipProvider v-for="contact in user.contacts" :key="contact.id">
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <Badge variant="secondary" class="cursor-help text-[10px] px-1.5 py-0 h-5">
+                                                        {{ getInitials(contact.display_name) }}:{{ contact.odoo_user_ids?.[0] }}
+                                                    </Badge>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{{ contact.display_name }}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        <span v-if="!user.contacts || user.contacts.length === 0" class="text-muted-foreground text-xs">-</span>
+                                    </div>
+                                </TableCell>
                                 <TableCell>{{ user.commission_split }}%</TableCell>
                                 <TableCell>
                                     <Badge :variant="user.is_active ? 'default' : 'secondary'">
@@ -175,6 +209,12 @@ watch(search, debounce((value) => {
                                         <Button variant="ghost" size="sm" as-child>
                                             <Link :href="route('users.show', user.id)">
                                                 View
+                                            </Link>
+                                        </Button>
+
+                                        <Button variant="ghost" size="icon" class="size-8 text-muted-foreground hover:text-foreground" as-child>
+                                            <Link :href="route('users.edit', user.id)">
+                                                <Pencil class="size-4" />
                                             </Link>
                                         </Button>
 

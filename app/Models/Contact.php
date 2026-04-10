@@ -11,6 +11,10 @@ class Contact extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'odoo_user_ids' => 'array',
+    ];
+
     /**
      * Get the user that owns the contact.
      */

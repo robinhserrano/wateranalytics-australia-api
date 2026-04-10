@@ -42,4 +42,30 @@ class LegacyEndpointService
         // Assuming the data is in a 'data' key or is a direct array
         return $data['data'] ?? $data ?? [];
     }
+
+    /**
+     * Fetch users from the legacy API.
+     *
+     * @return array
+     */
+    public function fetchUsers(): array
+    {
+        Log::info('Fetching users from legacy API...');
+
+        $response = Http::withToken($this->token)
+            ->timeout(120)
+            ->get("{$this->baseUrl}/users");
+
+        if ($response->failed()) {
+            Log::error('Failed to fetch users from legacy API', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            return [];
+        }
+
+        $data = $response->json();
+
+        return $data['data'] ?? $data ?? [];
+    }
 }

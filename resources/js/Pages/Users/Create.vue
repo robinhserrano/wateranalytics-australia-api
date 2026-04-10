@@ -12,9 +12,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 const props = defineProps<{
     contacts: Array<{
-        id: number;
+        odoo_id: number;
         display_name: string;
         user_id: number | null;
+        odoo_user_ids: number[];
     }>;
     roles: Array<{
         id: number;
@@ -40,12 +41,16 @@ const submit = () => {
     });
 };
 
-const toggleContact = (contactId: number) => {
-    const id = Number(contactId);
+const isContactSelected = (odooId: string | number) => {
+    return form.contact_ids.includes(Number(odooId));
+};
+
+const toggleContact = (odooId: string | number) => {
+    const id = Number(odooId);
     if (form.contact_ids.includes(id)) {
         form.contact_ids = form.contact_ids.filter(existingId => existingId !== id);
     } else {
-        form.contact_ids.push(id);
+        form.contact_ids = [...form.contact_ids, id];
     }
 };
 
@@ -59,6 +64,12 @@ const filteredContacts = computed(() => {
     return props.contacts.filter(contact => 
         contact.display_name.toLowerCase().includes(query)
     );
+});
+const selectedUserIds = computed(() => {
+    return props.contacts
+        .filter(c => form.contact_ids.includes(Number(c.odoo_id)))
+        .map(c => c.odoo_user_ids?.[0])
+        .filter(Boolean);
 });
 </script>
 
@@ -157,28 +168,28 @@ const filteredContacts = computed(() => {
                             </div>
                             
                             <!-- Debug Block (Minimal) -->
-                            <div v-if="form.contact_ids.length > 0" class="mb-2 text-xs text-muted-foreground">
-                                IDs: {{ form.contact_ids.join(', ') }}
+                            <div v-if="selectedUserIds.length > 0" class="mb-2 text-xs text-muted-foreground">
+                                IDs: {{ selectedUserIds.join(', ') }}
                             </div>
 
                             <ScrollArea class="h-[300px] w-full border rounded-md p-4">
                                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <div 
                                         v-for="contact in filteredContacts" 
-                                        :key="contact.id" 
+                                        :key="contact.odoo_id" 
                                         class="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded"
-                                        @click="toggleContact(Number(contact.id))"
+                                        @click="toggleContact(Number(contact.odoo_id))"
                                     >
                                         <Checkbox 
-                                            :id="`contact-${contact.id}`" 
-                                            :checked="form.contact_ids.includes(Number(contact.id))"
-                                            class="pointer-events-none" 
+                                            :id="`contact-${contact.odoo_id}`" 
+                                            :checked="isContactSelected(contact.odoo_id)"
+                                            @update:checked="() => toggleContact(contact.odoo_id)"
                                         />
                                         <span
-                                            :for="`contact-${contact.id}`"
+                                            :for="`contact-${contact.odoo_id}`"
                                             class="text-sm font-medium leading-none cursor-pointer pointer-events-none"
                                         >
-                                            {{ contact.display_name }} 
+                                            [{{ contact.odoo_user_ids?.[0] || 'N/A' }}] {{ contact.display_name }} 
                                             <span v-if="contact.user_id" class="text-xs text-muted-foreground ml-1">
                                                 (Assigned to another user)
                                             </span>

@@ -19,11 +19,11 @@ class UserController extends Controller
     {
         $search = $request->input('search');
 
-        $users = User::with('roles', 'salesManager', 'team')
+        $users = User::with('roles', 'salesManager', 'team', 'contacts:id,user_id,odoo_id,display_name,odoo_user_ids')
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%");
                 });
             })
             ->paginate(50)
@@ -62,20 +62,25 @@ class UserController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
+
+        /**
+         * Show the form for creating a new resource.
+         */
         return Inertia::render('Users/Create', [
-            'contacts' => Contact::select('id', 'display_name', 'user_id')->get(),
+            'contacts' => Contact::whereNotNull('odoo_user_ids')
+                ->where('odoo_user_ids', '!=', '[]')
+                ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids')
+                ->get(),
             'roles' => \Spatie\Permission\Models\Role::all(),
         ]);
+
+        /**
+         * Store a newly created resource in storage.
+         */
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -89,23 +94,23 @@ class UserController extends Controller
             'self_gen_base' => 'nullable|numeric|min:0',
             'legacy_id' => 'nullable|integer|unique:users,legacy_id',
             'contact_ids' => 'nullable|array',
-            'contact_ids.*' => 'exists:contacts,id',
+            'contact_ids.*' => 'exists:contacts,odoo_id',
         ]);
 
         $user = DB::transaction(function () use ($validated, $request) {
             $contactIds = $validated['contact_ids'] ?? null;
             $roleName = $validated['role_name'] ?? null;
-            
+
             unset($validated['contact_ids']);
             unset($validated['role_name']);
 
             Log::info('Creating user. Contact IDs received:', ['contact_ids' => $contactIds]);
-            
+
             $validated['password'] = Hash::make($validated['password']);
             $validated['is_active'] = true;
 
             $user = User::create($validated);
-            
+
             if ($roleName) {
                 $user->assignRole($roleName);
             }
@@ -113,7 +118,7 @@ class UserController extends Controller
             if ($contactIds) {
                 Log::info('Assigning contacts to new user ' . $user->id, ['contact_ids' => $contactIds]);
                 DB::table('contacts')
-                    ->whereIn('id', $contactIds)
+                    ->whereIn('odoo_id', $contactIds)
                     ->update(['user_id' => $user->id]);
             }
 
@@ -128,9 +133,12 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
-         return Inertia::render('Users/Edit', [
-            'user' => $user->load('contacts', 'roles', 'salesManager', 'team'),
-            'contacts' => Contact::select('id', 'display_name', 'user_id')->get(),
+        return Inertia::render('Users/Edit', [
+            'user' => $user->load('contacts', 'roles'),
+            'contacts' => Contact::whereNotNull('odoo_user_ids')
+                ->where('odoo_user_ids', '!=', '[]')
+                ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids')
+                ->get(),
             'roles' => \Spatie\Permission\Models\Role::all(),
         ]);
     }
@@ -151,18 +159,18 @@ class UserController extends Controller
             'self_gen_base' => 'nullable|numeric|min:0',
             'legacy_id' => 'nullable|integer|unique:users,legacy_id,' . $user->id,
             'contact_ids' => 'nullable|array',
-            'contact_ids.*' => 'exists:contacts,id',
+            'contact_ids.*' => 'exists:contacts,odoo_id',
         ]);
 
         DB::transaction(function () use ($validated, $request, $user) {
             $contactIds = $validated['contact_ids'] ?? null;
             $roleName = $validated['role_name'] ?? null;
-            
+
             unset($validated['contact_ids']);
             unset($validated['role_name']);
 
             Log::info('Updating user ' . $user->id . '. Contact IDs received:', ['contact_ids' => $contactIds, 'has_contact_ids' => $request->has('contact_ids')]);
-            
+
             if (filled($request->password)) {
                 $validated['password'] = Hash::make($request->password);
             } else {
@@ -170,7 +178,7 @@ class UserController extends Controller
             }
 
             $user->update($validated);
-            
+
             if ($roleName) {
                 $user->syncRoles([$roleName]);
             } else {
@@ -181,16 +189,16 @@ class UserController extends Controller
 
             if ($request->has('contact_ids')) {
                 Log::info('Updating contacts for user ' . $user->id, ['contact_ids' => $contactIds]);
-                
+
                 // First, unassign all contacts currently assigned to this user
                 DB::table('contacts')
                     ->where('user_id', $user->id)
                     ->update(['user_id' => null]);
-                
+
                 // Then assign the selected contacts
                 if (!empty($contactIds)) {
-                     DB::table('contacts')
-                        ->whereIn('id', $contactIds)
+                    DB::table('contacts')
+                        ->whereIn('odoo_id', $contactIds)
                         ->update(['user_id' => $user->id]);
                 }
             }

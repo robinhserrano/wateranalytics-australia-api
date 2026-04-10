@@ -69,6 +69,7 @@ class SyncContacts extends Command
                 'phone',
                 'email',
                 'category_id',
+                'user_ids',
                 'write_date',
             ];
 
@@ -142,6 +143,7 @@ class SyncContacts extends Command
                         'state' => is_array($contact->state_id) ? $contact->state_id[1] : null,
                         'phone' => $contact->phone ?? null,
                         'email' => $contact->email ?? null,
+                        'odoo_user_ids' => !empty($contact->user_ids) ? json_encode($contact->user_ids) : null,
                         'write_date' => $contact->write_date ?? null,
                         'updated_at' => Carbon::now(),
                     ];
@@ -156,7 +158,7 @@ class SyncContacts extends Command
                 $this->info("Upserting " . count($syncData) . " contacts...");
                 Contact::upsert($syncData, ['odoo_id'], [
                     'display_name', 'contact_address_complete', 'parent_id', 'parent_name', 
-                    'street', 'street2', 'zip', 'city', 'state', 'phone', 'email', 'write_date', 'updated_at'
+                    'street', 'street2', 'zip', 'city', 'state', 'phone', 'email', 'odoo_user_ids', 'write_date', 'updated_at'
                 ]);
 
                 // Bulk sync tags to avoid N+1 sync() calls

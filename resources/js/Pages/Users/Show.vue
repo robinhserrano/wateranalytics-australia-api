@@ -24,7 +24,7 @@ const props = defineProps<{
         company_lead_base: number;
         self_gen_base: number;
         is_active: boolean;
-        contacts: Array<{ id: number; display_name: string; }>;
+        contacts: Array<{ id: number; odoo_id: number; display_name: string; }>;
     };
     commissionStats: {
         total_commissions: number;
@@ -139,7 +139,7 @@ const deleteUser = () => {
                                 <span class="font-medium">{{ contact.display_name }}</span>
                                 <span
                                     class="ml-2 px-2 py-1 text-xs font-semibold tracking-wide uppercase rounded-full bg-gray-100 text-gray-800">
-                                    ID: {{ contact.id }}
+                                    Odoo User ID: {{ contact.odoo_user_ids?.[0] }}
                                 </span>
                             </div>
                         </div>

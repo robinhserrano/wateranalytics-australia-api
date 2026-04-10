@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-vue-next';
@@ -126,6 +127,7 @@ watch(search, (value) => {
                             <TableHead>City</TableHead>
                             <TableHead>Zip</TableHead>
                             <TableHead>Parent Company</TableHead>
+                            <TableHead>Odoo User IDs</TableHead>
                             <TableHead class="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -139,7 +141,15 @@ watch(search, (value) => {
                             </TableCell>
                             <TableCell>{{ contact.city || '-' }}</TableCell>
                             <TableCell>{{ contact.zip || '-' }}</TableCell>
-                            <TableCell>{{ contact.parent_name || '-' }}</TableCell>
+                             <TableCell>{{ contact.parent_name || '-' }}</TableCell>
+                            <TableCell>
+                                <div class="flex flex-wrap gap-1">
+                                    <Badge v-for="uid in contact.odoo_user_ids" :key="uid" variant="outline">
+                                        {{ uid }}
+                                    </Badge>
+                                    <span v-if="!contact.odoo_user_ids || contact.odoo_user_ids.length === 0" class="text-muted-foreground">-</span>
+                                </div>
+                            </TableCell>
                             <TableCell class="text-right">
                                 <Button variant="ghost" size="sm" as-child>
                                     <Link :href="route('contacts.show', contact.id)">
@@ -149,7 +159,7 @@ watch(search, (value) => {
                             </TableCell>
                         </TableRow>
                         <TableRow v-if="contacts.data.length === 0">
-                            <TableCell colspan="5" class="h-24 text-center">
+                            <TableCell colspan="6" class="h-24 text-center">
                                 No results.
                             </TableCell>
                         </TableRow>
