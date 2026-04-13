@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Contact;
+use App\Models\SalesOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,17 @@ class UserController extends Controller
         $search = $request->input('search');
 
         $users = User::with('roles', 'salesManager', 'team', 'contacts:id,user_id,odoo_id,display_name,odoo_user_ids')
+            ->select('users.*')
+            ->addSelect([
+                'latest_sale_date' => SalesOrder::select('create_date')
+                    ->whereIn('salesperson_partner_id', function ($query) {
+                        $query->select('odoo_id')
+                            ->from('contacts')
+                            ->whereColumn('contacts.user_id', 'users.id');
+                    })
+                    ->orderBy('create_date', 'desc')
+                    ->limit(1),
+            ])
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -42,23 +54,32 @@ class UserController extends Controller
     {
         $user->load('contacts', 'roles', 'salesManager', 'team');
 
+        $partnerIds = $user->contacts->pluck('odoo_id')->toArray();
+
+        // Fetch Sales activity
+        $salesOrders = SalesOrder::whereIn('salesperson_partner_id', $partnerIds)
+            ->orderBy('create_date', 'desc')
+            ->limit(50)
+            ->get();
+
+        $latestSale = $salesOrders->first();
+
+        // Calculate activity status: Active if latest sale is within 6 months
+        $isActive = $latestSale && $latestSale->create_date && $latestSale->create_date->gt(now()->subMonths(6));
+
         $commissionStats = [
-            'total_commissions' => \App\Models\CommissionCalculation::where('user_id', $user->id)->count(),
-            'pending_amount' => \App\Models\CommissionCalculation::where('user_id', $user->id)
-                ->where('status', 'pending')
-                ->sum('final_commission'),
-            'total_earned' => \App\Models\CommissionCalculation::where('user_id', $user->id)
-                ->whereIn('status', ['approved', 'paid'])
-                ->sum('final_commission'),
-            'this_month_earned' => \App\Models\CommissionCalculation::where('user_id', $user->id)
-                ->whereIn('status', ['approved', 'paid'])
-                ->whereMonth('created_at', now()->month)
-                ->sum('final_commission'),
+            'is_active' => $isActive,
+            'latest_sale' => $latestSale ? [
+                'name' => $latestSale->name,
+                'date' => $latestSale->create_date ? $latestSale->create_date->format('M d, Y') : null,
+                'amount' => $latestSale->amount_total,
+            ] : null,
         ];
 
         return Inertia::render('Users/Show', [
             'user' => $user,
             'commissionStats' => $commissionStats,
+            'salesOrders' => $salesOrders,
         ]);
     }
 

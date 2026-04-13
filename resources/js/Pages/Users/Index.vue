@@ -34,6 +34,7 @@ import { router, usePage } from '@inertiajs/vue3';
 import debounce from 'lodash/debounce';
 import { ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-vue-next';
 import { getRoleStyle } from '@/lib/utils';
+import { format } from 'date-fns';
 
 const props = defineProps<{
     users: {
@@ -43,9 +44,11 @@ const props = defineProps<{
             email: string;
             roles: Array<{ name: string }>;
             commission_split: number;
+            commission_split: number;
             company_lead_base: number;
             self_gen_base: number;
             is_active: boolean;
+            latest_sale_date: string | null;
             contacts: Array<{ id: number; odoo_id: number; display_name: string; odoo_user_ids: string[] }>;
         }>;
         links: Array<{
@@ -119,6 +122,23 @@ const formatNumber = (num: number | string) => {
         return val.toString();
     }
     return val.toFixed(2);
+};
+
+const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    try {
+        return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch (e) {
+        return dateString;
+    }
+};
+
+const userIsActive = (latestSaleDate: string | null) => {
+    if (!latestSaleDate) return false;
+    const date = new Date(latestSaleDate);
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    return date > sixMonthsAgo;
 };
 </script>
 
@@ -254,8 +274,8 @@ const formatNumber = (num: number | string) => {
                                 </TableCell>
                                 <TableCell>{{ formatNumber(user.commission_split) }}% / {{ formatNumber(user.company_lead_base) }} / {{ formatNumber(user.self_gen_base) }}</TableCell>
                                 <TableCell>
-                                    <Badge :variant="user.is_active ? 'default' : 'secondary'">
-                                        {{ user.is_active ? 'Active' : 'Inactive' }}
+                                    <Badge :variant="userIsActive(user.latest_sale_date) ? 'default' : 'secondary'">
+                                        {{ userIsActive(user.latest_sale_date) ? 'Active' : 'Inactive' }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-right">

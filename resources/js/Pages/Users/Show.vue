@@ -16,6 +16,23 @@ import {
 } from '@/components/ui/dialog';
 import { computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
+import { 
+    Table, 
+    TableBody, 
+    TableCell, 
+    TableHead, 
+    TableHeader, 
+    TableRow 
+} from '@/components/ui/table';
+import { 
+    TrendingUp, 
+    ShoppingCart, 
+    Calendar,
+    CircleDollarSign,
+    ExternalLink,
+    ChevronLeft
+} from 'lucide-vue-next';
+import { format } from 'date-fns';
 
 const props = defineProps<{
     user: {
@@ -24,14 +41,24 @@ const props = defineProps<{
         company_lead_base: number;
         self_gen_base: number;
         is_active: boolean;
-        contacts: Array<{ id: number; odoo_id: number; display_name: string; }>;
+        contacts: Array<{ id: number; odoo_id: number; display_name: string; odoo_user_ids: string[] }>;
     };
     commissionStats: {
-        total_commissions: number;
-        pending_amount: number;
-        total_earned: number;
-        this_month_earned: number;
+        is_active: boolean;
+        latest_sale: {
+            name: string;
+            date: string;
+            amount: number;
+        } | null;
     };
+    salesOrders: Array<{
+        id: number;
+        name: string;
+        create_date: string;
+        amount_total: number;
+        state: string;
+        x_studio_invoice_payment_status: string;
+    }>;
 }>();
 
 const page = usePage();
@@ -57,7 +84,14 @@ const deleteUser = () => {
         <div class="flex flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-2xl font-bold tracking-tight">{{ user.name }}</h2>
+                    <div class="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" as-child class="-ml-2">
+                            <Link :href="route('users.index')">
+                                <ChevronLeft class="h-4 w-4" />
+                            </Link>
+                        </Button>
+                        <h2 class="text-2xl font-bold tracking-tight">{{ user.name }}</h2>
+                    </div>
                     <p class="text-muted-foreground">{{ user.email }}</p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -107,8 +141,8 @@ const deleteUser = () => {
                         </div>
                         <div class="flex justify-between">
                             <span class="text-muted-foreground">Status:</span>
-                            <Badge :variant="user.is_active ? 'default' : 'secondary'">
-                                {{ user.is_active ? 'Active' : 'Inactive' }}
+                            <Badge :variant="commissionStats.is_active ? 'default' : 'secondary'">
+                                {{ commissionStats.is_active ? 'Active' : 'Inactive' }}
                             </Badge>
                         </div>
                         <div class="flex justify-between">
@@ -149,6 +183,63 @@ const deleteUser = () => {
                     </CardContent>
                 </Card>
             </div>
+
+            <!-- Sales Order History -->
+            <Card>
+                <CardHeader>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Order History</CardTitle>
+                            <CardDescription>Recent sales orders where this user is the salesperson.</CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div class="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Order Name</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Total Amount</TableHead>
+                                    <TableHead>Odoo State</TableHead>
+                                    <TableHead>Payment Status</TableHead>
+                                    <TableHead class="text-right">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow v-for="order in salesOrders" :key="order.id">
+                                    <TableCell class="font-medium">{{ order.name }}</TableCell>
+                                    <TableCell>{{ format(new Date(order.create_date), 'MMM dd, yyyy') }}</TableCell>
+                                    <TableCell>${{ Number(order.amount_total).toLocaleString() }}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" class="capitalize">
+                                            {{ order.state?.replace('_', ' ') || '-' }}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge :variant="order.x_studio_invoice_payment_status === 'paid' ? 'default' : 'secondary'">
+                                            {{ order.x_studio_invoice_payment_status || 'not_paid' }}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell class="text-right">
+                                        <Button variant="ghost" size="sm" as-child>
+                                            <Link :href="route('sales-orders.show', order.id)">
+                                                <ExternalLink class="h-4 w-4" />
+                                            </Link>
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                                <TableRow v-if="salesOrders.length === 0">
+                                    <TableCell colspan="6" class="h-24 text-center text-muted-foreground">
+                                        No sales orders found for this salesperson.
+                                    </TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     </AppLayout>
 </template>
