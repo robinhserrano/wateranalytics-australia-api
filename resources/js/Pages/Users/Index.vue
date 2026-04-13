@@ -33,6 +33,7 @@ import { ref, watch, computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import debounce from 'lodash/debounce';
 import { ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-vue-next';
+import { getRoleStyle } from '@/lib/utils';
 
 const props = defineProps<{
     users: {
@@ -42,8 +43,10 @@ const props = defineProps<{
             email: string;
             roles: Array<{ name: string }>;
             commission_split: number;
+            company_lead_base: number;
+            self_gen_base: number;
             is_active: boolean;
-            contacts: Array<{ id: number; odoo_id: number; display_name: string }>;
+            contacts: Array<{ id: number; odoo_id: number; display_name: string; odoo_user_ids: string[] }>;
         }>;
         links: Array<{
             url: string | null;
@@ -101,6 +104,21 @@ exportFilename.value = `${dd}/${mm}/${yyyy} Commission Users.csv`;
 
 const downloadExport = () => {
     window.location.href = route('users.export', { filename: exportFilename.value });
+};
+
+const shouldShowDecimals = computed(() => {
+    return props.users.data.some(user => {
+        const split = Number(user.commission_split);
+        return split % 1 !== 0;
+    });
+});
+
+const formatNumber = (num: number | string) => {
+    const val = Number(num);
+    if (!shouldShowDecimals.value && val % 1 === 0) {
+        return val.toString();
+    }
+    return val.toFixed(2);
 };
 </script>
 
@@ -197,7 +215,7 @@ const downloadExport = () => {
                                 <TableHead>Email</TableHead>
                                 <TableHead>Role</TableHead>
                                 <TableHead>Contacts</TableHead>
-                                <TableHead>Commission Split</TableHead>
+                                <TableHead>Split / Co. / Self</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead class="text-right">Actions</TableHead>
                             </TableRow>
@@ -210,7 +228,7 @@ const downloadExport = () => {
                                 <TableCell>{{ user.email }}</TableCell>
                                 <TableCell>
                                     <div class="flex flex-wrap gap-1">
-                                        <Badge v-for="role in user.roles" :key="role.name" variant="outline">
+                                        <Badge v-for="role in user.roles" :key="role.name" variant="outline" :style="getRoleStyle(role.name)">
                                             {{ role.name }}
                                         </Badge>
                                         <span v-if="!user.roles || user.roles.length === 0"
@@ -234,7 +252,7 @@ const downloadExport = () => {
                                         <span v-if="!user.contacts || user.contacts.length === 0" class="text-muted-foreground text-xs">-</span>
                                     </div>
                                 </TableCell>
-                                <TableCell>{{ user.commission_split }}%</TableCell>
+                                <TableCell>{{ formatNumber(user.commission_split) }}% / {{ formatNumber(user.company_lead_base) }} / {{ formatNumber(user.self_gen_base) }}</TableCell>
                                 <TableCell>
                                     <Badge :variant="user.is_active ? 'default' : 'secondary'">
                                         {{ user.is_active ? 'Active' : 'Inactive' }}

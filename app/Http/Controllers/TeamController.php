@@ -60,7 +60,7 @@ class TeamController extends Controller
     {
         $this->authorize('manage-teams');
 
-        $team->load(['teamManager', 'members']);
+        $team->load(['teamManager', 'members.roles']);
 
         $managers = User::role(['Admin', 'Sales Manager', 'Sales Team Manager'])
             ->orderBy('name')

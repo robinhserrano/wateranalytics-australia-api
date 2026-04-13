@@ -21,7 +21,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { UserPlus, UserMinus } from 'lucide-vue-next';
+import { getRoleStyle } from '@/lib/utils';
 import { ref } from 'vue';
 
 const props = defineProps<{
@@ -85,9 +87,9 @@ const availableUsersForAdd = () => {
                 <h1 class="text-2xl font-bold tracking-tight">Edit Team</h1>
             </div>
 
-            <div class="grid gap-6 lg:grid-cols-2">
+            <div class="grid gap-6 lg:grid-cols-10">
                 <!-- Team Details Form -->
-                <div class="rounded-lg border bg-card p-6">
+                <div class="lg:col-span-3 rounded-lg border bg-card p-6">
                     <h2 class="mb-4 text-lg font-semibold">Team Details</h2>
                     <form @submit.prevent="submit" class="space-y-6">
                         <div class="space-y-2">
@@ -154,7 +156,7 @@ const availableUsersForAdd = () => {
                 </div>
 
                 <!-- Team Members Management -->
-                <div class="rounded-lg border bg-card p-6">
+                <div class="lg:col-span-7 rounded-lg border bg-card p-6">
                     <h2 class="mb-4 text-lg font-semibold">Team Members</h2>
                     
                     <!-- Add Member -->
@@ -185,6 +187,7 @@ const availableUsersForAdd = () => {
                                 <TableRow>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Email</TableHead>
+                                    <TableHead>Role</TableHead>
                                     <TableHead class="text-right">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -194,6 +197,13 @@ const availableUsersForAdd = () => {
                                         {{ member.name }}
                                     </TableCell>
                                     <TableCell>{{ member.email }}</TableCell>
+                                    <TableCell>
+                                        <div class="flex flex-wrap gap-1">
+                                            <Badge v-for="role in member.roles" :key="role.name" variant="outline" class="text-[10px] px-1.5 py-0 h-5" :style="getRoleStyle(role.name)">
+                                                {{ role.name }}
+                                            </Badge>
+                                        </div>
+                                    </TableCell>
                                     <TableCell class="text-right">
                                         <Button
                                             variant="ghost"
@@ -205,7 +215,7 @@ const availableUsersForAdd = () => {
                                     </TableCell>
                                 </TableRow>
                                 <TableRow v-if="!team.members || team.members.length === 0">
-                                    <TableCell colspan="3" class="h-24 text-center">
+                                    <TableCell colspan="4" class="h-24 text-center">
                                         No members in this team.
                                     </TableCell>
                                 </TableRow>
