@@ -185,6 +185,7 @@ fi
 docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan config:cache
 docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan route:cache
 docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan view:cache
+docker compose --env-file .env -f docker-compose.temp.yml exec -T app php artisan scribe:generate
 
 # 4. Extract built frontend assets
 echo "📦 Extracting built frontend assets from container to host..."
