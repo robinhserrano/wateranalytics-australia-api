@@ -99,6 +99,87 @@ commissionStatsForm.head = (args: { user: string | number } | [user: string | nu
 commissionStats.form = commissionStatsForm
 
 /**
+* @see \App\Http\Controllers\UserController::exportMethod
+* @see app/Http/Controllers/UserController.php:230
+* @route '/users/export'
+*/
+export const exportMethod = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: exportMethod.url(options),
+    method: 'get',
+})
+
+exportMethod.definition = {
+    methods: ["get","head"],
+    url: '/users/export',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\UserController::exportMethod
+* @see app/Http/Controllers/UserController.php:230
+* @route '/users/export'
+*/
+exportMethod.url = (options?: RouteQueryOptions) => {
+    return exportMethod.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\UserController::exportMethod
+* @see app/Http/Controllers/UserController.php:230
+* @route '/users/export'
+*/
+exportMethod.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: exportMethod.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\UserController::exportMethod
+* @see app/Http/Controllers/UserController.php:230
+* @route '/users/export'
+*/
+exportMethod.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: exportMethod.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\UserController::exportMethod
+* @see app/Http/Controllers/UserController.php:230
+* @route '/users/export'
+*/
+const exportMethodForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: exportMethod.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\UserController::exportMethod
+* @see app/Http/Controllers/UserController.php:230
+* @route '/users/export'
+*/
+exportMethodForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: exportMethod.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\UserController::exportMethod
+* @see app/Http/Controllers/UserController.php:230
+* @route '/users/export'
+*/
+exportMethodForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: exportMethod.url({
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+exportMethod.form = exportMethodForm
+
+/**
 * @see \App\Http\Controllers\UserController::index
 * @see app/Http/Controllers/UserController.php:18
 * @route '/users'
@@ -708,6 +789,7 @@ update.form = updateForm
 
 const users = {
     commissionStats: Object.assign(commissionStats, commissionStats),
+    export: Object.assign(exportMethod, exportMethod),
     index: Object.assign(index, index),
     create: Object.assign(create, create),
     store: Object.assign(store, store),

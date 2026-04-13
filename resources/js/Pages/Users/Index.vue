@@ -92,6 +92,16 @@ const getInitials = (name: string) => {
         .toUpperCase()
         .substring(0, 2);
 };
+const exportFilename = ref('');
+const today = new Date();
+const dd = String(today.getDate()).padStart(2, '0');
+const mm = String(today.getMonth() + 1).padStart(2, '0');
+const yyyy = today.getFullYear();
+exportFilename.value = `${dd}/${mm}/${yyyy} Commission Users.csv`;
+
+const downloadExport = () => {
+    window.location.href = route('users.export', { filename: exportFilename.value });
+};
 </script>
 
 <template>
@@ -132,6 +142,32 @@ const getInitials = (name: string) => {
                             </Button>
                         </div>
                     </div>
+
+                    <Dialog v-if="isAdmin">
+                        <DialogTrigger as-child>
+                            <Button variant="outline">Export to Excel</Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Export Users Configure</DialogTitle>
+                                <DialogDescription>
+                                    Download a raw Excel/CSV file containing all users and their configuration settings.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div class="py-4">
+                                <label class="text-sm font-medium mb-1.5 block">File Name</label>
+                                <Input v-model="exportFilename" placeholder="Enter file name..." />
+                            </div>
+                            <DialogFooter>
+                                <DialogClose as-child>
+                                    <Button variant="outline">Cancel</Button>
+                                </DialogClose>
+                                <DialogClose as-child>
+                                    <Button @click="downloadExport">Download</Button>
+                                </DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
 
                     <Button as-child>
                         <Link :href="route('users.create')">Create User</Link>

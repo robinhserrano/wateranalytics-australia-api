@@ -226,4 +226,59 @@ class UserController extends Controller
 
         return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }
+
+    public function export(Request $request)
+    {
+        // Only allow admins
+        if (!auth()->user()->hasRole('Admin')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $filename = $request->query('filename', 'Commission Users.csv');
+        if (!str_ends_with(strtolower($filename), '.csv')) {
+            $filename .= '.csv';
+        }
+
+        $users = User::with('roles', 'contacts')->orderBy('name')->get();
+
+        $headers = [
+            "Content-type"        => "text/csv",
+            "Content-Disposition" => "attachment; filename=\"{$filename}\"",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $columns = [
+            'ID', 'Name', 'Email', 'Role', 'Status', 'Commission Split (%)', 'Company Lead Base ($)', 'Self Gen Base ($)', 'Linked Contacts'
+        ];
+
+        $callback = function() use($users, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($users as $user) {
+                $roles = $user->roles->pluck('name')->join(', ');
+                $contacts = $user->contacts->map(function($c) {
+                    $uid = $c->odoo_user_ids[0] ?? 'N/A';
+                    return "[{$uid}] {$c->display_name}";
+                })->join(' | ');
+
+                fputcsv($file, [
+                    $user->id,
+                    $user->name,
+                    $user->email,
+                    $roles ?: 'None',
+                    $user->is_active ? 'Active' : 'Inactive',
+                    $user->commission_split ?? 0,
+                    $user->company_lead_base ?? 0,
+                    $user->self_gen_base ?? 0,
+                    $contacts ?: 'None'
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }

@@ -40,6 +40,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('commissions/bulk-approve', [App\Http\Controllers\CommissionController::class, 'bulkApprove'])->name('commissions.bulk-approve');
         Route::get('users/{user}/commission-stats', [App\Http\Controllers\CommissionController::class, 'userStats'])->name('users.commission-stats');
         
+        Route::get('users/export', [App\Http\Controllers\UserController::class, 'export'])->name('users.export');
         Route::resource('users', App\Http\Controllers\UserController::class)->except(['show', 'edit', 'update']); // Show reused by managers maybe? But for now stick to plan
         Route::resource('roles', App\Http\Controllers\RoleController::class)->except(['show']);
         Route::resource('permissions', App\Http\Controllers\PermissionController::class)->only(['store', 'destroy']);
