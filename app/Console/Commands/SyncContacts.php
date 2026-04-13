@@ -216,7 +216,7 @@ class SyncContacts extends Command
                 do {
                     $userResponse = $odoo->executeKw('res.users', 'web_search_read', [
                         [['active', 'in', [true, false]]],
-                        ['partner_id' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]]],
+                        ['partner_id' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]], 'active' => (object)[]],
                         $userOffset,
                         $userLimit,
                         'id asc'
@@ -237,8 +237,11 @@ class SyncContacts extends Command
                             $partnerName = $partnerRaw->display_name ?? 'Unknown (Ghost)';
                         }
 
+                        $isActive = $u->active ?? true; // Default to true if not provided
+                        $suffixedUserId = $isActive ? (string)$u->id : $u->id . '-G';
+
                         if ($partnerId) {
-                            $partnerToUserIds[$partnerId]['user_ids'][] = $u->id;
+                            $partnerToUserIds[$partnerId]['user_ids'][] = $suffixedUserId;
                             $partnerToUserIds[$partnerId]['name'] = $partnerName;
                         }
                     }
