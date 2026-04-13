@@ -38,29 +38,32 @@ class SyncLegacySalesOrders extends Command
             return 1;
         }
 
-        $this->info('Fetched ' . count($legacyOrders) . ' legacy orders. Processing...');
+        $this->info('Preloading global Mappings to eliminate N+1 queries...');
+        $userMap = \App\Models\User::whereNotNull('legacy_id')->pluck('id', 'legacy_id')->toArray();
+        $this->info('Preloaded ' . count($userMap) . ' users.');
 
         $syncedCount = 0;
         $matchedCount = 0;
 
-        foreach ($legacyOrders as $legacyOrder) {
-            $name = $legacyOrder['name'] ?? null;
+        $chunks = array_chunk($legacyOrders, 500);
+
+        foreach ($chunks as $chunkIndex => $chunk) {
+            $names = array_filter(array_column($chunk, 'name'));
             
-            if (!$name) {
-                continue;
-            }
+            // 🔥 N+1 FIX: Load all 500 Sales Orders + Calculations in exactly 2 DB queries
+            $localOrders = SalesOrder::with('commissionCalculation')->whereIn('name', $names)->get()->keyBy('name');
 
-            // Find local sales order by name
-            $salesOrder = SalesOrder::where('name', $name)->first();
+            foreach ($chunk as $legacyOrder) {
+                $name = $legacyOrder['name'] ?? null;
+                
+                if (!$name || !isset($localOrders[$name])) {
+                    continue;
+                }
 
-            if ($salesOrder) {
+                $salesOrder = $localOrders[$name];
                 $matchedCount++;
                 
-                // Update legacy audit fields
-                // Map legacy fields to our new columns
-                // Expected legacy fields:
-                // confirmed_by_manager, is_entered_odoo, last_confirmed_by, last_entered_odoo_by, last_manual_add_by
-                
+                // Update legacy audit fields on the loaded model
                 $salesOrder->update([
                     'legacy_last_confirmed_by' => $legacyOrder['last_confirmed_by'] ?? null,
                     'legacy_last_entered_odoo_by' => $legacyOrder['last_entered_odoo_by'] ?? null,
@@ -77,17 +80,16 @@ class SyncLegacySalesOrders extends Command
                     'amount_to_invoice' => $legacyOrder['amount_to_invoice'] ?? 0,
                 ]);
 
-                // Trigger the sync service logic to update approvals
-                $syncService->syncLegacyStatus($salesOrder);
+                // 🔥 N+1 FIX: Pass the preloaded userMap so it doesn't query Users inside loop
+                $syncService->syncLegacyStatus($salesOrder, $userMap);
                 
                 $syncedCount++;
-                if ($syncedCount % 10 === 0) {
-                    $this->line("Processed $syncedCount orders...");
-                }
             }
+            
+            $this->info("Processed {$syncedCount} orders out of " . count($legacyOrders) . "...");
         }
 
-        $this->info("Sync completed. Matched: $matchedCount, Synced: $syncedCount");
+        $this->info("Golden Sync completed. Matched: $matchedCount, Processed: $syncedCount");
         
         return 0;
     }

@@ -131,7 +131,10 @@ class SyncOdooSalesOrders extends Command
         $limit = 500; 
         $offset = 0;
         $totalSynced = 0;
-        $domain = [];
+        $domain = [
+            ['tag_ids', 'in', [2]],
+            ['state', '=', 'sale']
+        ];
 
         // Incremental Sync logic
         if (!$this->option('all')) {
@@ -142,7 +145,7 @@ class SyncOdooSalesOrders extends Command
 
             if ($lastSuccessfulSync) {
                 $lastSyncDate = $lastSuccessfulSync->completed_at->toDateTimeString();
-                $domain = [['write_date', '>', $lastSyncDate]];
+                $domain[] = ['write_date', '>', $lastSyncDate];
                 $this->info("Fetching records modified since $lastSyncDate...");
             }
         }

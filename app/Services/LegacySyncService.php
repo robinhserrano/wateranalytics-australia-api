@@ -13,7 +13,7 @@ class LegacySyncService
     /**
      * Sync legacy flags from SalesOrder to CommissionCalculation and Approvals.
      */
-    public function syncLegacyStatus(SalesOrder $salesOrder): void
+    public function syncLegacyStatus(SalesOrder $salesOrder, array $userMap = []): void
     {
         $calculation = $salesOrder->commissionCalculation;
 
@@ -23,34 +23,36 @@ class LegacySyncService
 
         $calculator = app(CommissionCalculator::class);
 
-        DB::transaction(function () use ($salesOrder, $calculation, $calculator) {
+        DB::transaction(function () use ($salesOrder, $calculation, $calculator, $userMap) {
             // Handle Manager Confirmation
             if ($salesOrder->legacy_confirmed_by_manager) {
                 $updates = ['confirmed_by_manager' => true];
-                $approver = null;
+                $approverId = null;
 
                 if ($salesOrder->legacy_last_confirmed_by) {
-                    $approver = User::where('legacy_id', $salesOrder->legacy_last_confirmed_by)->first();
+                    // Try memory map first, fallback to DB if absolutely necessary (but usually the map has everything)
+                    $approverId = $userMap[$salesOrder->legacy_last_confirmed_by] 
+                        ?? \App\Models\User::where('legacy_id', $salesOrder->legacy_last_confirmed_by)->value('id');
                 }
 
                 // Auto-approve if pending OR correct the approver if it's currently System/Null
                 if ($calculation->status === 'pending') {
                     $updates['status'] = 'approved';
                     $updates['approved_at'] = now();
-                    $updates['approved_by'] = $approver ? $approver->id : null;
+                    $updates['approved_by'] = $approverId;
                 } elseif ($calculation->status === 'approved' && ($calculation->approved_by === null || $calculation->approved_by === 1)) {
-                    if ($approver) {
-                        $updates['approved_by'] = $approver->id;
+                    if ($approverId) {
+                        $updates['approved_by'] = $approverId;
                     }
                 }
 
                 $calculation->update($updates);
 
-                if ($approver) {
+                if ($approverId) {
                     // Record confirmation history if not already present
                     CommissionApproval::firstOrCreate([
                         'commission_calculation_id' => $calculation->id,
-                        'approver_id' => $approver->id,
+                        'approver_id' => $approverId,
                         'action' => 'confirmed',
                     ], [
                         'notes' => 'Legacy V1 Migration Mapping',
@@ -61,7 +63,7 @@ class LegacySyncService
                     if ($calculation->fresh()->status === 'approved') {
                         CommissionApproval::firstOrCreate([
                             'commission_calculation_id' => $calculation->id,
-                            'approver_id' => $approver->id,
+                            'approver_id' => $approverId,
                             'action' => 'approved',
                         ], [
                             'notes' => 'Legacy V1 Auto-Approval',
@@ -74,19 +76,20 @@ class LegacySyncService
             // Handle Entered to Odoo
             if ($salesOrder->legacy_is_entered_odoo) {
                 $updates = ['entered_to_odoo' => true];
-                $approver = null;
+                $approverId = null;
 
                 if ($salesOrder->legacy_last_entered_odoo_by) {
-                    $approver = User::where('legacy_id', $salesOrder->legacy_last_entered_odoo_by)->first();
+                    $approverId = $userMap[$salesOrder->legacy_last_entered_odoo_by]
+                        ?? \App\Models\User::where('legacy_id', $salesOrder->legacy_last_entered_odoo_by)->value('id');
                 }
 
                 // Logic here is similar to confirmation - ensure we have the record
                 $calculation->update($updates);
 
-                if ($approver) {
+                if ($approverId) {
                     CommissionApproval::firstOrCreate([
                         'commission_calculation_id' => $calculation->id,
-                        'approver_id' => $approver->id,
+                        'approver_id' => $approverId,
                         'action' => 'entered_to_odoo',
                     ], [
                         'notes' => 'Legacy V1 Migration Mapping',
@@ -98,9 +101,10 @@ class LegacySyncService
             // Handle Manual Adjustments from Legacy
             if ($salesOrder->legacy_additional_deduction !== null) {
                 // Find the user who made the adjustment
-                $adjuster = null;
+                $adjusterId = null;
                 if ($salesOrder->legacy_last_manual_add_by) {
-                    $adjuster = User::where('legacy_id', $salesOrder->legacy_last_manual_add_by)->first();
+                    $adjusterId = $userMap[$salesOrder->legacy_last_manual_add_by]
+                        ?? \App\Models\User::where('legacy_id', $salesOrder->legacy_last_manual_add_by)->value('id');
                 }
 
                 $reason = $salesOrder->legacy_manual_notes ?? 'Legacy Manual Adjustment';
@@ -109,7 +113,7 @@ class LegacySyncService
                 $calculator->applyManualAdjustment(
                     $calculation,
                     (float) $salesOrder->legacy_additional_deduction,
-                    $adjuster ? $adjuster->id : 1, // Fallback to System User
+                    $adjusterId ? $adjusterId : 1, // Fallback to System User
                     $reason
                 );
             }
