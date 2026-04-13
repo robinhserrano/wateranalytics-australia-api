@@ -62,6 +62,16 @@ class SyncLegacyUsers extends Command
                 'is_active' => true,
             ];
 
+            // Resolve odoo_user_id by matching email against contacts
+            $contact = \App\Models\Contact::where('email', $email)
+                ->whereNotNull('odoo_user_ids')
+                ->where('odoo_user_ids', '!=', '[]')
+                ->first();
+            
+            if ($contact && !empty($contact->odoo_user_ids)) {
+                $userData['odoo_user_id'] = $contact->odoo_user_ids[0];
+            }
+
             if ($user) {
                 // Update existing user
                 $user->update($userData);

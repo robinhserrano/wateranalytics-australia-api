@@ -53,21 +53,29 @@ class CommissionCalculator
             }
         }
 
-        // Priority 2: Fallback to SalesOrder's assigned salesperson
+        // Priority 2: Match salesperson through the resolved salesperson_partner_id
+        if (!$user && $salesOrder->salesperson_partner_id) {
+            $contact = \App\Models\Contact::where('odoo_id', $salesOrder->salesperson_partner_id)->first();
+            if ($contact && $contact->user_id) {
+                $user = User::find($contact->user_id);
+            }
+        }
+
+        // Priority 3: Fallback to older methods
         if (!$user) {
-            // 2a. Try matching by Odoo User ID
+            // 3a. Try matching by Odoo User ID
             if ($salesOrder->user_id) {
                 $user = User::where('odoo_user_id', $salesOrder->user_id)
                             ->orWhere('odoo_salesperson_id', $salesOrder->user_id)
                             ->first();
             }
 
-            // 2b. Try matching by Name (if ID match failed or ID missing)
+            // 3b. Try matching by Name (if ID match failed or ID missing)
             if (!$user && $salesOrder->user_name) {
                 $user = User::where('name', $salesOrder->user_name)->first();
             }
 
-            // 2c. [NEW] Try lookup by Salesperson Name match to Contact Display Name -> Resolve to Contact Owner
+            // 3c. Try lookup by Salesperson Name match to Contact Display Name -> Resolve to Contact Owner
             if (!$user && $salesOrder->user_name) {
                 $contact = \App\Models\Contact::where('display_name', $salesOrder->user_name)->first();
                 if ($contact && $contact->user_id) {
@@ -75,7 +83,7 @@ class CommissionCalculator
                 }
             }
 
-            // 2d. [NEW] Try lookup by Salesperson ID match to Contact Odoo ID -> Resolve to Contact Owner
+            // 3d. Try lookup by Salesperson ID match to Contact Odoo ID -> Resolve to Contact Owner
             if (!$user && $salesOrder->user_id) {
                 $contact = \App\Models\Contact::where('odoo_id', $salesOrder->user_id)->first();
                 if ($contact && $contact->user_id) {

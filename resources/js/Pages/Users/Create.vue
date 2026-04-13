@@ -190,6 +190,7 @@ const selectedUserIds = computed(() => {
                                             class="text-sm font-medium leading-none cursor-pointer pointer-events-none"
                                         >
                                             [{{ contact.odoo_user_ids?.[0] || 'N/A' }}] {{ contact.display_name }} 
+                                            <span v-if="!contact.email || contact.email.trim() === ''" title="This is a ghost contact (portal login only or no email)" class="text-xs ml-1">👻 Ghost</span>
                                             <span v-if="contact.user_id" class="text-xs text-muted-foreground ml-1">
                                                 (Assigned to another user)
                                             </span>

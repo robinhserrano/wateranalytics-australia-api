@@ -204,6 +204,75 @@ class SyncContacts extends Command
             } while (true);
 
             $this->info("Sync complete. Total records: $totalSynced");
+
+            // Backfill odoo_user_ids from res.users for contacts that have it empty.
+            // This catches ghost contacts (e.g., Contact 5611 whose User 493 has partner_id=5611).
+            $this->info('Backfilling odoo_user_ids from Odoo res.users...');
+            try {
+                // Build partner_id → [user_ids] map from res.users
+                $partnerToUserIds = [];
+                $userOffset = 0;
+                $userLimit = 1000;
+                do {
+                    $userResponse = $odoo->executeKw('res.users', 'web_search_read', [
+                        [['active', 'in', [true, false]]],
+                        ['partner_id' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]]],
+                        $userOffset,
+                        $userLimit,
+                        'id asc'
+                    ]);
+                    $odooUsers = $userResponse->records ?? (is_array($userResponse) ? ($userResponse['records'] ?? []) : []);
+                    foreach ($odooUsers as $u) {
+                        $u = (object)$u;
+                        $partnerRaw = $u->partner_id ?? null;
+                        
+                        $partnerId = null;
+                        $partnerName = 'Unknown (Ghost)';
+                        
+                        if (is_array($partnerRaw)) {
+                            $partnerId = $partnerRaw[0] ?? null;
+                            $partnerName = $partnerRaw[1] ?? 'Unknown (Ghost)';
+                        } elseif (is_object($partnerRaw)) {
+                            $partnerId = $partnerRaw->id ?? null;
+                            $partnerName = $partnerRaw->display_name ?? 'Unknown (Ghost)';
+                        }
+
+                        if ($partnerId) {
+                            $partnerToUserIds[$partnerId]['user_ids'][] = $u->id;
+                            $partnerToUserIds[$partnerId]['name'] = $partnerName;
+                        }
+                    }
+                    $userOffset += $userLimit;
+                } while (count($odooUsers) === $userLimit);
+
+                $this->info('Fetched ' . count($partnerToUserIds) . ' user→partner mappings from res.users.');
+
+                $backfilled = 0;
+                $upsertData = [];
+                $now = \Carbon\Carbon::now();
+
+                foreach ($partnerToUserIds as $partnerId => $data) {
+                    $upsertData[] = [
+                        'odoo_id' => $partnerId,
+                        // We use the name returned directly by the res.users -> partner_id relation
+                        'display_name' => $data['name'],
+                        'odoo_user_ids' => json_encode($data['user_ids']),
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                // Batch upsert to guarantee they exist, even if standard res.partner search hid them!
+                if (!empty($upsertData)) {
+                    \App\Models\Contact::upsert($upsertData, ['odoo_id'], ['display_name', 'odoo_user_ids', 'updated_at']);
+                    $backfilled = count($upsertData);
+                }
+
+                $this->info("Refreshed/Upserted odoo_user_ids on {$backfilled} contacts (guaranteed visibility).");
+            } catch (\Exception $e) {
+                $this->warn('Could not backfill odoo_user_ids: ' . $e->getMessage());
+            }
+
             $logger->complete($log, $totalSynced, $lastSync ? "Incremental sync completed." : "Full sync completed.");
             \Illuminate\Support\Facades\Cache::forget('contacts_dashboard_stats');
             return 0;

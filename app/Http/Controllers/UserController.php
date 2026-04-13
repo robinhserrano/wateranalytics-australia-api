@@ -71,7 +71,7 @@ class UserController extends Controller
         return Inertia::render('Users/Create', [
             'contacts' => Contact::whereNotNull('odoo_user_ids')
                 ->where('odoo_user_ids', '!=', '[]')
-                ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids')
+                ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids', 'email')
                 ->get(),
             'roles' => \Spatie\Permission\Models\Role::all(),
         ]);
@@ -137,7 +137,7 @@ class UserController extends Controller
             'user' => $user->load('contacts', 'roles'),
             'contacts' => Contact::whereNotNull('odoo_user_ids')
                 ->where('odoo_user_ids', '!=', '[]')
-                ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids')
+                ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids', 'email')
                 ->get(),
             'roles' => \Spatie\Permission\Models\Role::all(),
         ]);

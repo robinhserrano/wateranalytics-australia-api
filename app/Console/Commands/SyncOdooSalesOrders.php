@@ -36,6 +36,44 @@ class SyncOdooSalesOrders extends Command
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Sales Order Sync (Golden Sync)...');
 
+        // Fetch Odoo User → Partner mapping (res.users → partner_id)
+        // This resolves the ambiguity where sales orders may reference different
+        // Odoo user accounts (e.g., 493 or 568) for the same person.
+        $this->info('Fetching Odoo User → Partner ID mapping...');
+        $userToPartnerMap = [];
+        try {
+            $userOffset = 0;
+            $userLimit = 1000;
+            do {
+                $userResponse = $odoo->executeKw('res.users', 'web_search_read', [
+                    [['active', 'in', [true, false]]],
+                    ['partner_id' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]]],
+                    $userOffset,
+                    $userLimit,
+                    'id asc'
+                ]);
+                $odooUsers = $userResponse->records ?? (is_array($userResponse) ? ($userResponse['records'] ?? []) : []);
+                foreach ($odooUsers as $u) {
+                    $u = (object)$u;
+                    $partnerRaw = $u->partner_id ?? null;
+                    $partnerId = null;
+                    if (is_array($partnerRaw)) {
+                        $partnerId = $partnerRaw[0] ?? null;
+                    } elseif (is_object($partnerRaw)) {
+                        $partnerId = $partnerRaw->id ?? null;
+                    }
+                    if ($partnerId) {
+                        $userToPartnerMap[$u->id] = $partnerId;
+                    }
+                }
+                $userOffset += $userLimit;
+            } while (count($odooUsers) === $userLimit);
+            $this->info('Mapped ' . count($userToPartnerMap) . ' Odoo users to partner IDs.');
+        } catch (\Exception $e) {
+            $this->warn('Could not fetch user→partner map: ' . $e->getMessage());
+            $this->warn('salesperson_partner_id will be null for this sync run.');
+        }
+
         $specification = [
             'name' => (object)[],
             'create_date' => (object)[],
@@ -152,6 +190,7 @@ class SyncOdooSalesOrders extends Command
                         
                         'user_id' => $order->user_id->id ?? null,
                         'user_name' => $order->user_id->display_name ?? null,
+                        'salesperson_partner_id' => $userToPartnerMap[$order->user_id->id ?? 0] ?? null,
                         
                         'team_id' => $order->team_id->id ?? null,
                         'team_name' => $order->team_id->display_name ?? null,
@@ -239,7 +278,7 @@ class SyncOdooSalesOrders extends Command
                 SalesOrder::upsert($syncData, ['odoo_id'], [
                     'name', 'create_date', 'write_date', 'partner_id', 'partner_name', 
                     'partner_shipping_id', 'partner_shipping_name', 'partner_shipping_address', 'partner_shipping_state', 
-                    'user_id', 'user_name', 'team_id', 'team_name', 'x_studio_sales_rep_1', 'x_studio_sales_source', 
+                    'user_id', 'user_name', 'salesperson_partner_id', 'team_id', 'team_name', 'x_studio_sales_rep_1', 'x_studio_sales_source', 
                     'x_studio_commission_paid', 'x_studio_referred_by', 'x_studio_referrer_processed', 'x_studio_payment_type', 
                     'amount_total', 'recurring_total', 'plan_name', 'subscription_plan_id', 'amount_to_invoice', 
                     'delivery_status', 'x_studio_invoice_payment_status', 'state', 'tag_ids', 
