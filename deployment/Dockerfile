@@ -51,25 +51,14 @@ RUN SKIP_WAYFINDER=true npm run build
 # Stage 2: Serve Application
 FROM php:8.4-fpm-alpine
 
-# Install system dependencies
-RUN apk add --no-cache \
-    curl \
-    libpng-dev \
-    libxml2-dev \
-    zip \
-    unzip \
-    oniguruma-dev \
-    libzip-dev \
-    mysql-client
-
-# Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip opcache
+# Install system dependencies and PHP extensions using the robust installer
+# This handles all Alpine library dependencies and contains fixes for known build bugs
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN chmod +x /usr/local/bin/install-php-extensions && \
+    install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd zip opcache
 
 # Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Copy custom PHP configuration
-COPY deployment/php/conf.d/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
 # Set working directory
 WORKDIR /var/www
@@ -77,11 +66,19 @@ WORKDIR /var/www
 # Copy existing application directory contents
 COPY . /var/www
 
-# Copy built frontend assets from Stage 1
+# Copy built vendor dependencies from Stage 0 (generator) 
+# to avoid re-downloading and potential build-time failures
+COPY --from=generator /app/vendor /var/www/vendor
+
+# Copy built frontend assets from Stage 1 (frontend)
 COPY --from=frontend /app/public/build /var/www/public/build
 
-# Install dependencies if vendor doesn't exist (useful for clean installs)
-RUN composer install --no-interaction --optimize-autoloader --no-dev
+# Copy custom PHP configuration
+COPY deployment/php/conf.d/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+
+# Ensure all dependencies are optimized and scripts run (like package discovery)
+# We use --no-dev for production
+RUN composer dump-autoload --optimize --no-dev --no-interaction
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
