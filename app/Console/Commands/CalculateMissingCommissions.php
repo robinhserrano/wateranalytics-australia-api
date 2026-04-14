@@ -10,7 +10,8 @@ class CalculateMissingCommissions extends Command
 {
     protected $signature = 'commissions:calculate-missing 
                             {--limit=100 : Maximum number of orders to process}
-                            {--force : Recalculate even if commission exists}';
+                            {--force : Recalculate even if commission exists}
+                            {--all : Recalculate everything without limit}';
 
     protected $description = 'Calculate commissions for sales orders that don\'t have them yet';
 
@@ -26,6 +27,12 @@ class CalculateMissingCommissions extends Command
     {
         $limit = (int) $this->option('limit');
         $force = $this->option('force');
+        $all = $this->option('all');
+
+        if ($all) {
+            $limit = 100000; // Effectively no limit for typical usage
+            $force = true;
+        }
 
         $query = SalesOrder::query();
 
