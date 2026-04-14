@@ -12,6 +12,11 @@ services:
             - assets_build:/var/www/public/build
         networks:
             - app-network
+        depends_on:
+            mysql:
+                condition: service_healthy
+            redis:
+                condition: service_started
 
     web:
         image: nginx:alpine
@@ -65,6 +70,7 @@ services:
         depends_on:
             - app
             - mysql
+            - redis
         networks:
             - app-network
 
@@ -83,6 +89,7 @@ services:
         depends_on:
             - app
             - mysql
+            - redis
         networks:
             - app-network
 
@@ -93,6 +100,18 @@ services:
             - ./certbot/conf:/etc/encrypt
             - ./certbot/www:/var/www/certbot
         entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+    redis:
+        image: redis:alpine
+        container_name: laravel-redis
+        restart: unless-stopped
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 3
 
 networks:
     app-network:
