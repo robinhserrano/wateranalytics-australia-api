@@ -33,6 +33,12 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
+# Check if APP_KEY is missing
+if ! grep -q "^APP_KEY=.\+" .env; then
+    echo "🔑 APP_KEY is missing. Will generate one during optimization..."
+    GENERATE_KEY=true
+fi
+
 # Step 1: Prepare Nginx configuration
 echo "📝 Step 1/5: Preparing Nginx configuration..."
 sed "s/yourdomain.com/$DOMAIN/g" deployment/nginx.conf > deployment/nginx-$DOMAIN.conf
@@ -86,6 +92,7 @@ echo "⚡ Step 5/5: Running Laravel optimizations..."
 docker compose exec -T app sh -c "
     php artisan migrate --force && \
     php artisan optimize:clear && \
+    $( [ "$GENERATE_KEY" = true ] && echo "php artisan key:generate && " )
     php artisan storage:link --force && \
     php artisan optimize && \
     php artisan scribe:generate
