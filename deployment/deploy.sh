@@ -116,5 +116,9 @@ else
     echo "⚠️  Site responded, but check logs if you see a 502/500."
 fi
 
+# IMPORTANT: Force Nginx to reload upstream IPs so it doesn't return 502 Bad Gateway
+echo "🔄 Reloading Nginx to clear upstream DNS cache..."
+docker compose -f docker-compose.prod.yml restart web
+
 echo ""
 echo "✅ Deployment complete! https://$DOMAIN"
