@@ -84,9 +84,9 @@ echo "⚡ Step 5/5: Running Laravel optimizations..."
 
 # Consolidate Laravel commands to reduce overhead
 docker compose exec -T app sh -c "
+    php artisan migrate --force && \
     php artisan optimize:clear && \
     php artisan storage:link --force && \
-    php artisan migrate --force && \
     php artisan optimize && \
     php artisan scribe:generate
 "
