@@ -132,13 +132,19 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function getTeamUserIds($user): array
+    private function getTeamUserIds($user, array &$visited = []): array
     {
+        // Prevent infinite recursion if there is a circular reporting line
+        if (isset($visited[$user->id])) {
+            return [];
+        }
+        $visited[$user->id] = true;
+
         $userIds = [$user->id];
         $directReports = \App\Models\User::where('sales_manager_id', $user->id)->get();
         
         foreach ($directReports as $report) {
-            $userIds = array_merge($userIds, $this->getTeamUserIds($report));
+            $userIds = array_merge($userIds, $this->getTeamUserIds($report, $visited));
         }
         
         if ($user->team_id) {
