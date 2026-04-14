@@ -90,6 +90,7 @@ echo "⚡ Step 5/5: Running Laravel optimizations..."
 
 # Consolidate Laravel commands to reduce overhead
 docker compose exec -T app sh -c "
+    chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache && \
     php artisan migrate --force && \
     php artisan optimize:clear && \
     $( [ "$GENERATE_KEY" = true ] && echo "php artisan key:generate && " )
@@ -97,6 +98,7 @@ docker compose exec -T app sh -c "
     php artisan optimize && \
     php artisan scribe:generate
 "
+
 
 # Handle seeders if necessary
 echo "🌱 Checking permissions..."
