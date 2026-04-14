@@ -56,7 +56,7 @@ FROM php:8.4-fpm-alpine
 # specifically for ARM64 (AARCH64) architectures.
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 RUN chmod +x /usr/local/bin/install-php-extensions && \
-    install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd zip opcache curl xml dom intl
+    install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd zip opcache curl xml dom intl redis
 
 # Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
