@@ -52,10 +52,11 @@ RUN SKIP_WAYFINDER=true npm run build
 FROM php:8.4-fpm-alpine
 
 # Install system dependencies and PHP extensions using the robust installer
-# This handles all Alpine library dependencies and contains fixes for known build bugs
+# This handles all Alpine library dependencies and contains fixes for known build bugs, 
+# specifically for ARM64 (AARCH64) architectures.
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 RUN chmod +x /usr/local/bin/install-php-extensions && \
-    install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd zip opcache
+    install-php-extensions pdo_mysql mbstring exif pcntl bcmath gd zip opcache curl xml dom intl
 
 # Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -76,8 +77,18 @@ COPY --from=frontend /app/public/build /var/www/public/build
 # Copy custom PHP configuration
 COPY deployment/php/conf.d/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
+# Create minimal .env if it doesn't exist for build-time commands (package:discover)
+# We use a robust random string for the build-key.
+RUN if [ ! -f ".env" ]; then \
+      echo "APP_KEY=base64:$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1 | base64)" > .env; \
+      echo "APP_ENV=production" >> .env; \
+      echo "DB_CONNECTION=sqlite" >> .env; \
+      echo "DB_DATABASE=:memory:" >> .env; \
+    fi
+
 # Ensure all dependencies are optimized and scripts run (like package discovery)
-# We use --no-dev for production
+# We use --no-dev for production. This will fail the build if discovery fails, 
+# giving us clear visibility into any issues.
 RUN composer dump-autoload --optimize --no-dev --no-interaction
 
 # Set permissions

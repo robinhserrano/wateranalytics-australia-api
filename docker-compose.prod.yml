@@ -9,6 +9,7 @@ services:
         volumes:
             - ./.env:/var/www/.env
             - storage:/var/www/storage
+            - assets_build:/var/www/public/build
         networks:
             - app-network
 
@@ -21,7 +22,8 @@ services:
             - "443:443"
         volumes:
             - ./public:/var/www/public
-            - ./deployment/nginx-http.conf:/etc/nginx/conf.d/default.conf:ro
+            - ./${NGINX_CONF:-deployment/nginx-http.conf}:/etc/nginx/conf.d/default.conf:ro
+            - assets_build:/var/www/public/build:ro
             - ./certbot/conf:/etc/letsencrypt
             - ./certbot/www:/var/www/certbot
         depends_on:
@@ -42,6 +44,11 @@ services:
             - dbdata:/var/lib/mysql
         networks:
             - app-network
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD}"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
 
     # Queue Worker (Background Jobs)
     queue:
@@ -83,7 +90,7 @@ services:
         image: certbot/certbot
         container_name: certbot
         volumes:
-            - ./certbot/conf:/etc/letsencrypt
+            - ./certbot/conf:/etc/encrypt
             - ./certbot/www:/var/www/certbot
         entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
@@ -95,4 +102,6 @@ volumes:
     dbdata:
         driver: local
     storage:
+        driver: local
+    assets_build:
         driver: local
