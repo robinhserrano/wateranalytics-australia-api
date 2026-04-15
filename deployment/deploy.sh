@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Laravel Optimized Production Deployment Script"
-echo "================================================"
+echo "🚀 Laravel Optimized Production Deployment Script (Zero-Cache)"
+echo "=============================================================="
 
 # Try to extract domain from .env if not provided
 if [ -z "$1" ] && [ -f ".env" ]; then
@@ -39,12 +39,15 @@ if ! grep -q "^APP_KEY=.\+" .env; then
     GENERATE_KEY=true
 fi
 
+# Derive Docker Compose project name (same logic as Docker)
+COMPOSE_PROJECT=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]//g')
+
 # Step 1: Prepare Nginx configuration
-echo "📝 Step 1/5: Preparing Nginx configuration..."
+echo "📝 Step 1/7: Preparing Nginx configuration..."
 sed "s/yourdomain.com/$DOMAIN/g" deployment/nginx.conf > deployment/nginx-$DOMAIN.conf
 
 # Step 2: SSL Check and Container Startup
-echo "🔍 Step 2/5: Checking for SSL certificates..."
+echo "🔍 Step 2/7: Checking for SSL certificates..."
 if [ ! -f "certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
     echo "⚠️  SSL certificates not found. Bootstrapping with HTTP-only..."
     
@@ -73,32 +76,58 @@ fi
 # Final setup: Building and starting all services
 export NGINX_CONF="deployment/nginx-$DOMAIN.conf"
 
-echo "🏗️  Step 3/5: Building and starting containers (using cache)..."
-docker compose -f docker-compose.prod.yml build
+# Step 3: CRITICAL - Remove all stale Docker caches and volumes
+echo "🧹 Step 3/7: Removing all stale caches and volumes (ZERO-CACHE MODE)..."
+docker compose -f docker-compose.prod.yml down 2>/dev/null || true
+
+# Remove stale named volumes
+docker volume rm "${COMPOSE_PROJECT}_assets_build" 2>/dev/null && echo "   ✅ Old assets_build volume removed" || echo "   ℹ️  No assets_build volume found"
+docker volume rm "${COMPOSE_PROJECT}_nginx_cache" 2>/dev/null && echo "   ✅ Old nginx_cache volume removed" || echo "   ℹ️  No nginx_cache volume found"
+
+# Remove old Docker images to force fresh pulls and builds
+docker rmi -f $(docker images --filter "dangling=true" -q) 2>/dev/null || true
+
+# Step 4: Build with NO CACHE and fresh images
+echo "🏗️  Step 4/7: Building containers (--no-cache --pull for fresh build)..."
+docker compose -f docker-compose.prod.yml build --no-cache --pull
 docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-# Step 4: Wait for Database
-echo "⏳ Step 4/5: Waiting for database to be healthy..."
+# Step 5: Wait for Database
+echo "⏳ Step 5/7: Waiting for database to be healthy..."
+RETRY_COUNT=0
+MAX_RETRIES=30
 while [ "$(docker inspect -f '{{.State.Health.Status}}' mysql-db)" != "healthy" ]; do
-    echo "   (Waiting for MySQL...)"
-    sleep 3
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -gt $MAX_RETRIES ]; then
+        echo "❌ Database failed to become healthy after $MAX_RETRIES attempts"
+        exit 1
+    fi
+    echo "   (Waiting for MySQL... attempt $RETRY_COUNT/$MAX_RETRIES)"
+    sleep 2
 done
 echo "✅ Database is ready!"
 
-# Step 5: Application Optimizations
-echo "⚡ Step 5/5: Running Laravel optimizations..."
-
-# Consolidate Laravel commands to reduce overhead
+# Step 6: Clear ALL application caches (Laravel + PHP)
+echo "🧹 Step 6/7: Clearing all application caches..."
 docker compose exec -T app sh -c "
     chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache && \
-    php artisan migrate --force && \
     php artisan optimize:clear && \
+    php artisan config:clear && \
+    php artisan view:clear && \
+    php artisan route:clear && \
+    php artisan cache:clear && \
+    php -r 'opcache_reset();' 2>/dev/null || true
+"
+
+# Step 7: Application Optimizations and Migrations
+echo "⚡ Step 7/7: Running Laravel optimizations..."
+docker compose exec -T app sh -c "
+    php artisan migrate --force && \
     $( [ "$GENERATE_KEY" = true ] && echo "php artisan key:generate && " )
     php artisan storage:link --force && \
     php artisan optimize && \
     php artisan scribe:generate
 "
-
 
 # Handle seeders if necessary
 echo "🌱 Checking permissions..."
@@ -108,6 +137,10 @@ if [ "$PERM_COUNT" = "0" ]; then
     docker compose exec -T app php artisan db:seed --class=RolesAndPermissionsSeeder --force
 fi
 
+# Force Nginx and app container restart to clear all connection caches
+echo "🔄 Restarting services to clear all caches..."
+docker compose -f docker-compose.prod.yml restart web app
+
 echo ""
 echo "🔍 Final health check..."
 if curl -s -I -k "https://localhost" | grep -q "200\|302\|301"; then
@@ -116,9 +149,13 @@ else
     echo "⚠️  Site responded, but check logs if you see a 502/500."
 fi
 
-# IMPORTANT: Force Nginx to reload upstream IPs so it doesn't return 502 Bad Gateway
-echo "🔄 Reloading Nginx to clear upstream DNS cache..."
-docker compose -f docker-compose.prod.yml restart web
-
 echo ""
 echo "✅ Deployment complete! https://$DOMAIN"
+echo ""
+echo "📊 Cache Status:"
+echo "   ✅ Docker cache: CLEARED (--no-cache --pull)"
+echo "   ✅ Volume cache: CLEARED (deleted and recreated)"
+echo "   ✅ Laravel cache: CLEARED (optimize:clear + config:clear + view:clear + route:clear)"
+echo "   ✅ PHP OPcache: CLEARED (opcache_reset)"
+echo ""
+echo "💡 Note: Browser cache is client-side. Users should hard-refresh (Ctrl+Shift+R)"

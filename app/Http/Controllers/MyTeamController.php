@@ -27,9 +27,6 @@ class MyTeamController extends Controller
         ]);
     }
 
-    /**
-     * Admin: show the same My Team data the team's manager would see.
-     */
     public function previewAsManager(Team $team)
     {
         $this->authorize('manage-teams');
@@ -67,8 +64,12 @@ class MyTeamController extends Controller
         ]);
     }
 
-    private function membersForManagerView(User $manager): Collection
+    private function membersForManagerView(?User $manager): Collection
     {
+        if (!$manager) {
+            return collect();
+        }
+
         $teamUserIds = $manager->getTeamUserIds();
         $teamUserIds = array_diff($teamUserIds, [$manager->id]);
 

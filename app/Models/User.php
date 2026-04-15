@@ -143,7 +143,7 @@ class User extends Authenticatable
         // Also get team members if user is a team manager (even if not a member of that team)
         $managedTeams = Team::where('team_manager_id', $this->id)->get();
         foreach ($managedTeams as $managedTeam) {
-            $teamMemberIds = $managedTeam->members()->pluck('users.id')->toArray();
+            $teamMemberIds = $managedTeam->members()->pluck('id')->toArray();
             $userIds = array_merge($userIds, $teamMemberIds);
         }
         
