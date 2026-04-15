@@ -37,7 +37,16 @@ import {
     Edit,
     Check,
     X,
+    Info,
+    History,
+    RotateCcw,
 } from 'lucide-vue-next';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const props = defineProps<{
     commission: any;
@@ -94,6 +103,18 @@ const rejectCommission = () => {
 
 const recalculateCommission = () => {
     router.post(route('commissions.recalculate', props.commission.id));
+};
+
+const resetConfirmation = () => {
+    if (confirm('Are you sure you want to reset manager confirmation? This will move the commission back to pending.')) {
+        router.post(route('commissions.reset-confirm', props.commission.id));
+    }
+};
+
+const resetOdooSync = () => {
+    if (confirm('Are you sure you want to reset Odoo sync status?')) {
+        router.post(route('commissions.reset-odoo', props.commission.id));
+    }
 };
 
 const formatCurrency = (amount: number | null) => {
@@ -268,6 +289,9 @@ const getStatusBadgeVariant = (status: string) => {
                                     placeholder="e.g. Setting fixed commission to -1200"
                                     required
                                 />
+                                <div v-if="commission.last_adjustment_note" class="mt-2 p-2 bg-muted rounded text-[10px]">
+                                    <span class="font-semibold">Last Note:</span> {{ commission.last_adjustment_note }}
+                                </div>
                             </div>
                         </div>
                         <DialogFooter>
@@ -342,7 +366,21 @@ const getStatusBadgeVariant = (status: string) => {
                                 <Separator v-if="commission.manual_adjustment !== 0" />
                                 
                                 <div v-if="commission.manual_adjustment !== 0" class="flex items-center justify-between">
-                                    <span class="text-sm font-medium">Manual Adjustments</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-medium">Manual Adjustments</span>
+                                        <TooltipProvider v-if="commission.last_adjustment_note">
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <Info class="h-4 w-4 text-muted-foreground cursor-help" />
+                                                </TooltipTrigger>
+                                                <TooltipContent class="max-w-xs">
+                                                    <p class="font-semibold mb-1">Latest Note:</p>
+                                                    <p class="text-xs">{{ commission.last_adjustment_note }}</p>
+                                                    <p class="text-[10px] text-muted-foreground mt-1">by {{ commission.last_adjustment_by || 'Unknown' }}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    </div>
                                     <span class="text-lg font-bold" :class="commission.manual_adjustment < 0 ? 'text-destructive' : 'text-green-600'">
                                         {{ formatCurrency(commission.manual_adjustment) }}
                                     </span>
@@ -486,17 +524,41 @@ const getStatusBadgeVariant = (status: string) => {
                                 <div class="text-sm">{{ formatDate(commission.paid_at) }}</div>
                             </div>
                             <Separator />
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center justify-between gap-2">
                                 <div class="text-sm font-medium text-muted-foreground">Manager Confirmed:</div>
-                                <Badge :variant="commission.confirmed_by_manager ? 'default' : 'secondary'">
-                                    {{ commission.confirmed_by_manager ? 'Yes' : 'No' }}
-                                </Badge>
+                                <div class="flex items-center gap-2">
+                                    <Badge :variant="commission.confirmed_by_manager ? 'default' : 'secondary'">
+                                        {{ commission.confirmed_by_manager ? 'Yes' : 'No' }}
+                                    </Badge>
+                                    <Button 
+                                        v-if="commission.confirmed_by_manager" 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        class="h-6 w-6"
+                                        title="Reset Confirmation"
+                                        @click="resetConfirmation"
+                                    >
+                                        <RotateCcw class="h-3 w-3" />
+                                    </Button>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center justify-between gap-2">
                                 <div class="text-sm font-medium text-muted-foreground">Entered to Odoo:</div>
-                                <Badge :variant="commission.entered_to_odoo ? 'default' : 'secondary'">
-                                    {{ commission.entered_to_odoo ? 'Yes' : 'No' }}
-                                </Badge>
+                                <div class="flex items-center gap-2">
+                                    <Badge :variant="commission.entered_to_odoo ? 'default' : 'secondary'">
+                                        {{ commission.entered_to_odoo ? 'Yes' : 'No' }}
+                                    </Badge>
+                                    <Button 
+                                        v-if="commission.entered_to_odoo" 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        class="h-6 w-6"
+                                        title="Reset Odoo Sync"
+                                        @click="resetOdooSync"
+                                    >
+                                        <RotateCcw class="h-3 w-3" />
+                                    </Button>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

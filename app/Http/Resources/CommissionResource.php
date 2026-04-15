@@ -50,6 +50,13 @@ class CommissionResource extends JsonResource
             'rejection_reason' => $this->rejection_reason,
             'paid_at' => $this->paid_at?->toISOString(),
             
+            // Latest Audit Info for UI
+            'last_adjustment_note' => $this->adjustments()->latest()->first()?->reason,
+            'last_adjustment_by' => $this->adjustments()->latest()->with('adjuster')->first()?->adjuster?->name,
+            'last_action_by' => $this->approvals()->latest()->with('approver')->first()?->approver?->name,
+            'last_action_at' => $this->approvals()->latest()->first()?->created_at?->toISOString(),
+
+            
             // Metadata
             'calculation_metadata' => $this->calculation_metadata,
             'created_at' => $this->created_at->toISOString(),

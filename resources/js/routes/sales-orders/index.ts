@@ -85,7 +85,7 @@ index.form = indexForm
 * @see app/Http/Controllers/SalesOrderController.php:182
 * @route '/sales-orders/{sales_order}'
 */
-export const show = (args: { sales_order: string | number } | [sales_order: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { sales_order: number | { id: number } } | [sales_order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -100,9 +100,13 @@ show.definition = {
 * @see app/Http/Controllers/SalesOrderController.php:182
 * @route '/sales-orders/{sales_order}'
 */
-show.url = (args: { sales_order: string | number } | [sales_order: string | number ] | string | number, options?: RouteQueryOptions) => {
+show.url = (args: { sales_order: number | { id: number } } | [sales_order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { sales_order: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { sales_order: args.id }
     }
 
     if (Array.isArray(args)) {
@@ -114,7 +118,9 @@ show.url = (args: { sales_order: string | number } | [sales_order: string | numb
     args = applyUrlDefaults(args)
 
     const parsedArgs = {
-        sales_order: args.sales_order,
+        sales_order: typeof args.sales_order === 'object'
+        ? args.sales_order.id
+        : args.sales_order,
     }
 
     return show.definition.url
@@ -127,7 +133,7 @@ show.url = (args: { sales_order: string | number } | [sales_order: string | numb
 * @see app/Http/Controllers/SalesOrderController.php:182
 * @route '/sales-orders/{sales_order}'
 */
-show.get = (args: { sales_order: string | number } | [sales_order: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { sales_order: number | { id: number } } | [sales_order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -137,7 +143,7 @@ show.get = (args: { sales_order: string | number } | [sales_order: string | numb
 * @see app/Http/Controllers/SalesOrderController.php:182
 * @route '/sales-orders/{sales_order}'
 */
-show.head = (args: { sales_order: string | number } | [sales_order: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { sales_order: number | { id: number } } | [sales_order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })
@@ -147,7 +153,7 @@ show.head = (args: { sales_order: string | number } | [sales_order: string | num
 * @see app/Http/Controllers/SalesOrderController.php:182
 * @route '/sales-orders/{sales_order}'
 */
-const showForm = (args: { sales_order: string | number } | [sales_order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const showForm = (args: { sales_order: number | { id: number } } | [sales_order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -157,7 +163,7 @@ const showForm = (args: { sales_order: string | number } | [sales_order: string 
 * @see app/Http/Controllers/SalesOrderController.php:182
 * @route '/sales-orders/{sales_order}'
 */
-showForm.get = (args: { sales_order: string | number } | [sales_order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.get = (args: { sales_order: number | { id: number } } | [sales_order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, options),
     method: 'get',
 })
@@ -167,7 +173,7 @@ showForm.get = (args: { sales_order: string | number } | [sales_order: string | 
 * @see app/Http/Controllers/SalesOrderController.php:182
 * @route '/sales-orders/{sales_order}'
 */
-showForm.head = (args: { sales_order: string | number } | [sales_order: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+showForm.head = (args: { sales_order: number | { id: number } } | [sales_order: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: show.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
