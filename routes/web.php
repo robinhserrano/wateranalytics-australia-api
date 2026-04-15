@@ -22,6 +22,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Admin Only Routes
     Route::middleware(['role:Admin'])->group(function () {
         Route::resource('contacts', App\Http\Controllers\ContactController::class)->only(['index', 'show']);
+        Route::get('products/export', [App\Http\Controllers\ProductController::class, 'export'])->name('products.export');
         Route::resource('products', App\Http\Controllers\ProductController::class)->only(['index', 'show']);
         Route::post('products/{product}/landing-price', [App\Http\Controllers\ProductController::class, 'updateLandingPrice'])->name('products.landing-price.update');
         

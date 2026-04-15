@@ -10,6 +10,16 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -48,6 +58,13 @@ const props = defineProps<{
 const search = ref(props.filters.search || '');
 const categoryId = ref(props.filters.category_id || '0');
 const productType = ref(props.filters.type || 'all');
+const exportFilename = ref('');
+
+const today = new Date();
+const dd = String(today.getDate()).padStart(2, '0');
+const mm = String(today.getMonth() + 1).padStart(2, '0');
+const yyyy = today.getFullYear();
+exportFilename.value = `${yyyy}-${mm}-${dd} Products Landing Prices.csv`;
 
 const handleSearch = useDebounceFn(() => {
     router.get(
@@ -81,6 +98,15 @@ const formatQty = (qty: number | null) => {
     }).format(qty);
 };
 
+const formatDateOnly = (date: string | null) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString('en-AU', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    });
+};
+
 const getTypeVariant = (type: string) => {
     switch (type) {
         case 'product':
@@ -106,6 +132,10 @@ const getTypeLabel = (type: string) => {
             return type;
     }
 };
+
+const downloadExport = () => {
+    window.location.href = route('products.export', { filename: exportFilename.value });
+};
 </script>
 
 <template>
@@ -119,6 +149,32 @@ const getTypeLabel = (type: string) => {
                     <h1 class="text-2xl font-bold tracking-tight">Products</h1>
                 </div>
                 <div class="flex items-center gap-4">
+                    <Dialog>
+                        <DialogTrigger as-child>
+                            <Button variant="outline">Export to Excel</Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Export Products Configure</DialogTitle>
+                                <DialogDescription>
+                                    Download a raw Excel/CSV file containing products with latest landing prices.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div class="py-4">
+                                <label class="text-sm font-medium mb-1.5 block">File Name</label>
+                                <Input v-model="exportFilename" placeholder="Enter file name..." />
+                            </div>
+                            <DialogFooter>
+                                <DialogClose as-child>
+                                    <Button variant="outline">Cancel</Button>
+                                </DialogClose>
+                                <DialogClose as-child>
+                                    <Button @click="downloadExport">Download</Button>
+                                </DialogClose>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
                     <!-- Simplified Pagination -->
                     <div class="flex items-center gap-4">
                         <div class="text-sm font-medium text-muted-foreground whitespace-nowrap">
@@ -216,6 +272,7 @@ const getTypeLabel = (type: string) => {
                             <TableHead>Internal Reference</TableHead>
                             <TableHead>Category</TableHead>
                             <TableHead>Type</TableHead>
+                            <TableHead>Landing Price</TableHead>
                             <TableHead class="text-right">List Price</TableHead>
                             <TableHead class="text-right">On Hand Qty</TableHead>
                             <TableHead class="text-right">Variants</TableHead>
@@ -243,6 +300,20 @@ const getTypeLabel = (type: string) => {
                                 </Badge>
                                 <span v-else class="text-muted-foreground">-</span>
                             </TableCell>
+                            <TableCell>
+                                <div v-if="product.latest_landing_price" class="text-sm">
+                                    <div class="font-medium">
+                                        Install: {{ formatCurrency(product.latest_landing_price.installation_service) }}
+                                    </div>
+                                    <div class="text-muted-foreground">
+                                        Supply: {{ formatCurrency(product.latest_landing_price.supply_only) }}
+                                    </div>
+                                    <div class="text-xs text-muted-foreground">
+                                        Active from {{ formatDateOnly(product.latest_landing_price.effective_from) }}
+                                    </div>
+                                </div>
+                                <span v-else class="text-muted-foreground">-</span>
+                            </TableCell>
                             <TableCell class="text-right">
                                 {{ formatCurrency(product.list_price) }}
                             </TableCell>
@@ -263,7 +334,7 @@ const getTypeLabel = (type: string) => {
                             </TableCell>
                         </TableRow>
                         <TableRow v-if="products.data.length === 0">
-                            <TableCell colspan="8" class="h-24 text-center">
+                            <TableCell colspan="9" class="h-24 text-center">
                                 No results.
                             </TableCell>
                         </TableRow>

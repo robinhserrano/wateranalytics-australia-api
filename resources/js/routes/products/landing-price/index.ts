@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\ProductController::update
-* @see app/Http/Controllers/ProductController.php:62
+* @see app/Http/Controllers/ProductController.php:74
 * @route '/products/{product}/landing-price'
 */
 export const update = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\ProductController::update
-* @see app/Http/Controllers/ProductController.php:62
+* @see app/Http/Controllers/ProductController.php:74
 * @route '/products/{product}/landing-price'
 */
 update.url = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ update.url = (args: { product: number | { id: number } } | [product: number | { 
 
 /**
 * @see \App\Http\Controllers\ProductController::update
-* @see app/Http/Controllers/ProductController.php:62
+* @see app/Http/Controllers/ProductController.php:74
 * @route '/products/{product}/landing-price'
 */
 update.post = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ update.post = (args: { product: number | { id: number } } | [product: number | {
 
 /**
 * @see \App\Http\Controllers\ProductController::update
-* @see app/Http/Controllers/ProductController.php:62
+* @see app/Http/Controllers/ProductController.php:74
 * @route '/products/{product}/landing-price'
 */
 const updateForm = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
@@ -69,7 +69,7 @@ const updateForm = (args: { product: number | { id: number } } | [product: numbe
 
 /**
 * @see \App\Http\Controllers\ProductController::update
-* @see app/Http/Controllers/ProductController.php:62
+* @see app/Http/Controllers/ProductController.php:74
 * @route '/products/{product}/landing-price'
 */
 updateForm.post = (args: { product: number | { id: number } } | [product: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({

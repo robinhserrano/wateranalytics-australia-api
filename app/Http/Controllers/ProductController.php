@@ -32,7 +32,19 @@ class ProductController extends Controller
             $query->where('type', $request->type);
         }
 
-        $products = $query->orderBy('name', 'asc')
+        $products = $query
+            ->with([
+                'latestLandingPrice' => function ($landingPriceQuery) {
+                    $landingPriceQuery->select([
+                        'landing_prices.id',
+                        'landing_prices.product_id',
+                        'landing_prices.installation_service',
+                        'landing_prices.supply_only',
+                        'landing_prices.effective_from',
+                    ]);
+                },
+            ])
+            ->orderBy('name', 'asc')
             ->paginate(80)
             ->withQueryString();
 
@@ -78,5 +90,69 @@ class ProductController extends Controller
         ]);
 
         return back()->with('success', 'Landing price updated successfully');
+    }
+
+    public function export(Request $request)
+    {
+        $filename = $request->query('filename', 'Products Landing Prices.csv');
+        if (!str_ends_with(strtolower($filename), '.csv')) {
+            $filename .= '.csv';
+        }
+
+        $products = Product::with([
+            'latestLandingPrice' => function ($landingPriceQuery) {
+                $landingPriceQuery->select([
+                    'landing_prices.id',
+                    'landing_prices.product_id',
+                    'landing_prices.installation_service',
+                    'landing_prices.supply_only',
+                    'landing_prices.effective_from',
+                ]);
+            },
+        ])->orderBy('name')->get();
+
+        $headers = [
+            'Content-type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        $columns = [
+            'ID',
+            'Product Name',
+            'Internal Reference',
+            'Category',
+            'Type',
+            'List Price',
+            'On Hand Qty',
+            'Latest Install Landing Price',
+            'Latest Supply-Only Landing Price',
+            'Landing Price Active From',
+        ];
+
+        $callback = function () use ($products, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($products as $product) {
+                fputcsv($file, [
+                    $product->id,
+                    $product->name,
+                    $product->default_code ?? '',
+                    $product->categ_name ?? '',
+                    $product->type ?? '',
+                    $product->list_price ?? 0,
+                    $product->qty_available ?? 0,
+                    $product->latestLandingPrice?->installation_service ?? '',
+                    $product->latestLandingPrice?->supply_only ?? '',
+                    $product->latestLandingPrice?->effective_from?->format('Y-m-d') ?? '',
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }
