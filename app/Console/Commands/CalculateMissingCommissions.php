@@ -10,6 +10,9 @@ class CalculateMissingCommissions extends Command
 {
     protected $signature = 'commissions:calculate-missing 
                             {--limit=100 : Maximum number of orders to process}
+                            {--chunk=200 : Number of orders to process per batch}
+                            {--from-id= : Start processing from this sales_order ID}
+                            {--to-id= : Stop processing at this sales_order ID}
                             {--force : Recalculate even if commission exists}
                             {--all : Recalculate everything without limit}';
 
@@ -26,30 +29,43 @@ class CalculateMissingCommissions extends Command
     public function handle(): int
     {
         $limit = (int) $this->option('limit');
+        $chunkSize = max(1, (int) $this->option('chunk'));
         $force = $this->option('force');
         $all = $this->option('all');
+        $fromId = $this->option('from-id') !== null ? (int) $this->option('from-id') : null;
+        $toId = $this->option('to-id') !== null ? (int) $this->option('to-id') : null;
 
         if ($all) {
-            $limit = 100000; // Effectively no limit for typical usage
+            $limit = PHP_INT_MAX; // Effectively no limit
             $force = true;
         }
 
-        $query = SalesOrder::query();
+        $baseQuery = SalesOrder::query();
 
         if (!$force) {
-            $query->whereDoesntHave('commissionCalculation');
+            $baseQuery->whereDoesntHave('commissionCalculation');
         }
 
-        $ordersToProcess = $query->limit($limit)->get();
+        if ($fromId !== null && $fromId > 0) {
+            $baseQuery->where('id', '>=', $fromId);
+        }
 
-        if ($ordersToProcess->isEmpty()) {
+        if ($toId !== null && $toId > 0) {
+            $baseQuery->where('id', '<=', $toId);
+        }
+
+        $totalToProcess = $all
+            ? (clone $baseQuery)->count()
+            : min($limit, (clone $baseQuery)->count());
+
+        if ($totalToProcess === 0) {
             $this->info('No sales orders need commission calculation.');
             return Command::SUCCESS;
         }
 
-        $this->info("Processing {$ordersToProcess->count()} sales orders...");
+        $this->info("Processing {$totalToProcess} sales orders in chunks of {$chunkSize}...");
         
-        $bar = $this->output->createProgressBar($ordersToProcess->count());
+        $bar = $this->output->createProgressBar($totalToProcess);
         $bar->start();
 
         $successful = 0;
@@ -57,27 +73,46 @@ class CalculateMissingCommissions extends Command
         $skipped = 0;
         $errors = [];
 
-        foreach ($ordersToProcess as $order) {
-            try {
-                $result = $this->calculator->calculateCommission($order);
-                if ($result === null) {
-                    $skipped++;
-                } else {
-                    $successful++;
+        $processed = 0;
+
+        $baseQuery
+            ->orderBy('id')
+            ->chunkById($chunkSize, function ($orders) use (
+                &$processed,
+                $totalToProcess,
+                &$successful,
+                &$failed,
+                &$skipped,
+                &$errors,
+                $bar
+            ) {
+                foreach ($orders as $order) {
+                    if ($processed >= $totalToProcess) {
+                        return false;
+                    }
+
+                    try {
+                        $result = $this->calculator->calculateCommission($order);
+                        if ($result === null) {
+                            $skipped++;
+                        } else {
+                            $successful++;
+                        }
+                    } catch (\Exception $e) {
+                        $failed++;
+                        $errors[] = "Order #{$order->id}: {$e->getMessage()}";
+                        
+                        // Log the error
+                        \Log::warning("Commission calculation failed for order {$order->id}", [
+                            'error' => $e->getMessage(),
+                            'order_id' => $order->id,
+                        ]);
+                    }
+                    
+                    $processed++;
+                    $bar->advance();
                 }
-            } catch (\Exception $e) {
-                $failed++;
-                $errors[] = "Order #{$order->id}: {$e->getMessage()}";
-                
-                // Log the error
-                \Log::warning("Commission calculation failed for order {$order->id}", [
-                    'error' => $e->getMessage(),
-                    'order_id' => $order->id,
-                ]);
-            }
-            
-            $bar->advance();
-        }
+            });
 
         $bar->finish();
         $this->newLine(2);

@@ -6,6 +6,7 @@ use App\Models\SalesOrder;
 use App\Models\User;
 use App\Models\CommissionCalculation;
 use App\Models\SalesOrderLine;
+use App\Models\LandingPrice;
 use Illuminate\Support\Facades\DB;
 
 class CommissionCalculator
@@ -40,7 +41,12 @@ class CommissionCalculator
     public function calculateCommission(SalesOrder $salesOrder): ?CommissionCalculation
     {
         // Load necessary relationships
-        $salesOrder->load(['lines.product', 'lines.landingPrice']);
+        $salesOrder->load([
+            'lines.product.landingPrices' => function ($query) {
+                $query->orderBy('effective_from', 'desc');
+            },
+            'lines.landingPrice',
+        ]);
 
         // Determine the salesperson
         // Priority 1: Check if the customer (Contact) has an explicitly assigned user (Commission Owner)
@@ -194,13 +200,7 @@ class CommissionCalculator
 
         foreach ($salesOrder->lines as $line) {
             // Logic: If it has a landing price, it is NOT an additional cost (it's handled in calculateLandingPrice)
-            $hasLandingPrice = false;
-            if ($line->product) {
-                 $hasLandingPrice = $line->product->landingPrices()
-                    ->where('effective_from', '<=', $salesOrder->create_date ?? now())
-                    ->orderBy('effective_from', 'desc')
-                    ->exists();
-            }
+            $hasLandingPrice = $this->resolveLandingPriceForLine($line, $salesOrder) !== null;
 
             if ($hasLandingPrice) {
                 continue;
@@ -244,20 +244,7 @@ class CommissionCalculator
         });
 
         foreach ($salesOrder->lines as $line) {
-            $lineLandingPrice = null;
-
-            // Find best matching LandingPrice record based on effective_from date
-            if ($line->product) {
-                 $lineLandingPrice = $line->product->landingPrices()
-                    ->where('effective_from', '<=', $salesOrder->create_date ?? now())
-                    ->orderBy('effective_from', 'desc')
-                    ->first();
-                 
-                 // Fallback if no effective record found
-                 if (!$lineLandingPrice) {
-                    $lineLandingPrice = $line->product->landingPrices()->first();
-                 }
-            }
+            $lineLandingPrice = $this->resolveLandingPriceForLine($line, $salesOrder);
 
             if (!$lineLandingPrice) {
                 continue;
@@ -428,5 +415,28 @@ class CommissionCalculator
             $productName = strtolower($line->product_name ?? '');
             return str_contains($productName, self::SPECIAL_PRODUCT_CODE);
         });
+    }
+
+    /**
+     * Resolve best matching landing price without triggering extra DB queries.
+     */
+    private function resolveLandingPriceForLine(SalesOrderLine $line, SalesOrder $salesOrder): ?LandingPrice
+    {
+        if (!$line->product || !$line->product->relationLoaded('landingPrices')) {
+            return null;
+        }
+
+        $landingPrices = $line->product->landingPrices;
+        if ($landingPrices->isEmpty()) {
+            return null;
+        }
+
+        $createDate = $salesOrder->create_date ?? now();
+
+        $matched = $landingPrices->first(function ($price) use ($createDate) {
+            return !$price->effective_from || $price->effective_from <= $createDate;
+        });
+
+        return $matched ?: $landingPrices->first();
     }
 }
