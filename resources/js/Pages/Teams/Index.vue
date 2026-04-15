@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, Plus, Edit, Trash2 } from 'lucide-vue-next';
+import { Users, Plus, Edit, Trash2, Eye } from 'lucide-vue-next';
 
 const props = defineProps<{
     teams: any[];
@@ -71,6 +71,11 @@ const deleteTeam = (teamId: number) => {
                             </TableCell>
                             <TableCell class="text-right">
                                 <div class="flex justify-end gap-2">
+                                    <Button variant="ghost" size="sm" as-child title="View as team manager">
+                                        <Link :href="route('teams.view-as-manager', team.id)">
+                                            <Eye class="h-4 w-4" />
+                                        </Link>
+                                    </Button>
                                     <Button variant="ghost" size="sm" as-child>
                                         <Link :href="route('teams.edit', team.id)">
                                             <Edit class="h-4 w-4" />

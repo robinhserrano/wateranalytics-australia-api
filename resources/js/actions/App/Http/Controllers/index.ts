@@ -9,9 +9,9 @@ import CommissionController from './CommissionController'
 import UserController from './UserController'
 import RoleController from './RoleController'
 import PermissionController from './PermissionController'
+import MyTeamController from './MyTeamController'
 import TeamController from './TeamController'
 import Admin from './Admin'
-import MyTeamController from './MyTeamController'
 import OdooController from './OdooController'
 
 const Controllers = {
@@ -26,9 +26,9 @@ const Controllers = {
     UserController: Object.assign(UserController, UserController),
     RoleController: Object.assign(RoleController, RoleController),
     PermissionController: Object.assign(PermissionController, PermissionController),
+    MyTeamController: Object.assign(MyTeamController, MyTeamController),
     TeamController: Object.assign(TeamController, TeamController),
     Admin: Object.assign(Admin, Admin),
-    MyTeamController: Object.assign(MyTeamController, MyTeamController),
     OdooController: Object.assign(OdooController, OdooController),
 }
 

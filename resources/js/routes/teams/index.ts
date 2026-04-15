@@ -1,6 +1,111 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../wayfinder'
 import members from './members'
 /**
+* @see \App\Http\Controllers\MyTeamController::viewAsManager
+* @see app/Http/Controllers/MyTeamController.php:33
+* @route '/teams/{team}/view-as-manager'
+*/
+export const viewAsManager = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: viewAsManager.url(args, options),
+    method: 'get',
+})
+
+viewAsManager.definition = {
+    methods: ["get","head"],
+    url: '/teams/{team}/view-as-manager',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\MyTeamController::viewAsManager
+* @see app/Http/Controllers/MyTeamController.php:33
+* @route '/teams/{team}/view-as-manager'
+*/
+viewAsManager.url = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { team: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { team: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            team: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        team: typeof args.team === 'object'
+        ? args.team.id
+        : args.team,
+    }
+
+    return viewAsManager.definition.url
+            .replace('{team}', parsedArgs.team.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\MyTeamController::viewAsManager
+* @see app/Http/Controllers/MyTeamController.php:33
+* @route '/teams/{team}/view-as-manager'
+*/
+viewAsManager.get = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: viewAsManager.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\MyTeamController::viewAsManager
+* @see app/Http/Controllers/MyTeamController.php:33
+* @route '/teams/{team}/view-as-manager'
+*/
+viewAsManager.head = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: viewAsManager.url(args, options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\MyTeamController::viewAsManager
+* @see app/Http/Controllers/MyTeamController.php:33
+* @route '/teams/{team}/view-as-manager'
+*/
+const viewAsManagerForm = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: viewAsManager.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\MyTeamController::viewAsManager
+* @see app/Http/Controllers/MyTeamController.php:33
+* @route '/teams/{team}/view-as-manager'
+*/
+viewAsManagerForm.get = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: viewAsManager.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\MyTeamController::viewAsManager
+* @see app/Http/Controllers/MyTeamController.php:33
+* @route '/teams/{team}/view-as-manager'
+*/
+viewAsManagerForm.head = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+    action: viewAsManager.url(args, {
+        [options?.mergeQuery ? 'mergeQuery' : 'query']: {
+            _method: 'HEAD',
+            ...(options?.query ?? options?.mergeQuery ?? {}),
+        }
+    }),
+    method: 'get',
+})
+
+viewAsManager.form = viewAsManagerForm
+
+/**
 * @see \App\Http\Controllers\TeamController::index
 * @see app/Http/Controllers/TeamController.php:15
 * @route '/teams'
@@ -628,6 +733,7 @@ destroyForm.delete = (args: { team: number | { id: number } } | [team: number | 
 destroy.form = destroyForm
 
 const teams = {
+    viewAsManager: Object.assign(viewAsManager, viewAsManager),
     index: Object.assign(index, index),
     create: Object.assign(create, create),
     store: Object.assign(store, store),
