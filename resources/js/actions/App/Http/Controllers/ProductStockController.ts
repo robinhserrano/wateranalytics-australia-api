@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\ProductStockController::index
-* @see app/Http/Controllers/ProductStockController.php:12
+* @see app/Http/Controllers/ProductStockController.php:16
 * @route '/stocks'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\ProductStockController::index
-* @see app/Http/Controllers/ProductStockController.php:12
+* @see app/Http/Controllers/ProductStockController.php:16
 * @route '/stocks'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ProductStockController::index
-* @see app/Http/Controllers/ProductStockController.php:12
+* @see app/Http/Controllers/ProductStockController.php:16
 * @route '/stocks'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\ProductStockController::index
-* @see app/Http/Controllers/ProductStockController.php:12
+* @see app/Http/Controllers/ProductStockController.php:16
 * @route '/stocks'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\ProductStockController::index
-* @see app/Http/Controllers/ProductStockController.php:12
+* @see app/Http/Controllers/ProductStockController.php:16
 * @route '/stocks'
 */
 const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -55,7 +55,7 @@ const indexForm = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => (
 
 /**
 * @see \App\Http\Controllers\ProductStockController::index
-* @see app/Http/Controllers/ProductStockController.php:12
+* @see app/Http/Controllers/ProductStockController.php:16
 * @route '/stocks'
 */
 indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -65,7 +65,7 @@ indexForm.get = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\ProductStockController::index
-* @see app/Http/Controllers/ProductStockController.php:12
+* @see app/Http/Controllers/ProductStockController.php:16
 * @route '/stocks'
 */
 indexForm.head = (options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -82,7 +82,7 @@ index.form = indexForm
 
 /**
 * @see \App\Http\Controllers\ProductStockController::show
-* @see app/Http/Controllers/ProductStockController.php:50
+* @see app/Http/Controllers/ProductStockController.php:216
 * @route '/stocks/{stock}'
 */
 export const show = (args: { stock: string | number } | [stock: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -97,7 +97,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\ProductStockController::show
-* @see app/Http/Controllers/ProductStockController.php:50
+* @see app/Http/Controllers/ProductStockController.php:216
 * @route '/stocks/{stock}'
 */
 show.url = (args: { stock: string | number } | [stock: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -124,7 +124,7 @@ show.url = (args: { stock: string | number } | [stock: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\ProductStockController::show
-* @see app/Http/Controllers/ProductStockController.php:50
+* @see app/Http/Controllers/ProductStockController.php:216
 * @route '/stocks/{stock}'
 */
 show.get = (args: { stock: string | number } | [stock: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -134,7 +134,7 @@ show.get = (args: { stock: string | number } | [stock: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\ProductStockController::show
-* @see app/Http/Controllers/ProductStockController.php:50
+* @see app/Http/Controllers/ProductStockController.php:216
 * @route '/stocks/{stock}'
 */
 show.head = (args: { stock: string | number } | [stock: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -144,7 +144,7 @@ show.head = (args: { stock: string | number } | [stock: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\ProductStockController::show
-* @see app/Http/Controllers/ProductStockController.php:50
+* @see app/Http/Controllers/ProductStockController.php:216
 * @route '/stocks/{stock}'
 */
 const showForm = (args: { stock: string | number } | [stock: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -154,7 +154,7 @@ const showForm = (args: { stock: string | number } | [stock: string | number ] |
 
 /**
 * @see \App\Http\Controllers\ProductStockController::show
-* @see app/Http/Controllers/ProductStockController.php:50
+* @see app/Http/Controllers/ProductStockController.php:216
 * @route '/stocks/{stock}'
 */
 showForm.get = (args: { stock: string | number } | [stock: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -164,7 +164,7 @@ showForm.get = (args: { stock: string | number } | [stock: string | number ] | s
 
 /**
 * @see \App\Http\Controllers\ProductStockController::show
-* @see app/Http/Controllers/ProductStockController.php:50
+* @see app/Http/Controllers/ProductStockController.php:216
 * @route '/stocks/{stock}'
 */
 showForm.head = (args: { stock: string | number } | [stock: string | number ] | string | number, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

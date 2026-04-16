@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/select';
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Search, ChevronLeft, ChevronRight, Activity, Clock } from 'lucide-vue-next';
+import { Badge } from '@/components/ui/badge';
 
 const props = defineProps<{
     stocks: {
@@ -41,6 +42,7 @@ const props = defineProps<{
         search?: string;
         warehouse_id?: string;
     };
+    dataSource: 'live' | 'cached';
 }>();
 
 const search = ref(props.filters.search || '');
@@ -85,7 +87,21 @@ const formatQty = (qty: number | null) => {
     <AppLayout>
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold tracking-tight">Product Stocks</h1>
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-bold tracking-tight">Product Stocks</h1>
+                    
+                    <Badge v-if="dataSource === 'live'" variant="outline" class="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 gap-1.5 py-1">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                        </span>
+                        Live
+                    </Badge>
+                    <Badge v-else variant="outline" class="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 gap-1.5 py-1">
+                        <Clock class="size-3" />
+                        Cached Fallback
+                    </Badge>
+                </div>
                 <div class="flex items-center gap-4">
                     <!-- Simplified Pagination -->
                     <div class="flex items-center gap-4">
