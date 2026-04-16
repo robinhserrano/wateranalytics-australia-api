@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmpty } from '@/components/ui/table';
 import { type BreadcrumbItem } from '@/types';
-import { ExternalLink, Edit, ArrowUp, ArrowDown } from 'lucide-vue-next';
+import { ExternalLink, Edit, ArrowUp, ArrowDown, Network } from 'lucide-vue-next';
 import { format } from 'date-fns';
 import { getRoleStyle } from '@/lib/utils';
 import { computed, ref } from 'vue';
@@ -31,6 +31,13 @@ const props = defineProps<{
         managerName: string | null;
         message: string | null;
     } | null;
+    managerHierarchy: {
+        id: number;
+        name: string;
+        initials: string;
+        role: string;
+    } | null;
+    managerId: number;
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = props.preview
@@ -116,11 +123,18 @@ const toggleLatestSaleSort = () => {
                         </template>
                     </p>
                 </div>
-                <Button v-if="preview" variant="outline" as-child>
-                    <Link :href="route('teams.index')">Back to Teams</Link>
-                </Button>
+                <div class="flex items-center gap-2">
+                    <Button variant="outline" as-child>
+                        <Link :href="route('teams.hierarchy', { focus_id: managerId })">
+                            <Network class="mr-2 h-4 w-4" />
+                            View Hierarchy
+                        </Link>
+                    </Button>
+                    <Button v-if="preview" variant="outline" as-child>
+                        <Link :href="route('teams.index')">Back to Teams</Link>
+                    </Button>
+                </div>
             </div>
-
             <div
                 v-if="preview"
                 class="rounded-lg border border-dashed bg-muted/40 p-4 text-sm"
@@ -134,6 +148,33 @@ const toggleLatestSaleSort = () => {
                 <p v-if="preview.message" class="text-muted-foreground mt-2">
                     {{ preview.message }}
                 </p>
+            </div>
+
+            <div v-if="managerHierarchy" class="flex items-center gap-4 bg-muted/20 p-4 rounded-xl border border-dashed">
+                <div class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-background border shadow-sm">
+                    <ArrowUp class="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Reporting To</span>
+                    <div class="flex items-center gap-2.5 mt-1">
+                        <Avatar class="h-8 w-8 border shadow-sm">
+                            <AvatarFallback 
+                                :style="getRoleStyle(managerHierarchy.role)"
+                                class="text-xs font-bold"
+                            >
+                                {{ managerHierarchy.initials }}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div class="flex flex-col">
+                            <span class="text-sm font-semibold leading-none">
+                                {{ managerHierarchy.name }}
+                            </span>
+                            <span class="text-[11px] text-muted-foreground mt-0.5">
+                                {{ managerHierarchy.role }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="rounded-md border bg-card">

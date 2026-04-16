@@ -23,6 +23,8 @@ class MyTeamController extends Controller
         return Inertia::render('MyTeam/Index', [
             'members' => $members,
             'canEdit' => $user->hasRole('Sales Manager') || $user->hasRole('Admin'),
+            'managerHierarchy' => $this->formatManagerHierarchy($user),
+            'managerId' => $user->id,
             'preview' => null,
         ]);
     }
@@ -55,6 +57,8 @@ class MyTeamController extends Controller
         return Inertia::render('MyTeam/Index', [
             'members' => $members,
             'canEdit' => $canEdit,
+            'managerHierarchy' => $this->formatManagerHierarchy($manager),
+            'managerId' => $manager->id,
             'preview' => [
                 'teamId' => $team->id,
                 'teamName' => $team->name,
@@ -103,5 +107,24 @@ class MyTeamController extends Controller
                         : null,
                 ];
             });
+    }
+
+    private function formatManagerHierarchy(?User $user): ?array
+    {
+        if (!$user || !$user->sales_manager_id) {
+            return null;
+        }
+
+        $manager = $user->salesManager()->with('roles')->first();
+        if (!$manager) {
+            return null;
+        }
+
+        return [
+            'id' => $manager->id,
+            'name' => $manager->name,
+            'initials' => collect(explode(' ', $manager->name))->map(fn ($s) => strtoupper(substr($s, 0, 1)))->take(2)->join(''),
+            'role' => $manager->roles->pluck('name')->first() ?? '-',
+        ];
     }
 }

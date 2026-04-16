@@ -140,13 +140,54 @@ class User extends Authenticatable
             $userIds = array_merge($userIds, $report->getTeamUserIds());
         }
         
-        // Also get team members if user is a team manager (even if not a member of that team)
+        // Also get team members if user is a team manager
         $managedTeams = Team::where('team_manager_id', $this->id)->get();
         foreach ($managedTeams as $managedTeam) {
+            // Note: Use members() relationship
             $teamMemberIds = $managedTeam->members()->pluck('id')->toArray();
-            $userIds = array_merge($userIds, $teamMemberIds);
+            foreach ($teamMemberIds as $memberId) {
+                if (!in_array($memberId, $userIds)) {
+                    $userIds[] = $memberId;
+                    $member = User::find($memberId);
+                    if ($member && $member->id !== $this->id) {
+                         $userIds = array_merge($userIds, $member->getTeamUserIds());
+                    }
+                }
+            }
         }
         
         return array_values(array_unique($userIds));
+    }
+
+    /**
+     * Get all user IDs that this user reports to (recursive ancestors).
+     */
+    public function getAncestorUserIds(): array
+    {
+        $ancestorIds = [];
+        $current = $this;
+        
+        // Limit loop to prevent infinite recursion just in case
+        for ($i = 0; $i < 20; $i++) {
+            $parentId = $current->sales_manager_id;
+            
+            // Fallback: If no direct sales manager, check if they are in a team with a manager
+            if (!$parentId && $current->team_id && $current->team) {
+                $teamManagerId = $current->team->team_manager_id;
+                if ($teamManagerId && $teamManagerId !== $current->id) {
+                    $parentId = $teamManagerId;
+                }
+            }
+            
+            if (!$parentId || in_array($parentId, $ancestorIds)) {
+                break;
+            }
+            
+            $ancestorIds[] = $parentId;
+            $current = User::find($parentId);
+            if (!$current) break;
+        }
+        
+        return $ancestorIds;
     }
 }

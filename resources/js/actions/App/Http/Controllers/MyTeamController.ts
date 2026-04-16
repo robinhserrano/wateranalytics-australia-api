@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFormDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\MyTeamController::previewAsManager
-* @see app/Http/Controllers/MyTeamController.php:33
+* @see app/Http/Controllers/MyTeamController.php:32
 * @route '/teams/{team}/view-as-manager'
 */
 export const previewAsManager = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ previewAsManager.definition = {
 
 /**
 * @see \App\Http\Controllers\MyTeamController::previewAsManager
-* @see app/Http/Controllers/MyTeamController.php:33
+* @see app/Http/Controllers/MyTeamController.php:32
 * @route '/teams/{team}/view-as-manager'
 */
 previewAsManager.url = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ previewAsManager.url = (args: { team: number | { id: number } } | [team: number 
 
 /**
 * @see \App\Http\Controllers\MyTeamController::previewAsManager
-* @see app/Http/Controllers/MyTeamController.php:33
+* @see app/Http/Controllers/MyTeamController.php:32
 * @route '/teams/{team}/view-as-manager'
 */
 previewAsManager.get = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ previewAsManager.get = (args: { team: number | { id: number } } | [team: number 
 
 /**
 * @see \App\Http\Controllers\MyTeamController::previewAsManager
-* @see app/Http/Controllers/MyTeamController.php:33
+* @see app/Http/Controllers/MyTeamController.php:32
 * @route '/teams/{team}/view-as-manager'
 */
 previewAsManager.head = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -69,7 +69,7 @@ previewAsManager.head = (args: { team: number | { id: number } } | [team: number
 
 /**
 * @see \App\Http\Controllers\MyTeamController::previewAsManager
-* @see app/Http/Controllers/MyTeamController.php:33
+* @see app/Http/Controllers/MyTeamController.php:32
 * @route '/teams/{team}/view-as-manager'
 */
 const previewAsManagerForm = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -79,7 +79,7 @@ const previewAsManagerForm = (args: { team: number | { id: number } } | [team: n
 
 /**
 * @see \App\Http\Controllers\MyTeamController::previewAsManager
-* @see app/Http/Controllers/MyTeamController.php:33
+* @see app/Http/Controllers/MyTeamController.php:32
 * @route '/teams/{team}/view-as-manager'
 */
 previewAsManagerForm.get = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
@@ -89,7 +89,7 @@ previewAsManagerForm.get = (args: { team: number | { id: number } } | [team: num
 
 /**
 * @see \App\Http\Controllers\MyTeamController::previewAsManager
-* @see app/Http/Controllers/MyTeamController.php:33
+* @see app/Http/Controllers/MyTeamController.php:32
 * @route '/teams/{team}/view-as-manager'
 */
 previewAsManagerForm.head = (args: { team: number | { id: number } } | [team: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({

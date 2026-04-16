@@ -49,6 +49,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Teams routes (static paths before {team} resource matching)
         Route::get('teams/{team}/view-as-manager', [App\Http\Controllers\MyTeamController::class, 'previewAsManager'])
             ->name('teams.view-as-manager');
+        Route::get('teams/hierarchy', [App\Http\Controllers\TeamController::class, 'hierarchy'])
+            ->name('teams.hierarchy');
         Route::resource('teams', App\Http\Controllers\TeamController::class);
         Route::post('teams/{team}/members', [App\Http\Controllers\TeamController::class, 'addMember'])->name('teams.members.add');
         Route::delete('teams/{team}/members/{user}', [App\Http\Controllers\TeamController::class, 'removeMember'])->name('teams.members.remove');

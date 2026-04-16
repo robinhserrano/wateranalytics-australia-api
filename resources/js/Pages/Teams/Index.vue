@@ -11,7 +11,16 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, Plus, Edit, Trash2, Eye } from 'lucide-vue-next';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { getRoleStyle } from '@/lib/utils';
+import { Users, Plus, Edit, Trash2, Eye, Network, ArrowRight } from 'lucide-vue-next';
+import { format } from 'date-fns';
 
 const props = defineProps<{
     teams: any[];
@@ -20,6 +29,25 @@ const props = defineProps<{
 const deleteTeam = (teamId: number) => {
     if (confirm('Are you sure you want to delete this team?')) {
         router.delete(route('teams.destroy', teamId));
+    }
+};
+
+const getInitials = (name: string) => {
+    if (!name) return '';
+    return name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+};
+
+const formatLatestSale = (dateString: string | null) => {
+    if (!dateString) return 'No sales recorded';
+    try {
+        return 'Last sale: ' + format(new Date(dateString), 'MMM d, yyyy');
+    } catch {
+        return 'Last sale: ' + dateString;
     }
 };
 </script>
@@ -31,12 +59,20 @@ const deleteTeam = (teamId: number) => {
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center justify-between">
                 <h1 class="text-2xl font-bold tracking-tight">Teams</h1>
-                <Button as-child>
-                    <Link :href="route('teams.create')">
-                        <Plus class="mr-2 h-4 w-4" />
-                        Create Team
-                    </Link>
-                </Button>
+                <div class="flex items-center gap-2">
+                    <Button variant="outline" as-child>
+                        <Link :href="route('teams.hierarchy')">
+                            <Network class="mr-2 h-4 w-4" />
+                            View Hierarchy
+                        </Link>
+                    </Button>
+                    <Button as-child>
+                        <Link :href="route('teams.create')">
+                            <Plus class="mr-2 h-4 w-4" />
+                            Create Team
+                        </Link>
+                    </Button>
+                </div>
             </div>
 
             <div class="rounded-md border">
@@ -55,8 +91,37 @@ const deleteTeam = (teamId: number) => {
                             <TableCell class="font-medium">
                                 {{ team.name }}
                             </TableCell>
-                            <TableCell>
-                                {{ team.team_manager?.name || '-' }}
+                             <TableCell>
+                                <div class="flex items-center gap-2.5">
+                                    <template v-if="team.manager_hierarchy">
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger as-child>
+                                                    <Avatar class="h-6 w-6 border shadow-sm shrink-0 cursor-help">
+                                                        <AvatarFallback 
+                                                            :style="getRoleStyle(team.manager_hierarchy.role)"
+                                                            class="text-[9px] font-bold"
+                                                        >
+                                                            {{ team.manager_hierarchy.initials }}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                </TooltipTrigger>
+                                                <TooltipContent px-2 py-1>
+                                                    <p class="text-xs font-medium">{{ team.manager_hierarchy.name }}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        <ArrowRight class="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                                    </template>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="font-semibold text-sm truncate">
+                                            {{ team.team_manager?.name || '-' }}
+                                        </span>
+                                        <span class="text-[10px] text-muted-foreground leading-tight truncate">
+                                            {{ team.team_manager?.role || '-' }}
+                                        </span>
+                                    </div>
+                                </div>
                             </TableCell>
                             <TableCell>
                                 <div class="flex items-center gap-2">
@@ -65,9 +130,14 @@ const deleteTeam = (teamId: number) => {
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <Badge :variant="team.is_active ? 'default' : 'secondary'">
-                                    {{ team.is_active ? 'Active' : 'Inactive' }}
-                                </Badge>
+                                <div class="flex flex-col gap-1">
+                                    <Badge :variant="team.is_active && team.is_sales_active ? 'default' : 'secondary'" class="w-fit">
+                                        {{ team.is_active && team.is_sales_active ? 'Active' : (team.is_active ? 'Inactive (No recent sales)' : 'Deactivated') }}
+                                    </Badge>
+                                    <span class="text-[10px] text-muted-foreground leading-none mt-0.5">
+                                        {{ formatLatestSale(team.latest_sale_date) }}
+                                    </span>
+                                </div>
                             </TableCell>
                             <TableCell class="text-right">
                                 <div class="flex justify-end gap-2">
