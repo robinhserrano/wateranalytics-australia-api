@@ -7,7 +7,7 @@ import { ArrowLeft, Maximize2, Minimize2, Network } from 'lucide-vue-next';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
-import UserNode from '@/Components/Hierarchy/UserNode.vue';
+import UserNode from '@/components/Hierarchy/UserNode.vue';
 import { ref, onMounted, defineComponent, h } from 'vue';
 import dagre from 'dagre';
 
