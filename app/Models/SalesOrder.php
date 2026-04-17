@@ -34,4 +34,12 @@ class SalesOrder extends Model
     {
         return $this->hasOne(CommissionCalculation::class);
     }
+
+    /**
+     * Get the contact/customer for this sales order.
+     */
+    public function partner()
+    {
+        return $this->belongsTo(Contact::class, 'partner_id', 'odoo_id');
+    }
 }

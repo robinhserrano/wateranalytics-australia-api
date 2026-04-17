@@ -86,6 +86,8 @@ class SyncOdooSalesOrders extends Command
             ]],
             'user_id' => (object)['fields' => (object)['display_name' => (object)[]]],
             'team_id' => (object)['fields' => (object)['display_name' => (object)[]]],
+            'amount_untaxed' => (object)[],
+            'amount_tax' => (object)[],
             'amount_total' => (object)[],
             'amount_to_invoice' => (object)[],
             'delivery_status' => (object)[],
@@ -113,6 +115,10 @@ class SyncOdooSalesOrders extends Command
                     'price_unit' => (object)[],
                     'price_subtotal' => (object)[],
                     'price_total' => (object)[],
+                    'qty_delivered' => (object)[],
+                    'qty_invoiced' => (object)[],
+                    'discount' => (object)[],
+                    'tax_id' => (object)['fields' => (object)['display_name' => (object)[]]],
                     'product_id' => (object)[
                         'fields' => (object)[
                             'id' => (object)[],
@@ -205,6 +211,8 @@ class SyncOdooSalesOrders extends Command
                         'x_studio_referrer_processed' => $order->x_studio_referrer_processed ?? null,
                         'x_studio_payment_type' => is_array($order->x_studio_payment_type) ? $order->x_studio_payment_type[1] : ($order->x_studio_payment_type ?? null),
                         
+                        'amount_untaxed' => $order->amount_untaxed ?? 0,
+                        'amount_tax' => $order->amount_tax ?? 0,
                         'amount_total' => $order->amount_total,
                         'recurring_total' => $order->recurring_total ?? 0,
                         'plan_name' => $order->plan_id->display_name ?? null,
@@ -246,6 +254,10 @@ class SyncOdooSalesOrders extends Command
                                 'price_unit' => $line->price_unit,
                                 'price_subtotal' => $line->price_subtotal,
                                 'price_total' => $line->price_total,
+                                'qty_delivered' => $line->qty_delivered ?? 0,
+                                'qty_invoiced' => $line->qty_invoiced ?? 0,
+                                'discount' => $line->discount ?? 0,
+                                'tax_names' => !empty($line->tax_id) && is_array($line->tax_id) ? implode(', ', array_map(function($t) { return is_object($t) ? ($t->display_name ?? '') : (is_array($t) ? ($t['display_name'] ?? '') : ''); }, $line->tax_id)) : null,
                                 'lower_name' => strtolower($line->product_id->display_name ?? ''),
                             ];
                         }
@@ -283,7 +295,7 @@ class SyncOdooSalesOrders extends Command
                     'partner_shipping_id', 'partner_shipping_name', 'partner_shipping_address', 'partner_shipping_state', 
                     'user_id', 'user_name', 'salesperson_partner_id', 'team_id', 'team_name', 'x_studio_sales_rep_1', 'x_studio_sales_source', 
                     'x_studio_commission_paid', 'x_studio_referred_by', 'x_studio_referrer_processed', 'x_studio_payment_type', 
-                    'amount_total', 'recurring_total', 'plan_name', 'subscription_plan_id', 'amount_to_invoice', 
+                    'amount_untaxed', 'amount_tax', 'amount_total', 'recurring_total', 'plan_name', 'subscription_plan_id', 'amount_to_invoice', 
                     'delivery_status', 'x_studio_invoice_payment_status', 'state', 'tag_ids', 
                     'is_subscription', 'subscription_state', 'start_date', 'next_invoice_date', 'end_date', 'updated_at'
                 ]);
@@ -308,6 +320,10 @@ class SyncOdooSalesOrders extends Command
                             'price_unit' => $ld['price_unit'],
                             'price_subtotal' => $ld['price_subtotal'],
                             'price_total' => $ld['price_total'],
+                            'qty_delivered' => $ld['qty_delivered'],
+                            'qty_invoiced' => $ld['qty_invoiced'],
+                            'discount' => $ld['discount'],
+                            'tax_names' => $ld['tax_names'],
                             'is_supply_only' => str_contains($ld['lower_name'], 'supply only'),
                             'is_installation_service' => str_contains($ld['lower_name'], 'installation service'),
                             'updated_at' => Carbon::now(),
@@ -320,6 +336,7 @@ class SyncOdooSalesOrders extends Command
                     SalesOrderLine::upsert($finalLineData, ['odoo_id'], [
                         'sales_order_id', 'odoo_order_id', 'product_id', 'product_name', 'name', 
                         'product_uom_qty', 'price_unit', 'price_subtotal', 'price_total', 
+                        'qty_delivered', 'qty_invoiced', 'discount', 'tax_names',
                         'is_supply_only', 'is_installation_service', 'updated_at'
                     ]);
 

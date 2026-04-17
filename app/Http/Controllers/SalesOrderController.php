@@ -198,6 +198,7 @@ class SalesOrderController extends Controller
         }
 
         $salesOrder->load([
+            'partner',
             'lines.product',
             'lines.landingPrice',
             'commissionCalculation.user',

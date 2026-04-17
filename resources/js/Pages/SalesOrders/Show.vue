@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { ref, watch, computed } from 'vue';
-import { CheckCircle2, XCircle, AlertCircle, Send } from 'lucide-vue-next';
+import { CheckCircle2, XCircle, AlertCircle, Send, User, MapPin, Info } from 'lucide-vue-next';
 
 const props = defineProps<{
     salesOrder: any;
@@ -159,71 +159,90 @@ const formatDate = (date: string | null) => {
                 </h1>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Details</CardTitle>
-                    </CardHeader>
-                    <CardContent class="grid gap-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Date:</span>
-                            <span>{{ formatDate(salesOrder.create_date) }}</span>
+            <div class="grid gap-4 md:grid-cols-2">
+                <Card class="flex flex-col">
+                    <CardContent class="grid gap-4 pt-6">
+                        <div class="flex items-center gap-2 text-sm font-semibold tracking-wider text-muted-foreground uppercase">
+                            <Info class="size-4" />
+                            ORDER DETAILS
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Status:</span>
-                            <span class="capitalize">{{ salesOrder.state }}</span>
+                        
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-muted-foreground">Date</span>
+                                <span class="font-bold">{{ formatDate(salesOrder.create_date) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-muted-foreground">Status</span>
+                                <span class="px-3 py-1 bg-emerald-300 text-emerald-900 rounded font-semibold text-xs capitalize">{{ salesOrder.state }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-muted-foreground">Delivery Status</span>
+                                <span class="font-bold capitalize">{{ salesOrder.delivery_status || '-' }}</span>
+                            </div>
+                            <div class="flex items-start justify-between text-sm gap-4">
+                                <span class="text-muted-foreground whitespace-nowrap">Payment Status</span>
+                                <span class="font-bold capitalize text-right">{{ salesOrder.x_studio_payment_type || salesOrder.x_studio_invoice_payment_status || '-' }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-muted-foreground">EST Install Date</span>
+                                <span :class="salesOrder.x_studio_est_install_date ? 'font-bold' : 'italic text-muted-foreground'">
+                                    {{ salesOrder.x_studio_est_install_date ? formatDate(salesOrder.x_studio_est_install_date) : 'Not Set' }}
+                                </span>
+                            </div>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Delivery Status:</span>
-                            <span class="capitalize">{{ salesOrder.delivery_status || '-' }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Payment Status:</span>
-                            <span class="capitalize">{{ salesOrder.x_studio_invoice_payment_status || '-' }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Payment Type:</span>
-                            <span class="capitalize">{{ salesOrder.x_studio_payment_type }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Sales Source:</span>
-                            <span class="capitalize">{{ salesOrder.x_studio_sales_source }}</span>
+
+                        <div class="border-t my-1"></div>
+
+                        <div class="space-y-1.5 text-sm">
+                            <div class="flex justify-between font-bold">
+                                <span class="text-muted-foreground font-normal">Amount Total:</span>
+                                <span>{{ formatCurrency(salesOrder.amount_total) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-muted-foreground">To Invoice:</span>
+                                <span class="font-medium">{{ formatCurrency(salesOrder.amount_to_invoice) }}</span>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Customer</CardTitle>
-                    </CardHeader>
-                    <CardContent class="grid gap-2">
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Name:</span>
-                            <span>{{ salesOrder.partner_name }}</span>
+                <Card class="flex flex-col">
+                    <CardContent class="grid gap-4 pt-6">
+                        <div class="flex items-center gap-2 text-sm font-semibold tracking-wider text-muted-foreground uppercase">
+                            <User class="size-4" />
+                            CUSTOMER INFO
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Salesperson:</span>
-                            <span>{{ salesOrder.user_name }}</span>
+                        
+                        <div>
+                            <h3 class="text-xl font-bold">{{ salesOrder.partner_name }}</h3>
+                            <a v-if="salesOrder.partner?.phone" :href="'tel:' + salesOrder.partner.phone" class="text-blue-600 font-medium hover:underline block mt-0.5">
+                                {{ salesOrder.partner.phone }}
+                            </a>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">Team:</span>
-                            <span>{{ salesOrder.team_name || '-' }}</span>
+                        
+                        <div v-if="salesOrder.partner?.contact_address_complete" class="flex gap-2 text-muted-foreground mt-1">
+                            <MapPin class="size-4 shrink-0 mt-0.5 flex-none" />
+                            <p class="text-sm">
+                                {{ salesOrder.partner.contact_address_complete }}
+                            </p>
                         </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Financials</CardTitle>
-                    </CardHeader>
-                    <CardContent class="grid gap-2">
-                        <div class="flex items-center justify-between font-medium">
-                            <span class="text-muted-foreground">Total:</span>
-                            <span>{{ formatCurrency(salesOrder.amount_total) }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-muted-foreground">To Invoice:</span>
-                            <span>{{ formatCurrency(salesOrder.amount_to_invoice) }}</span>
+                        
+                        <div class="border-t my-1"></div>
+                        
+                        <div class="space-y-1.5 text-sm">
+                            <div>
+                                <span class="text-muted-foreground">Salesperson:</span>
+                                <span class="font-medium ml-2">{{ salesOrder.user_name || 'N/A' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-muted-foreground">Sales Source:</span>
+                                <span class="font-medium ml-2 capitalize">{{ salesOrder.x_studio_sales_source || 'N/A' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-muted-foreground">Sales Manager:</span>
+                                <span class="font-medium ml-2">{{ salesOrder.commissionCalculation?.sales_manager?.name || 'Not assigned' }}</span>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -545,15 +564,19 @@ const formatDate = (date: string | null) => {
                 </CardContent>
             </Card>
 
-            <div class="rounded-md border">
+            <div class="rounded-md border bg-white dark:bg-zinc-950 overflow-x-auto">
                 <Table>
-                    <TableHeader>
+                    <TableHeader class="bg-zinc-50 dark:bg-zinc-900/50">
                         <TableRow>
-                            <TableHead>Product</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead class="text-right">Quantity</TableHead>
-                            <TableHead class="text-right">Unit Price</TableHead>
-                            <TableHead class="text-right">Subtotal</TableHead>
+                            <TableHead class="font-bold text-xs uppercase text-zinc-500">Product</TableHead>
+                            <TableHead class="font-bold text-xs uppercase text-zinc-500">Description</TableHead>
+                            <TableHead class="text-center font-bold text-xs uppercase text-zinc-500">Quantity</TableHead>
+                            <TableHead class="text-center font-bold text-xs uppercase text-zinc-500">Delivered</TableHead>
+                            <TableHead class="text-center font-bold text-xs uppercase text-zinc-500">Invoiced</TableHead>
+                            <TableHead class="text-right font-bold text-xs uppercase text-zinc-500">Unit Price</TableHead>
+                            <TableHead class="text-right font-bold text-xs uppercase text-zinc-500">Taxes</TableHead>
+                            <TableHead class="text-right font-bold text-xs uppercase text-zinc-500">Disc.%</TableHead>
+                            <TableHead class="text-right font-bold text-xs uppercase text-zinc-500">Tax Excl.</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -561,27 +584,58 @@ const formatDate = (date: string | null) => {
                             v-for="line in salesOrder.lines"
                             :key="line.id"
                         >
-                            <TableCell class="font-medium">
-                                {{ line.product_name }}
+                            <TableCell class="font-medium text-xs break-words max-w-[200px] text-zinc-600 dark:text-zinc-300">
+                                {{ line.product_name || '-' }}
                             </TableCell>
-                            <TableCell>{{ line.name }}</TableCell>
-                            <TableCell class="text-right">
-                                {{ line.product_uom_qty }}
+                            <TableCell class="text-xs break-words max-w-[250px] text-zinc-500">
+                                {{ line.name || '-' }}
                             </TableCell>
-                            <TableCell class="text-right">
-                                {{ formatCurrency(line.price_unit) }}
+                            <TableCell class="text-center text-xs text-zinc-600 dark:text-zinc-300">
+                                {{ Number(line.product_uom_qty || 0).toString() }}
                             </TableCell>
-                            <TableCell class="text-right">
+                            <TableCell class="text-center text-xs text-zinc-600 dark:text-zinc-300">
+                                {{ Number(line.qty_delivered || 0).toString() }}
+                            </TableCell>
+                            <TableCell class="text-center text-xs text-zinc-600 dark:text-zinc-300">
+                                {{ Number(line.qty_invoiced || 0).toString() }}
+                            </TableCell>
+                            <TableCell class="text-right text-xs text-zinc-600 dark:text-zinc-300">
+                                {{ line.price_unit ? formatCurrency(line.price_unit) : '' }}
+                            </TableCell>
+                            <TableCell class="text-right text-xs text-zinc-400">
+                                {{ line.tax_names || '' }}
+                            </TableCell>
+                            <TableCell class="text-right text-xs text-zinc-600 dark:text-zinc-300">
+                                {{ Number(line.discount || 0).toString() }}
+                            </TableCell>
+                            <TableCell class="text-right text-xs text-zinc-600 dark:text-zinc-300">
                                 {{ formatCurrency(line.price_subtotal) }}
                             </TableCell>
                         </TableRow>
                         <TableRow v-if="salesOrder.lines.length === 0">
-                            <TableCell colspan="5" class="h-24 text-center">
+                            <TableCell colspan="9" class="h-24 text-center">
                                 No lines found.
                             </TableCell>
                         </TableRow>
                     </TableBody>
                 </Table>
+            </div>
+
+            <div class="flex justify-end pt-4 pr-4">
+                <div class="w-64 space-y-1.5">
+                    <div class="flex justify-between text-sm">
+                        <span class="font-medium text-zinc-600 dark:text-zinc-300">Untaxed Amount:</span>
+                        <span class="font-bold">{{ formatCurrency(salesOrder.amount_untaxed || 0) }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm text-zinc-500">
+                        <span>GST 10%:</span>
+                        <span>{{ formatCurrency(salesOrder.amount_tax || 0) }}</span>
+                    </div>
+                    <div class="flex justify-between text-base pt-1">
+                        <span class="font-normal text-zinc-600 dark:text-zinc-400">Total:</span>
+                        <span class="font-bold">{{ formatCurrency(salesOrder.amount_total || 0) }}</span>
+                    </div>
+                </div>
             </div>
         </div>
     </AppLayout>
