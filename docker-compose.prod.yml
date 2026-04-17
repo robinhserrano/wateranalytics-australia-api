@@ -82,7 +82,31 @@ services:
         container_name: laravel-scheduler
         restart: unless-stopped
         working_dir: /var/www
-        command: "sh -c 'while true; do php artisan schedule:run --verbose --no-interaction & sleep 60; done'"
+        command: "sh -c 'while true; do php artisan schedule:run --verbose --no-interaction && touch /tmp/scheduler-heartbeat; sleep 60; done'"
+        healthcheck:
+            test: ["CMD-SHELL", "find /tmp/scheduler-heartbeat -mmin -2 | grep ."]
+            interval: 60s
+            timeout: 10s
+            retries: 3
+        volumes:
+            - ./.env:/var/www/.env
+            - storage:/var/www/storage
+        depends_on:
+            - app
+            - mysql
+            - redis
+        networks:
+            - app-network
+
+    # Nightwatch Agent (Performance and Error Monitoring)
+    nightwatch:
+        build:
+            context: .
+            dockerfile: deployment/Dockerfile
+        container_name: laravel-nightwatch
+        restart: unless-stopped
+        working_dir: /var/www
+        command: "php artisan nightwatch:agent"
         volumes:
             - ./.env:/var/www/.env
             - storage:/var/www/storage

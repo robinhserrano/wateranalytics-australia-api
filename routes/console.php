@@ -10,7 +10,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('odoo:sync-all')
     ->everyMinute()
-    ->withoutOverlapping()
+    ->withoutOverlapping(15)
     ->onOneServer();
 
 // Daily Backups: Database & Files to S3 at 1:00 AM

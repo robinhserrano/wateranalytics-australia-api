@@ -139,7 +139,7 @@ fi
 
 # Force Nginx and app container restart to clear all connection caches
 echo "🔄 Restarting services to clear all caches..."
-docker compose -f docker-compose.prod.yml restart web app
+docker compose -f docker-compose.prod.yml restart web app nightwatch
 
 echo ""
 echo "🔍 Final health check..."
