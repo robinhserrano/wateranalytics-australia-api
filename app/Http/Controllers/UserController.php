@@ -263,24 +263,32 @@ class UserController extends Controller
         $users = User::with('roles', 'contacts')->orderBy('name')->get();
 
         $headers = [
-            "Content-type"        => "text/csv",
+            "Content-type" => "text/csv",
             "Content-Disposition" => "attachment; filename=\"{$filename}\"",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
         ];
 
         $columns = [
-            'ID', 'Name', 'Email', 'Role', 'Status', 'Commission Split (%)', 'Company Lead Base ($)', 'Self Gen Base ($)', 'Linked Contacts'
+            'ID',
+            'Name',
+            'Email',
+            'Role',
+            'Status',
+            'Commission Split (%)',
+            'Company Lead Base ($)',
+            'Self Gen Base ($)',
+            'Linked Contacts'
         ];
 
-        $callback = function() use($users, $columns) {
+        $callback = function () use ($users, $columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
             foreach ($users as $user) {
                 $roles = $user->roles->pluck('name')->join(', ');
-                $contacts = $user->contacts->map(function($c) {
+                $contacts = $user->contacts->map(function ($c) {
                     $uid = $c->odoo_user_ids[0] ?? 'N/A';
                     return "[{$uid}] {$c->display_name}";
                 })->join(' | ');
