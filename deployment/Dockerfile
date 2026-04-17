@@ -44,6 +44,7 @@ COPY . .
 # Copy generated route helpers from generator (if created)
 COPY --from=generator /app/resources/js/wayfinder /app/resources/js/wayfinder
 COPY --from=generator /app/resources/js/routes /app/resources/js/routes
+COPY --from=generator /app/resources/js/actions /app/resources/js/actions
 # Skip wayfinder generation during build since PHP is not available in Node Alpine
 # (files are already pre-generated in the generator stage)
 RUN SKIP_WAYFINDER=true npm run build
