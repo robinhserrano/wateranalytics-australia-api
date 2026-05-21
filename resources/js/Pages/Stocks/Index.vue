@@ -25,6 +25,8 @@ import {
     PanelLeftOpen,
     Warehouse,
     Tag,
+    SlidersHorizontal,
+    X,
 } from 'lucide-vue-next';
 
 const props = defineProps<{
@@ -105,18 +107,21 @@ const selectedWarehouseName = computed(() => {
     if (warehouseId.value === '0') return 'All Warehouses';
     return props.warehouses.find(w => String(w.id) === String(warehouseId.value))?.name ?? 'All Warehouses';
 });
+
+// --- Mobile filter sheet ---
+const mobileFilterOpen = ref(false);
 </script>
 
 <template>
     <Head title="Product Stocks" />
 
     <AppLayout>
-        <div class="flex h-full flex-1 overflow-hidden">
+        <div class="flex h-full flex-1 relative">
 
-            <!-- ── Collapsible Sidebar ─────────────────────────────────── -->
+            <!-- ── Collapsible Sidebar (desktop only) ─────────────────── -->
             <aside
                 :class="[
-                    'flex flex-col shrink-0 border-r bg-sidebar transition-all duration-300 overflow-hidden',
+                    'hidden md:flex flex-col shrink-0 border-r bg-sidebar transition-all duration-300 overflow-hidden',
                     sidebarOpen ? 'w-56' : 'w-0'
                 ]"
             >
@@ -197,20 +202,27 @@ const selectedWarehouseName = computed(() => {
             </aside>
 
             <!-- ── Main Content ──────────────────────────────────────────── -->
-            <div class="flex flex-1 flex-col gap-4 p-4 overflow-auto min-w-0">
+            <div class="flex flex-1 flex-col gap-4 p-4 min-w-0 relative">
 
-                <!-- Header row -->
-                <div class="flex items-center justify-between gap-3 flex-wrap">
-                    <div class="flex items-center gap-2">
-                        <!-- Sidebar toggle -->
-                        <Button variant="outline" size="icon" class="size-8 shrink-0" @click="sidebarOpen = !sidebarOpen">
+                <!-- Sticky Header Wrapper -->
+                <div class="sticky md:static top-0 z-20 flex flex-col gap-4 bg-background/95 backdrop-blur -mx-4 px-4 -mt-4 pt-4 pb-2 sm:mx-0 sm:px-0 sm:mt-0 sm:pt-0 sm:pb-0 sm:bg-transparent">
+                    <!-- Header row -->
+                    <div class="flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex items-center gap-2">
+                        <!-- Sidebar toggle (desktop only) -->
+                        <Button variant="outline" size="icon" class="hidden md:flex size-8 shrink-0" @click="sidebarOpen = !sidebarOpen">
                             <PanelLeftClose v-if="sidebarOpen" class="size-4" />
                             <PanelLeftOpen  v-else             class="size-4" />
                         </Button>
 
+                        <!-- Mobile filter button -->
+                        <Button variant="outline" size="icon" class="flex md:hidden size-8 shrink-0" @click="mobileFilterOpen = true">
+                            <SlidersHorizontal class="size-4" />
+                        </Button>
+
                         <div class="flex items-center gap-3">
-                            <h1 class="text-2xl font-bold tracking-tight">Product Stocks</h1>
-                            <span class="text-muted-foreground text-sm font-medium">/ {{ selectedWarehouseName }}</span>
+                            <h1 class="text-xl md:text-2xl font-bold tracking-tight">Product Stocks</h1>
+                            <span class="hidden sm:inline text-muted-foreground text-sm font-medium">/ {{ selectedWarehouseName }}</span>
 
                             <!-- Data source badge -->
                             <Badge
@@ -259,8 +271,8 @@ const selectedWarehouseName = computed(() => {
                         </div>
 
                         <!-- Search -->
-                        <div class="relative w-56">
-                            <Input v-model="search" type="text" placeholder="Search products…" class="pl-9" />
+                        <div class="relative w-40 sm:w-56">
+                            <Input v-model="search" type="text" placeholder="Search…" class="pl-9" />
                             <span class="absolute start-0 inset-y-0 flex items-center justify-center px-2.5 pointer-events-none">
                                 <Search class="size-4 text-muted-foreground" />
                             </span>
@@ -269,21 +281,74 @@ const selectedWarehouseName = computed(() => {
                 </div>
 
                 <!-- Active category pills -->
-                <div v-if="selectedCats.length > 0" class="flex flex-wrap gap-1.5 -mt-2">
-                    <Badge
-                        v-for="cat in selectedCats"
-                        :key="cat"
-                        variant="secondary"
-                        class="gap-1 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
-                        @click="toggleCategory(cat)"
-                    >
-                        {{ getCatName(cat) }}
-                        <span class="ml-0.5 opacity-60">×</span>
-                    </Badge>
+                    <div v-if="selectedCats.length > 0" class="flex flex-wrap gap-1.5 -mt-2">
+                        <Badge
+                            v-for="cat in selectedCats"
+                            :key="cat"
+                            variant="secondary"
+                            class="gap-1 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            @click="toggleCategory(cat)"
+                        >
+                            {{ getCatName(cat) }}
+                            <span class="ml-0.5 opacity-60">×</span>
+                        </Badge>
+                    </div>
                 </div>
 
-                <!-- Table -->
-                <div class="rounded-lg border overflow-hidden">
+                <!-- ── Mobile List Tiles (< md) ──────────────────────────── -->
+                <div class="md:hidden flex flex-col gap-2">
+                    <div
+                        v-if="stocks.data.length === 0"
+                        class="py-16 text-center text-muted-foreground text-sm"
+                    >
+                        No products found.
+                    </div>
+                    <div
+                        v-for="stock in stocks.data"
+                        :key="stock.id"
+                        class="rounded-xl border bg-card px-4 py-3 shadow-sm active:bg-muted/40 transition-colors"
+                    >
+                        <!-- Title row -->
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <span class="text-sm font-semibold leading-snug flex-1">{{ stock.display_name }}</span>
+                            <Badge variant="outline" class="text-[10px] shrink-0 mt-0.5">
+                                {{ stock.categ_name || '-' }}
+                            </Badge>
+                        </div>
+                        <!-- Stats grid -->
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-muted-foreground">On Hand</span>
+                                <span class="font-medium tabular-nums">{{ formatQty(stock.qty_available) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-muted-foreground">Free to Use</span>
+                                <span class="font-medium tabular-nums">{{ formatQty(stock.free_qty) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-muted-foreground">Incoming</span>
+                                <span
+                                    class="tabular-nums font-medium"
+                                    :class="Number(stock.incoming_qty) > 0 ? 'text-green-600' : ''"
+                                >
+                                    {{ formatQty(stock.incoming_qty) }}
+                                </span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-muted-foreground">Outgoing</span>
+                                <span
+                                    class="tabular-nums font-medium"
+                                    :class="Number(stock.outgoing_qty) > 0 ? 'text-amber-600' : ''"
+                                >
+                                    {{ formatQty(stock.outgoing_qty) }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Desktop Table (≥ md) ──────────────────────────────── -->
+                <div class="hidden md:block rounded-lg border overflow-hidden">
                     <Table>
                         <TableHeader>
                             <TableRow class="bg-muted/50">
@@ -337,5 +402,99 @@ const selectedWarehouseName = computed(() => {
 
             </div>
         </div>
+
+        <!-- ── Mobile Filter Sheet overlay ──────────────────────────────── -->
+        <Teleport to="body">
+            <Transition name="fade">
+                <div
+                    v-if="mobileFilterOpen"
+                    class="fixed inset-0 z-50 flex md:hidden"
+                >
+                    <!-- backdrop -->
+                    <div class="absolute inset-0 bg-black/40" @click="mobileFilterOpen = false" />
+                    <!-- panel -->
+                    <aside class="relative ml-auto w-72 h-full bg-background shadow-xl flex flex-col overflow-y-auto">
+                        <div class="flex items-center justify-between px-4 pt-5 pb-3 border-b">
+                            <span class="font-semibold">Filters</span>
+                            <button @click="mobileFilterOpen = false" class="p-1 rounded-md hover:bg-accent">
+                                <X class="size-4" />
+                            </button>
+                        </div>
+                        <div class="flex flex-col gap-1 p-3 flex-1">
+                            <!-- Warehouses -->
+                            <div class="mb-1">
+                                <div class="flex items-center gap-1.5 px-1 mb-1.5">
+                                    <Warehouse class="size-3.5 text-muted-foreground" />
+                                    <span class="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Warehouses</span>
+                                </div>
+                                <button
+                                    @click="selectWarehouse('0'); mobileFilterOpen = false"
+                                    :class="[
+                                        'w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors',
+                                        warehouseId === '0' ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-accent'
+                                    ]"
+                                >
+                                    All Warehouses
+                                </button>
+                                <button
+                                    v-for="wh in warehouses"
+                                    :key="wh.id"
+                                    @click="selectWarehouse(String(wh.id)); mobileFilterOpen = false"
+                                    :class="[
+                                        'w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors',
+                                        String(warehouseId) === String(wh.id) ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-accent'
+                                    ]"
+                                >
+                                    {{ wh.name }}
+                                </button>
+                            </div>
+                            <Separator class="my-2" />
+                            <!-- Categories -->
+                            <div>
+                                <div class="flex items-center gap-1.5 px-1 mb-1.5">
+                                    <Tag class="size-3.5 text-muted-foreground" />
+                                    <span class="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Category</span>
+                                </div>
+                                <div
+                                    v-for="cat in availableCategories"
+                                    :key="cat.id"
+                                    class="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent cursor-pointer transition-colors"
+                                    @click="toggleCategory(cat.id)"
+                                >
+                                    <Checkbox
+                                        :id="`m-cat-${cat.id}`"
+                                        :checked="selectedCats.includes(cat.id)"
+                                        @click.stop
+                                        @update:checked="() => toggleCategory(cat.id)"
+                                        class="size-3.5"
+                                    />
+                                    <label :for="`m-cat-${cat.id}`" class="text-sm cursor-pointer select-none flex-1">
+                                        {{ cat.name }}
+                                    </label>
+                                </div>
+                                <button
+                                    v-if="selectedCats.length > 0"
+                                    @click="selectedCats = []"
+                                    class="mt-2 w-full text-left px-2 py-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                                >
+                                    Clear filters
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </Transition>
+        </Teleport>
     </AppLayout>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+</style>

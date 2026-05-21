@@ -54,10 +54,10 @@ watch(search, (value) => {
     <Head title="Contacts" />
 
     <AppLayout>
-        <div class="flex h-full flex-1 flex-col gap-4 p-4">
-            <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold tracking-tight">Contacts</h1>
-                <div class="flex items-center gap-4">
+        <div class="flex h-full flex-1 flex-col gap-4 p-4 relative">
+            <div class="sticky md:static top-0 z-20 flex items-center justify-between gap-2 flex-wrap bg-background/95 backdrop-blur pb-3 pt-1">
+                <h1 class="text-xl md:text-2xl font-bold tracking-tight">Contacts</h1>
+                <div class="flex items-center gap-2 flex-wrap">
                     <!-- Simplified Pagination -->
                     <div class="flex items-center gap-4">
                         <div class="text-sm font-medium text-muted-foreground whitespace-nowrap">

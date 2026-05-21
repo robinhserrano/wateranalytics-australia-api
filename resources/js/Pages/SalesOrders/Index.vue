@@ -336,16 +336,16 @@ const getDeliveryBadgeStyles = (status: string | null) => {
     <Head title="Sales Orders" />
 
     <AppLayout>
-        <div class="flex h-full flex-1 flex-col gap-4 p-4">
-            <div class="flex items-center justify-between">
+        <div class="flex h-full flex-1 flex-col gap-4 p-4 relative">
+            <div class="sticky md:static top-0 z-20 flex items-center justify-between gap-2 flex-wrap bg-background/95 backdrop-blur pb-3 pt-1">
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight">Sales Orders</h1>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">Sales Orders</h1>
                     <p v-if="viewScope" class="text-sm text-muted-foreground mt-1">
                         Viewing: {{ viewScope }}
                     </p>
                 </div>
-                <div class="flex items-center gap-2">
-                    <div class="relative w-full max-w-sm items-center">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <div class="relative w-full max-w-xs items-center">
                         <Input
                             v-model="search"
                             type="text"
@@ -626,7 +626,82 @@ const getDeliveryBadgeStyles = (status: string | null) => {
                 </div>
             </div>
 
-            <div class="rounded-md border">
+            <!-- ── Mobile List Tiles (< md) ─────────────────────────── -->
+            <div class="md:hidden flex flex-col gap-2">
+                <div
+                    v-if="salesOrders.data.length === 0"
+                    class="py-16 text-center text-muted-foreground text-sm"
+                >
+                    No results.
+                </div>
+                <div
+                    v-for="order in salesOrders.data"
+                    :key="order.id"
+                    class="rounded-xl border bg-card px-4 py-3 shadow-sm active:bg-muted/40 transition-colors"
+                >
+                    <!-- Title row -->
+                    <div class="flex items-start justify-between gap-2 mb-2">
+                        <div class="flex-1 min-w-0">
+                            <Link :href="route('sales-orders.show', order.id)" class="font-semibold text-sm hover:underline">
+                                {{ order.name }}
+                            </Link>
+                            <p class="text-xs text-muted-foreground truncate mt-0.5">{{ order.partner_name }}</p>
+                        </div>
+                        <div class="flex flex-col items-end gap-1 shrink-0">
+                            <Badge
+                                variant="outline"
+                                class="text-[10px] border"
+                                :style="getDeliveryBadgeStyles(order.delivery_status)"
+                            >
+                                {{ formatDeliveryStatus(order.delivery_status) }}
+                            </Badge>
+                            <span
+                                v-if="order.x_studio_commission_paid"
+                                class="text-[10px] text-emerald-600 font-medium"
+                            >✓ Comm. Paid</span>
+                            <span v-else class="text-[10px] text-muted-foreground">Comm. Unpaid</span>
+                        </div>
+                    </div>
+
+                    <!-- Details grid -->
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-muted-foreground">Date</span>
+                            <span class="font-medium">{{ formatDate(order.create_date) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-muted-foreground">Total</span>
+                            <span class="font-medium">{{ formatCurrency(order.amount_total) }}</span>
+                        </div>
+                        <div class="flex justify-between col-span-2">
+                            <span class="text-muted-foreground">Salesperson</span>
+                            <span class="font-medium">{{ order.user_name || '-' }}</span>
+                        </div>
+                        <div class="flex justify-between col-span-2" v-if="order.commission_calculation">
+                            <span class="text-muted-foreground">Commission</span>
+                            <span
+                                class="font-medium"
+                                :class="order.commission_calculation.final_commission > 0 ? 'text-emerald-600' : 'text-red-500'"
+                            >
+                                {{ formatCurrency(order.commission_calculation.final_commission) }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between col-span-2" v-if="order.commission_calculation">
+                            <span class="text-muted-foreground">Source</span>
+                            <Badge
+                                variant="outline"
+                                class="text-[10px] border py-0"
+                                :style="getBadgeStyles(order.commission_calculation.sales_source)"
+                            >
+                                {{ formatSource(order.commission_calculation.sales_source) }}
+                            </Badge>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Desktop Table (≥ md) ─────────────────────────────── -->
+            <div class="hidden md:block rounded-md border">
                 <Table>
                     <TableHeader>
                         <TableRow>
