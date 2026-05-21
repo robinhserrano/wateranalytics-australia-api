@@ -46,15 +46,23 @@ class SyncStocks extends Command
                     'name' => 'All Warehouses',
                 ]
             );
-            $totalSynced += $this->syncProductStocks($odoo, $allWarehouse);
+            // In Option B, we don't sync ALL stocks because we aggregate them dynamically.
+            ProductStock::where('warehouse_id', $allWarehouse->id)->delete();
 
             // Step 2: Sync Warehouses
             $this->info('Fetching individual warehouses...');
             $warehouses = $this->syncWarehouses($odoo);
 
+            // Delete product stocks for excluded warehouses
+            $excludedWarehouseIds = Warehouse::where('is_excluded', true)->pluck('id')->toArray();
+            if (!empty($excludedWarehouseIds)) {
+                ProductStock::whereIn('warehouse_id', $excludedWarehouseIds)->delete();
+                $this->info("Deleted obsolete stocks for excluded warehouses.");
+            }
+
             // Step 3: Sync Product Stocks for each warehouse
             foreach ($warehouses as $warehouse) {
-                if ($warehouse->odoo_id === 0) continue;
+                if ($warehouse->odoo_id === 0 || $warehouse->is_excluded) continue;
                 
                 $this->info("Syncing stocks for warehouse: {$warehouse->name} (ID: {$warehouse->odoo_id})");
                 $totalSynced += $this->syncProductStocks($odoo, $warehouse);
