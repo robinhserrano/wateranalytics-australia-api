@@ -25,6 +25,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view-own-commissions',
             'manage-users',
             'manage-roles',
+            'view-installer',
         ];
 
         foreach ($permissions as $permission) {
@@ -40,6 +41,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'manage-team-members',
             'manage-users',
             'manage-roles',
+            'view-installer',
         ]);
 
         $salesManager = Role::firstOrCreate(['name' => 'Sales Manager']);
@@ -50,6 +52,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view-own-commissions',
             'manage-teams',
             'manage-team-members',
+            'view-installer',
         ]);
 
         $salesTeamManager = Role::firstOrCreate(['name' => 'Sales Team Manager']);
@@ -63,6 +66,12 @@ class RolesAndPermissionsSeeder extends Seeder
 
         $salesPerson = Role::firstOrCreate(['name' => 'Sales Person']);
         $salesPerson->givePermissionTo([
+            'view-own-sales-orders',
+            'view-own-commissions',
+        ]);
+
+        $salesInternal = Role::firstOrCreate(['name' => 'Sales - Internal']);
+        $salesInternal->givePermissionTo([
             'view-own-sales-orders',
             'view-own-commissions',
         ]);

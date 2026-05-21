@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DollarSign, ShoppingCart, Clock, CheckCircle, Bell } from 'lucide-vue-next';
+import { ShoppingCart, Clock, CheckCircle, Bell } from 'lucide-vue-next';
 
 interface DashboardStats {
     overview: {
@@ -91,9 +91,9 @@ const formatDate = (date: string) => {
                             <Clock class="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">{{ formatCurrency(stats.commissions.pending) }}</div>
+                            <div class="text-2xl font-bold">{{ stats.commissions.pending_count }}</div>
                             <p class="text-xs text-muted-foreground">
-                                {{ stats.commissions.pending_count }} commission{{ stats.commissions.pending_count !== 1 ? 's' : '' }} waiting for approval
+                                commission{{ stats.commissions.pending_count !== 1 ? 's' : '' }} waiting for approval
                             </p>
                         </CardContent>
                     </Card>
@@ -106,9 +106,9 @@ const formatDate = (date: string) => {
                             <CheckCircle class="h-4 w-4 text-emerald-500" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold text-emerald-600">{{ formatCurrency(stats.commissions.approved) }}</div>
+                            <div class="text-2xl font-bold text-emerald-600">{{ stats.commissions.approved_count }}</div>
                             <p class="text-xs text-muted-foreground">
-                                {{ stats.commissions.approved_count }} commission{{ stats.commissions.approved_count !== 1 ? 's' : '' }} ready for payment
+                                commission{{ stats.commissions.approved_count !== 1 ? 's' : '' }} ready for payment
                             </p>
                         </CardContent>
                     </Card>
@@ -118,12 +118,12 @@ const formatDate = (date: string) => {
                     <Card class="hover:bg-muted/50 transition-colors cursor-pointer">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Paid Total</CardTitle>
-                            <DollarSign class="h-4 w-4 text-muted-foreground" />
+                            <CheckCircle class="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">{{ formatCurrency(stats.commissions.paid) }}</div>
+                            <div class="text-2xl font-bold">{{ stats.commissions.paid_count }}</div>
                             <p class="text-xs text-muted-foreground">
-                                {{ stats.commissions.paid_count }} commission{{ stats.commissions.paid_count !== 1 ? 's' : '' }} lifetime earnings
+                                commission{{ stats.commissions.paid_count !== 1 ? 's' : '' }} lifetime earnings
                             </p>
                         </CardContent>
                     </Card>
@@ -155,8 +155,6 @@ const formatDate = (date: string) => {
                                     <TableHead>Date</TableHead>
                                     <TableHead>Customer</TableHead>
                                     <TableHead>Owner</TableHead>
-                                    <TableHead class="text-right">Amount</TableHead>
-                                    <TableHead class="text-right">Commission</TableHead>
                                     <TableHead class="text-right">Status</TableHead>
                                     <TableHead class="text-right">Action</TableHead>
                                 </TableRow>
@@ -174,10 +172,6 @@ const formatDate = (date: string) => {
                                             <span class="text-sm text-muted-foreground">{{ order.owner }}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell class="text-right">{{ formatCurrency(order.amount_total) }}</TableCell>
-                                    <TableCell class="text-right font-medium">
-                                        {{ formatCurrency(order.commission) }}
-                                    </TableCell>
                                     <TableCell class="text-right">
                                         <Badge variant="outline" :class="{
                                             'bg-yellow-50 text-yellow-700 border-yellow-200': order.status === 'pending',
@@ -194,7 +188,7 @@ const formatDate = (date: string) => {
                                     </TableCell>
                                 </TableRow>
                                 <TableRow v-if="stats.recent_orders.length === 0">
-                                    <TableCell colspan="8" class="h-24 text-center">
+                                    <TableCell colspan="6" class="h-24 text-center">
                                         No recent orders found.
                                     </TableCell>
                                 </TableRow>

@@ -42,4 +42,18 @@ class SalesOrder extends Model
     {
         return $this->belongsTo(Contact::class, 'partner_id', 'odoo_id');
     }
+
+    /**
+     * Get the installer as an object.
+     */
+    public function getInstallerAttribute()
+    {
+        if ($this->installer_id) {
+            return [
+                'id' => $this->installer_id,
+                'display_name' => $this->installer_name,
+            ];
+        }
+        return null;
+    }
 }

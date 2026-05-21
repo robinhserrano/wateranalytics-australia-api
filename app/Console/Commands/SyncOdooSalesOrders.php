@@ -102,6 +102,7 @@ class SyncOdooSalesOrders extends Command
             'x_studio_referred_by' => (object)[],
             'x_studio_referrer_processed' => (object)[],
             'x_studio_payment_type' => (object)[],
+            'installer' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]],
             'x_studio_invoice_payment_status' => (object)[],
             'recurring_total' => (object)[],
             'plan_id' => (object)['fields' => (object)['display_name' => (object)[]]],
@@ -203,6 +204,8 @@ class SyncOdooSalesOrders extends Command
                         
                         'team_id' => $order->team_id->id ?? null,
                         'team_name' => $order->team_id->display_name ?? null,
+                        'installer_id' => $order->installer->id ?? null,
+                        'installer_name' => $order->installer->display_name ?? null,
 
                         'x_studio_sales_rep_1' => is_array($order->x_studio_sales_rep_1) ? $order->x_studio_sales_rep_1[1] : ($order->x_studio_sales_rep_1 ?? null),
                         'x_studio_sales_source' => is_array($order->x_studio_sales_source) ? $order->x_studio_sales_source[1] : ($order->x_studio_sales_source ?? null),
@@ -293,7 +296,7 @@ class SyncOdooSalesOrders extends Command
                 SalesOrder::upsert($syncData, ['odoo_id'], [
                     'name', 'create_date', 'write_date', 'partner_id', 'partner_name', 
                     'partner_shipping_id', 'partner_shipping_name', 'partner_shipping_address', 'partner_shipping_state', 
-                    'user_id', 'user_name', 'salesperson_partner_id', 'team_id', 'team_name', 'x_studio_sales_rep_1', 'x_studio_sales_source', 
+                    'user_id', 'user_name', 'salesperson_partner_id', 'team_id', 'team_name', 'installer_id', 'installer_name', 'x_studio_sales_rep_1', 'x_studio_sales_source', 
                     'x_studio_commission_paid', 'x_studio_referred_by', 'x_studio_referrer_processed', 'x_studio_payment_type', 
                     'amount_untaxed', 'amount_tax', 'amount_total', 'recurring_total', 'plan_name', 'subscription_plan_id', 'amount_to_invoice', 
                     'delivery_status', 'x_studio_invoice_payment_status', 'state', 'tag_ids', 

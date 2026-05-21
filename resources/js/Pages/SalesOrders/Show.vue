@@ -30,6 +30,7 @@ import { CheckCircle2, XCircle, AlertCircle, Send, User, MapPin, Info } from 'lu
 const props = defineProps<{
     salesOrder: any;
     calculationError?: string | null;
+    canViewInstaller?: boolean;
 }>();
 
 // Initialize manual adjustment ref
@@ -234,6 +235,10 @@ const formatDate = (date: string | null) => {
                             <div>
                                 <span class="text-muted-foreground">Salesperson:</span>
                                 <span class="font-medium ml-2">{{ salesOrder.user_name || 'N/A' }}</span>
+                            </div>
+                            <div v-if="canViewInstaller">
+                                <span class="text-muted-foreground">Installer:</span>
+                                <span class="font-medium ml-2">{{ salesOrder.installer_name || 'N/A' }}</span>
                             </div>
                             <div>
                                 <span class="text-muted-foreground">Sales Source:</span>

@@ -25,6 +25,7 @@ export function getRoleStyle(roleName: string) {
         'sales manager': { bg: '#1E40AF', text: '#FFFFFF' },
         'sales team manager': { bg: '#0F766E', text: '#FFFFFF' },
         'sales person': { bg: '#F97316', text: '#FFFFFF' },
+        'sales - internal': { bg: '#DB2777', text: '#FFFFFF' },
         'account officer': { bg: '#334155', text: '#FFFFFF' }
     };
 

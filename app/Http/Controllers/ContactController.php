@@ -16,8 +16,8 @@ class ContactController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('display_name', 'like', "%{$search}%")
-                  ->orWhere('city', 'like', "%{$search}%")
-                  ->orWhere('zip', 'like', "%{$search}%");
+                    ->orWhere('city', 'like', "%{$search}%")
+                    ->orWhere('zip', 'like', "%{$search}%");
             });
         }
 

@@ -38,7 +38,7 @@ const form = useForm({
     name: props.user.name,
     email: props.user.email,
     password: '',
-    role_name: props.user.roles?.[0]?.name || '',
+    role_names: props.user.roles?.map(r => r.name) || [] as string[],
     commission_split: props.user.commission_split,
     company_lead_base: props.user.company_lead_base,
     self_gen_base: props.user.self_gen_base,
@@ -62,6 +62,14 @@ const toggleContact = (odooId: string | number) => {
         form.contact_ids = form.contact_ids.filter(existingId => existingId !== id);
     } else {
         form.contact_ids = [...form.contact_ids, id];
+    }
+};
+
+const toggleRole = (roleName: string, checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+        form.role_names = [...form.role_names, roleName];
+    } else {
+        form.role_names = form.role_names.filter(name => name !== roleName);
     }
 };
 
@@ -123,18 +131,20 @@ const isAdmin = computed(() => {
                             </div>
 
                             <div class="space-y-2">
-                                <Label for="role">Role</Label>
-                                <Select v-model="form.role_name">
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a role" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem v-for="role in roles" :key="role.id" :value="role.name">
+                                <Label>Roles</Label>
+                                <div class="grid grid-cols-1 gap-2.5 border rounded-md p-3 bg-muted/20">
+                                    <div v-for="role in roles" :key="role.id" class="flex items-center space-x-2">
+                                        <Checkbox 
+                                            :id="`role-${role.id}`" 
+                                            :checked="form.role_names.includes(role.name)"
+                                            @update:checked="(checked) => toggleRole(role.name, checked)"
+                                        />
+                                        <Label :for="`role-${role.id}`" class="text-sm font-medium cursor-pointer">
                                             {{ role.name }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <span v-if="form.errors.role_name" class="text-red-500 text-sm">{{ form.errors.role_name }}</span>
+                                        </Label>
+                                    </div>
+                                </div>
+                                <span v-if="form.errors.role_names" class="text-red-500 text-sm">{{ form.errors.role_names }}</span>
                             </div>
 
                             <div v-if="isAdmin" class="space-y-2">

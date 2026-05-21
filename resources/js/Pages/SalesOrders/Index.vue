@@ -54,8 +54,9 @@ const props = defineProps<{
         date_from?: string;
         date_to?: string;
     };
-    users: Array<{ id: number; name: string }>;
+    users: Array<{ id: number; name: string; roles?: Array<{ id: number; name: string }> }>;
     viewScope?: string;
+    canViewInstaller?: boolean;
 }>();
 
 const search = ref(props.filters.search || '');
@@ -115,6 +116,51 @@ const resetFilters = () => {
     dateTo.value = '';
     applyFilters();
 };
+
+const setPayableCommissionsFilter = () => {
+    commissionStatus.value = ['Not Paid'];
+    invoiceStatus.value = ['Paid'];
+    deliveryStatus.value = ['Fully Delivered'];
+    selectedUserIds.value = [];
+};
+
+const setPayableCommissionsAccountingFilter = () => {
+    commissionStatus.value = ['Not Paid'];
+    invoiceStatus.value = ['Paid'];
+    deliveryStatus.value = ['Fully Delivered'];
+    
+    const nonInternalUsers = props.users.filter(u => {
+        return !u.roles?.some(r => r.name === 'Sales - Internal');
+    }).map(u => String(u.id));
+    
+    nonInternalUsers.push('pending');
+    
+    selectedUserIds.value = nonInternalUsers;
+};
+
+const isPayableCommissionsActive = computed(() => {
+    return commissionStatus.value.length === 1 && commissionStatus.value[0] === 'Not Paid' &&
+           invoiceStatus.value.length === 1 && invoiceStatus.value[0] === 'Paid' &&
+           deliveryStatus.value.length === 1 && deliveryStatus.value[0] === 'Fully Delivered' &&
+           selectedUserIds.value.length === 0;
+});
+
+const isPayableCommissionsAccountingActive = computed(() => {
+    if (commissionStatus.value.length !== 1 || commissionStatus.value[0] !== 'Not Paid' ||
+        invoiceStatus.value.length !== 1 || invoiceStatus.value[0] !== 'Paid' ||
+        deliveryStatus.value.length !== 1 || deliveryStatus.value[0] !== 'Fully Delivered') {
+        return false;
+    }
+    
+    const nonInternalUsers = props.users.filter(u => {
+        return !u.roles?.some(r => r.name === 'Sales - Internal');
+    }).map(u => String(u.id));
+    nonInternalUsers.push('pending');
+    
+    if (selectedUserIds.value.length !== nonInternalUsers.length) return false;
+    
+    return nonInternalUsers.every(id => selectedUserIds.value.includes(id));
+});
 
 const commissionOptions = ['Paid', 'Not Paid'];
 const invoiceOptions = ['Paid', 'Partial', 'Not Paid', 'Not Set'];
@@ -435,6 +481,35 @@ const getDeliveryBadgeStyles = (status: string | null) => {
                                     </div>
                                 </div>
 
+                                <Separator class="my-1" />
+
+                                <!-- Quick Actions (Shortcuts) -->
+                                <div class="grid gap-3">
+                                    <Label class="text-base font-semibold">Quick Actions (Shortcuts)</Label>
+                                    <div class="flex flex-wrap gap-2">
+                                        <Button 
+                                            :variant="isPayableCommissionsActive ? 'default' : 'outline'" 
+                                            size="sm" 
+                                            class="text-xs transition-colors" 
+                                            :class="isPayableCommissionsActive ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' : ''"
+                                            @click="setPayableCommissionsFilter"
+                                        >
+                                            Payable Commissions
+                                        </Button>
+                                        <Button 
+                                            :variant="isPayableCommissionsAccountingActive ? 'default' : 'outline'" 
+                                            size="sm" 
+                                            class="text-xs transition-colors" 
+                                            :class="isPayableCommissionsAccountingActive ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' : ''"
+                                            @click="setPayableCommissionsAccountingFilter"
+                                        >
+                                            Payable Commissions - Accounting
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <Separator class="my-1" />
+
                                 <!-- Commission Status -->
                                 <div class="grid gap-4 mt-2">
                                     <Label class="text-base font-semibold">Commission Status</Label>
@@ -558,6 +633,7 @@ const getDeliveryBadgeStyles = (status: string | null) => {
                             <TableHead>Order #</TableHead>
                             <TableHead>Date</TableHead>
                             <TableHead>Customer</TableHead>
+                            <TableHead v-if="canViewInstaller">Installer</TableHead>
                             <TableHead>Salesperson</TableHead>
                             <TableHead>Commission Owner</TableHead>
                             <TableHead>Sales Source</TableHead>
@@ -581,6 +657,10 @@ const getDeliveryBadgeStyles = (status: string | null) => {
                             </TableCell>
                             <TableCell>{{ formatDate(order.create_date) }}</TableCell>
                             <TableCell>{{ order.partner_name }}</TableCell>
+                            <TableCell v-if="canViewInstaller">
+                                <span v-if="order.installer_name">{{ order.installer_name }}</span>
+                                <span v-else class="text-muted-foreground">-</span>
+                            </TableCell>
                             <TableCell>{{ order.user_name }}</TableCell>
                             <TableCell>
                                 <div v-if="order.commission_calculation?.user" class="font-medium">
@@ -648,7 +728,7 @@ const getDeliveryBadgeStyles = (status: string | null) => {
                             </TableCell>
                         </TableRow>
                         <TableRow v-if="salesOrders.data.length === 0">
-                            <TableCell colspan="14" class="h-24 text-center">
+                            <TableCell :colspan="canViewInstaller ? 15 : 14" class="h-24 text-center">
                                 No results.
                             </TableCell>
                         </TableRow>

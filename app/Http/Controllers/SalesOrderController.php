@@ -164,7 +164,8 @@ class SalesOrderController extends Controller
         }
 
         // Get list of users for the filter
-        $users = \App\Models\User::select('id', 'name')
+        $users = \App\Models\User::with('roles:id,name')
+            ->select('id', 'name')
             ->whereHas('commissionCalculations')
             ->orderBy('name')
             ->get();
@@ -174,6 +175,7 @@ class SalesOrderController extends Controller
             'filters' => $request->only(['search', 'commission_status', 'invoice_status', 'delivery_status', 'user_ids', 'date_from', 'date_to']),
             'users' => $users,
             'viewScope' => $viewScope,
+            'canViewInstaller' => $user->hasPermissionTo('view-installer'),
         ]);
     }
 
@@ -210,6 +212,7 @@ class SalesOrderController extends Controller
         return Inertia::render('SalesOrders/Show', [
             'salesOrder' => $salesOrder,
             'calculationError' => $calculationError,
+            'canViewInstaller' => auth()->user()->hasPermissionTo('view-installer'),
         ]);
     }
 }

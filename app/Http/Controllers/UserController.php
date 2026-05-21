@@ -52,7 +52,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        $user->load('contacts', 'roles', 'salesManager', 'team');
+        $user = $user->fresh()->load('contacts', 'roles', 'salesManager', 'team');
 
         $partnerIds = $user->contacts->pluck('odoo_id')->toArray();
 
@@ -108,7 +108,8 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users',
             'password' => 'required|string|min:6',
-            'role_name' => 'nullable|exists:roles,name', // Changed from role_id
+            'role_names' => 'nullable|array',
+            'role_names.*' => 'exists:roles,name',
             'sales_manager_id' => 'nullable|exists:users,id',
             'commission_split' => 'nullable|numeric|min:0|max:100',
             'company_lead_base' => 'nullable|numeric|min:0',
@@ -120,24 +121,21 @@ class UserController extends Controller
 
         $user = DB::transaction(function () use ($validated, $request) {
             $contactIds = $validated['contact_ids'] ?? null;
-            $roleName = $validated['role_name'] ?? null;
+            $roleNames = $validated['role_names'] ?? [];
 
             unset($validated['contact_ids']);
-            unset($validated['role_name']);
-
-            Log::info('Creating user. Contact IDs received:', ['contact_ids' => $contactIds]);
+            unset($validated['role_names']);
 
             $validated['password'] = Hash::make($validated['password']);
             $validated['is_active'] = true;
 
             $user = User::create($validated);
 
-            if ($roleName) {
-                $user->assignRole($roleName);
+            if (!empty($roleNames)) {
+                $user->assignRole($roleNames);
             }
 
             if ($contactIds) {
-                Log::info('Assigning contacts to new user ' . $user->id, ['contact_ids' => $contactIds]);
                 DB::table('contacts')
                     ->whereIn('odoo_id', $contactIds)
                     ->update(['user_id' => $user->id]);
@@ -155,7 +153,7 @@ class UserController extends Controller
     public function edit(User $user)
     {
         return Inertia::render('Users/Edit', [
-            'user' => $user->load('contacts', 'roles'),
+            'user' => $user->fresh()->load('contacts', 'roles'),
             'contacts' => Contact::whereNotNull('odoo_user_ids')
                 ->where('odoo_user_ids', '!=', '[]')
                 ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids', 'email')
@@ -173,7 +171,8 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:6',
-            'role_name' => 'nullable|exists:roles,name', // Changed from role_id
+            'role_names' => 'nullable|array',
+            'role_names.*' => 'exists:roles,name',
             'sales_manager_id' => 'nullable|exists:users,id',
             'commission_split' => 'nullable|numeric|min:0|max:100',
             'company_lead_base' => 'nullable|numeric|min:0',
@@ -185,12 +184,10 @@ class UserController extends Controller
 
         DB::transaction(function () use ($validated, $request, $user) {
             $contactIds = $validated['contact_ids'] ?? null;
-            $roleName = $validated['role_name'] ?? null;
+            $roleNames = $validated['role_names'] ?? [];
 
             unset($validated['contact_ids']);
-            unset($validated['role_name']);
-
-            Log::info('Updating user ' . $user->id . '. Contact IDs received:', ['contact_ids' => $contactIds, 'has_contact_ids' => $request->has('contact_ids')]);
+            unset($validated['role_names']);
 
             if (filled($request->password)) {
                 $validated['password'] = Hash::make($request->password);
@@ -200,16 +197,12 @@ class UserController extends Controller
 
             $user->update($validated);
 
-            if ($roleName) {
-                $user->syncRoles([$roleName]);
-            } else {
-                // If role_name is explicitly null/empty in request (meaning removal), verify if we should detach?
-                // Typically if field is present but empty, we might unset role?
-                // For now assuming if provided, we sync.
-            }
+            $user->syncRoles($roleNames);
+
+            // Clear Spatie permission cache so next page load reflects new roles
+            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
             if ($request->has('contact_ids')) {
-                Log::info('Updating contacts for user ' . $user->id, ['contact_ids' => $contactIds]);
 
                 // First, unassign all contacts currently assigned to this user
                 DB::table('contacts')
