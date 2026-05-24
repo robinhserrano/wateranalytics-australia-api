@@ -176,6 +176,7 @@ class SalesOrderController extends Controller
             'users' => $users,
             'viewScope' => $viewScope,
             'canViewInstaller' => $user->hasPermissionTo('view-installer'),
+            'canConfirmCommission' => $user->hasAnyRole(['Admin', 'Sales Manager']),
         ]);
     }
 

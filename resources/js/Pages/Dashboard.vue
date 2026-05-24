@@ -84,50 +84,44 @@ const formatDate = (date: string) => {
 
             <!-- Stats Grid -->
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Link :href="route('commissions.index', { status: 'pending' })">
-                    <Card class="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle class="text-sm font-medium">Pending Commissions</CardTitle>
-                            <Clock class="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div class="text-2xl font-bold">{{ stats.commissions.pending_count }}</div>
-                            <p class="text-xs text-muted-foreground">
-                                commission{{ stats.commissions.pending_count !== 1 ? 's' : '' }} waiting for approval
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                <Card>
+                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle class="text-sm font-medium">Pending Commissions</CardTitle>
+                        <Clock class="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div class="text-2xl font-bold">{{ stats.commissions.pending_count }}</div>
+                        <p class="text-xs text-muted-foreground">
+                            commission{{ stats.commissions.pending_count !== 1 ? 's' : '' }} waiting for approval
+                        </p>
+                    </CardContent>
+                </Card>
 
-                <Link :href="route('commissions.index', { status: 'approved' })">
-                    <Card class="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle class="text-sm font-medium">Approved</CardTitle>
-                            <CheckCircle class="h-4 w-4 text-emerald-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div class="text-2xl font-bold text-emerald-600">{{ stats.commissions.approved_count }}</div>
-                            <p class="text-xs text-muted-foreground">
-                                commission{{ stats.commissions.approved_count !== 1 ? 's' : '' }} ready for payment
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                <Card>
+                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle class="text-sm font-medium">Approved</CardTitle>
+                        <CheckCircle class="h-4 w-4 text-emerald-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div class="text-2xl font-bold text-emerald-600">{{ stats.commissions.approved_count }}</div>
+                        <p class="text-xs text-muted-foreground">
+                            commission{{ stats.commissions.approved_count !== 1 ? 's' : '' }} ready for payment
+                        </p>
+                    </CardContent>
+                </Card>
 
-                <Link :href="route('commissions.index', { status: 'paid' })">
-                    <Card class="hover:bg-muted/50 transition-colors cursor-pointer">
-                        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle class="text-sm font-medium">Paid Total</CardTitle>
-                            <CheckCircle class="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div class="text-2xl font-bold">{{ stats.commissions.paid_count }}</div>
-                            <p class="text-xs text-muted-foreground">
-                                commission{{ stats.commissions.paid_count !== 1 ? 's' : '' }} lifetime earnings
-                            </p>
-                        </CardContent>
-                    </Card>
-                </Link>
+                <Card>
+                    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle class="text-sm font-medium">Paid Total</CardTitle>
+                        <CheckCircle class="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div class="text-2xl font-bold">{{ stats.commissions.paid_count }}</div>
+                        <p class="text-xs text-muted-foreground">
+                            commission{{ stats.commissions.paid_count !== 1 ? 's' : '' }} lifetime earnings
+                        </p>
+                    </CardContent>
+                </Card>
                 <Card v-if="stats.overview.new_orders_count > 0" class="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
                     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle class="text-sm font-medium text-blue-900 dark:text-blue-100">New Activity</CardTitle>

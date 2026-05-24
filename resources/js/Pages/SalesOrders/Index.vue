@@ -15,6 +15,14 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
     Sheet,
     SheetContent,
     SheetDescription,
@@ -29,7 +37,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { DateFormatter, type DateValue, getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import { ref, watch, computed } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
-import { Search, Filter, X, RotateCcw, ChevronDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Search, Filter, X, RotateCcw, ChevronDown, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-vue-next';
 
 const props = defineProps<{
     salesOrders: {
@@ -57,6 +65,7 @@ const props = defineProps<{
     users: Array<{ id: number; name: string; roles?: Array<{ id: number; name: string }> }>;
     viewScope?: string;
     canViewInstaller?: boolean;
+    canConfirmCommission?: boolean;
 }>();
 
 const search = ref(props.filters.search || '');
@@ -329,6 +338,42 @@ const getDeliveryBadgeStyles = (status: string | null) => {
         backgroundColor: '#f1f5f9',
         borderColor: '#cbd5e1'
     };
+};
+
+const processingConfirmations = ref<Record<string, boolean>>({});
+
+// Confirmation Modal State
+const confirmModalOpen = ref(false);
+const orderToConfirm = ref<any>(null);
+const confirmActionType = ref<'confirm'|'unconfirm'>('confirm');
+
+const initiateToggle = (order: any) => {
+    if (!props.canConfirmCommission || !order.commission_calculation) return;
+    
+    orderToConfirm.value = order;
+    confirmActionType.value = !!order.commission_calculation.confirmed_by_manager ? 'unconfirm' : 'confirm';
+    confirmModalOpen.value = true;
+};
+
+const executeToggle = () => {
+    const order = orderToConfirm.value;
+    if (!order) return;
+
+    const commissionId = order.commission_calculation.id;
+    const isCurrentlyConfirmed = !!order.commission_calculation.confirmed_by_manager;
+    
+    processingConfirmations.value[commissionId] = true;
+    confirmModalOpen.value = false;
+    
+    const routeName = isCurrentlyConfirmed ? 'commissions.reset-confirm' : 'commissions.confirm';
+    
+    router.post(route(routeName, commissionId), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            processingConfirmations.value[commissionId] = false;
+            orderToConfirm.value = null;
+        }
+    });
 };
 </script>
 
@@ -697,6 +742,34 @@ const getDeliveryBadgeStyles = (status: string | null) => {
                             </Badge>
                         </div>
                     </div>
+                    
+                    <!-- Quick Manager Action (Mobile) -->
+                    <div v-if="props.canConfirmCommission && order.commission_calculation" class="mt-3 pt-3 border-t border-border flex justify-end">
+                        <Button 
+                            v-if="!order.commission_calculation.confirmed_by_manager"
+                            variant="outline" 
+                            size="sm" 
+                            class="h-7 text-xs border-emerald-600/30 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800"
+                            :disabled="processingConfirmations[order.commission_calculation.id]"
+                            @click="initiateToggle(order)"
+                        >
+                            <Loader2 v-if="processingConfirmations[order.commission_calculation.id]" class="size-3 mr-1.5 animate-spin" />
+                            <span v-else class="mr-1.5 font-bold">✓</span>
+                            Confirm
+                        </Button>
+                        <Button 
+                            v-else
+                            variant="outline" 
+                            size="sm" 
+                            class="h-7 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            :disabled="processingConfirmations[order.commission_calculation.id]"
+                            @click="initiateToggle(order)"
+                        >
+                            <Loader2 v-if="processingConfirmations[order.commission_calculation.id]" class="size-3 mr-1.5 animate-spin" />
+                            <span v-else class="mr-1.5">✗</span>
+                            Unconfirm
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -761,7 +834,18 @@ const getDeliveryBadgeStyles = (status: string | null) => {
                             </TableCell>
                             <TableCell>
                                 <div class="flex justify-center">
-                                    <Checkbox v-if="order.commission_calculation" :model-value="!!order.commission_calculation.confirmed_by_manager" disabled />
+                                    <template v-if="order.commission_calculation">
+                                        <div v-if="processingConfirmations[order.commission_calculation.id]" class="flex justify-center items-center h-4 w-4">
+                                            <Loader2 class="size-3.5 animate-spin text-muted-foreground" />
+                                        </div>
+                                        <Checkbox 
+                                            v-else
+                                            :model-value="!!order.commission_calculation.confirmed_by_manager" 
+                                            :disabled="!props.canConfirmCommission"
+                                            :class="props.canConfirmCommission ? 'cursor-pointer' : ''"
+                                            @click.prevent="props.canConfirmCommission ? initiateToggle(order) : null"
+                                        />
+                                    </template>
                                     <span v-else class="text-muted-foreground">-</span>
                                 </div>
                             </TableCell>
@@ -812,5 +896,29 @@ const getDeliveryBadgeStyles = (status: string | null) => {
             </div>
 
         </div>
+        <!-- Confirmation Modal -->
+        <Dialog :open="confirmModalOpen" @update:open="confirmModalOpen = $event">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>
+                        {{ confirmActionType === 'confirm' ? 'Confirm Commission' : 'Unconfirm Commission' }}
+                    </DialogTitle>
+                    <DialogDescription v-if="orderToConfirm">
+                        Are you sure you want to {{ confirmActionType === 'confirm' ? 'confirm' : 'unconfirm' }} the commission for order <strong>{{ orderToConfirm.name }}</strong>?
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter class="sm:justify-end gap-2 sm:gap-0">
+                    <Button variant="outline" @click="confirmModalOpen = false">
+                        Cancel
+                    </Button>
+                    <Button 
+                        :variant="confirmActionType === 'confirm' ? 'default' : 'destructive'" 
+                        @click="executeToggle"
+                    >
+                        {{ confirmActionType === 'confirm' ? 'Yes, Confirm' : 'Yes, Unconfirm' }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </AppLayout>
 </template>

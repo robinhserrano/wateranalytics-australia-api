@@ -53,4 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Products
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/{id}', [ProductController::class, 'show']);
+    
+    // Stocks (Live from Odoo for n8n)
+    Route::get('/stocks', [App\Http\Controllers\Api\ProductStockController::class, 'index']);
 });

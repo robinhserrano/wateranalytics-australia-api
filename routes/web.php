@@ -33,10 +33,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('commissions/{commission}/adjust', [App\Http\Controllers\CommissionController::class, 'adjust'])->name('commissions.adjust');
         Route::post('commissions/{commission}/approve', [App\Http\Controllers\CommissionController::class, 'approve'])->name('commissions.approve');
         Route::post('commissions/{commission}/reject', [App\Http\Controllers\CommissionController::class, 'reject'])->name('commissions.reject');
-        Route::post('commissions/{commission}/confirm', [App\Http\Controllers\CommissionController::class, 'confirm'])->name('commissions.confirm');
         Route::post('commissions/{commission}/mark-paid', [App\Http\Controllers\CommissionController::class, 'markAsPaid'])->name('commissions.mark-paid');
         Route::post('commissions/{commission}/mark-odoo', [App\Http\Controllers\CommissionController::class, 'markAsEnteredToOdoo'])->name('commissions.mark-odoo');
-        Route::post('commissions/{commission}/reset-confirm', [App\Http\Controllers\CommissionController::class, 'resetConfirm'])->name('commissions.reset-confirm');
         Route::post('commissions/{commission}/reset-odoo', [App\Http\Controllers\CommissionController::class, 'resetOdooSync'])->name('commissions.reset-odoo');
         Route::post('commissions/bulk-approve', [App\Http\Controllers\CommissionController::class, 'bulkApprove'])->name('commissions.bulk-approve');
         Route::get('users/{user}/commission-stats', [App\Http\Controllers\CommissionController::class, 'userStats'])->name('users.commission-stats');
@@ -64,6 +62,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Manager Routes
     Route::middleware(['role:Admin|Sales Manager|Sales Team Manager'])->group(function () {
         Route::get('my-team', [App\Http\Controllers\MyTeamController::class, 'index'])->name('my-team.index');
+    });
+
+    Route::middleware(['role:Admin|Sales Manager'])->group(function () {
+        Route::post('commissions/{commission}/confirm', [App\Http\Controllers\CommissionController::class, 'confirm'])->name('commissions.confirm');
+        Route::post('commissions/{commission}/reset-confirm', [App\Http\Controllers\CommissionController::class, 'resetConfirm'])->name('commissions.reset-confirm');
     });
     
     // Shared Routes with conditional access
