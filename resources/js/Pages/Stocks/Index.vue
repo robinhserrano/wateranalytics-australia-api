@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
 import {
     Search,
@@ -28,6 +28,8 @@ import {
     SlidersHorizontal,
     X,
 } from 'lucide-vue-next';
+import { createChat } from '@n8n/chat';
+import '@n8n/chat/style.css';
 
 const props = defineProps<{
     stocks: {
@@ -110,6 +112,28 @@ const selectedWarehouseName = computed(() => {
 
 // --- Mobile filter sheet ---
 const mobileFilterOpen = ref(false);
+
+// --- n8n Chat Widget ---
+onMounted(() => {
+    createChat({
+        webhookUrl: import.meta.env.VITE_N8N_CHAT_WEBHOOK_URL,
+        mode: 'window',
+        showWelcomeScreen: false,
+        initialMessages: [
+            'Which product would you like me to search for?',
+        ],
+        i18n: {
+            en: {
+                title: 'Product Search',
+                subtitle: 'Ask me to find any product in stock',
+                footer: '',
+                inputPlaceholder: 'Type a product name…',
+                getStarted: 'Start searching',
+                closeButtonTooltip: 'Close chat',
+            },
+        },
+    });
+});
 </script>
 
 <template>
