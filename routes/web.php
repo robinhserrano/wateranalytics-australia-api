@@ -56,7 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         
         // Admin Routes
         Route::get('admin/logs', [App\Http\Controllers\Admin\SyncLogController::class, 'index'])->name('admin.logs.index');
-        Route::post('admin/sync', [App\Http\Controllers\Admin\SyncController::class, 'dispatchSync'])->name('admin.sync.dispatch');
+        // Route::post('admin/sync', [App\Http\Controllers\Admin\SyncController::class, 'dispatchSync'])->name('admin.sync.dispatch');
     });
 
     // Manager Routes

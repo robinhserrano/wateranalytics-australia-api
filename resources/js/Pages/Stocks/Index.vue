@@ -116,7 +116,7 @@ const mobileFilterOpen = ref(false);
 // --- n8n Chat Widget ---
 onMounted(() => {
     createChat({
-        webhookUrl: import.meta.env.VITE_N8N_CHAT_WEBHOOK_URL,
+        webhookUrl: import.meta.env.VITE_N8N_CHAT_WEBHOOK_URL || 'https://stanleywaa.app.n8n.cloud/webhook/6a3d8a6a-4265-4c9e-82d7-479b8b9172b9/chat',
         mode: 'window',
         showWelcomeScreen: false,
         initialMessages: [
