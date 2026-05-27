@@ -32,6 +32,7 @@ const props = defineProps<{
     salesOrder: any;
     calculationError?: string | null;
     canViewInstaller?: boolean;
+    canConfirmCommission?: boolean;
 }>();
 
 // Initialize manual adjustment ref
@@ -43,6 +44,27 @@ const isOdooSyncDialogOpen = ref(false);
 const isResetConfirmDialogOpen = ref(false);
 const isResetOdooSyncDialogOpen = ref(false);
 const rejectionReason = ref('');
+
+// ─── Toast Notification ────────────────────────────────────────────────────────
+interface Toast {
+    id: number;
+    type: 'success' | 'error' | 'warning';
+    message: string;
+}
+const toasts = ref<Toast[]>([]);
+let toastCounter = 0;
+
+const showToast = (message: string, type: 'success' | 'error' | 'warning' = 'success') => {
+    const id = ++toastCounter;
+    toasts.value.push({ id, type, message });
+    setTimeout(() => {
+        toasts.value = toasts.value.filter(t => t.id !== id);
+    }, 5000);
+};
+
+const dismissToast = (id: number) => {
+    toasts.value = toasts.value.filter(t => t.id !== id);
+};
 
 const page = usePage<any>();
 const isAdmin = computed(() => {
@@ -56,6 +78,12 @@ const isSalesManager = computed(() => {
 const showInstallationTab = computed(() => {
     return isAdmin.value || isSalesManager.value;
 });
+
+// Watch for Inertia flash messages and display them as toasts
+watch(() => page.props.flash as any, (flash) => {
+    if (flash?.success) showToast(flash.success, 'success');
+    if (flash?.error)   showToast(flash.error, 'error');
+}, { immediate: true });
 
 const getLatestLog = (action: string) => {
     return props.salesOrder.commission_calculation?.approvals
@@ -87,9 +115,21 @@ const applyAdjustment = () => {
 };
 
 const confirmBreakdown = () => {
+    // Frontend guard: Sales Managers need full delivery
+    if (!isAdmin.value && isSalesManager.value) {
+        if (props.salesOrder.delivery_status !== 'full') {
+            isConfirmDialogOpen.value = false;
+            showToast('The sales order must be fully delivered before you can confirm the commission.', 'warning');
+            return;
+        }
+    }
+
     router.post(route('commissions.confirm', props.salesOrder.commission_calculation.id), {}, {
         preserveScroll: true,
         onSuccess: () => {
+            isConfirmDialogOpen.value = false;
+        },
+        onError: () => {
             isConfirmDialogOpen.value = false;
         }
     });
@@ -313,6 +353,34 @@ const formatFileSize = (bytes: number) => {
                     Order {{ salesOrder.name }}
                 </h1>
             </div>
+
+            <!-- ─── Toast Notifications ──────────────────────────────────────── -->
+            <Teleport to="body">
+                <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
+                    <TransitionGroup name="toast">
+                        <div
+                            v-for="toast in toasts"
+                            :key="toast.id"
+                            class="pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 shadow-lg"
+                            :class="{
+                                'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/80 dark:border-green-800 dark:text-green-100': toast.type === 'success',
+                                'bg-red-50 border-red-200 text-red-900 dark:bg-red-950/80 dark:border-red-800 dark:text-red-100': toast.type === 'error',
+                                'bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950/80 dark:border-amber-800 dark:text-amber-100': toast.type === 'warning',
+                            }"
+                        >
+                            <span class="mt-0.5 shrink-0">
+                                <svg v-if="toast.type === 'success'" xmlns="http://www.w3.org/2000/svg" class="size-5 text-green-600 dark:text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                <svg v-else-if="toast.type === 'error'" xmlns="http://www.w3.org/2000/svg" class="size-5 text-red-600 dark:text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                                <svg v-else xmlns="http://www.w3.org/2000/svg" class="size-5 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                            </span>
+                            <p class="flex-1 text-sm font-medium leading-snug">{{ toast.message }}</p>
+                            <button @click="dismissToast(toast.id)" class="ml-2 shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                    </TransitionGroup>
+                </div>
+            </Teleport>
 
             <div class="grid gap-4 md:grid-cols-2">
                 <Card class="flex flex-col">
@@ -573,7 +641,7 @@ const formatFileSize = (bytes: number) => {
                                     <div class="pt-6 grid grid-cols-2 gap-2 border-t mt-4 pt-4">
                                         <!-- Manager Confirmation -->
                                         <div class="col-span-2 sm:col-span-1">
-                                            <template v-if="!salesOrder.commission_calculation.confirmed_by_manager">
+                                            <template v-if="!salesOrder.commission_calculation.confirmed_by_manager && canConfirmCommission">
                                                 <div class="flex gap-2">
                                                     <Dialog v-model:open="isConfirmDialogOpen">
                                                         <DialogTrigger as-child>
@@ -973,4 +1041,20 @@ const formatFileSize = (bytes: number) => {
             </Tabs>
         </div>
     </AppLayout>
+
 </template>
+
+<style scoped>
+.toast-enter-active,
+.toast-leave-active {
+    transition: all 0.3s ease;
+}
+.toast-enter-from {
+    opacity: 0;
+    transform: translateX(100%);
+}
+.toast-leave-to {
+    opacity: 0;
+    transform: translateX(100%);
+}
+</style>
