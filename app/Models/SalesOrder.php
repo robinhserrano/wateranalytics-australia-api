@@ -14,6 +14,7 @@ class SalesOrder extends Model
         'start_date' => 'date',
         'next_invoice_date' => 'date',
         'end_date' => 'date',
+        'installation_date' => 'date',
         'tag_ids' => 'array',
         'order_line' => 'array',
         'is_subscription' => 'boolean',

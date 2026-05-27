@@ -187,8 +187,8 @@ const formatDate = (date: string | null) => {
                             </div>
                             <div class="flex items-center justify-between text-sm">
                                 <span class="text-muted-foreground">EST Install Date</span>
-                                <span :class="salesOrder.x_studio_est_install_date ? 'font-bold' : 'italic text-muted-foreground'">
-                                    {{ salesOrder.x_studio_est_install_date ? formatDate(salesOrder.x_studio_est_install_date) : 'Not Set' }}
+                                <span :class="salesOrder.installation_date ? 'font-bold' : 'italic text-muted-foreground'">
+                                    {{ salesOrder.installation_date ? formatDate(salesOrder.installation_date) : 'Not Set' }}
                                 </span>
                             </div>
                         </div>

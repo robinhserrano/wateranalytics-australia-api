@@ -17,6 +17,7 @@ require __DIR__.'/settings.php';
 Route::middleware(['auth', 'verified'])->group(function () {
     // Common Routes (All authenticated & verified users)
     Route::resource('sales-orders', App\Http\Controllers\SalesOrderController::class)->only(['index', 'show']);
+    Route::get('installation-tasks', [App\Http\Controllers\InstallationTaskController::class, 'index'])->name('installation-tasks.index');
     Route::resource('stocks', App\Http\Controllers\ProductStockController::class)->only(['index', 'show']);
     
     // Admin Only Routes
