@@ -43,6 +43,43 @@ class SyncOdooInstallationDates extends Command
     }
 
     /**
+     * Given a list of SO names, fetch the Odoo project.task IDs linked to those SOs.
+     * Returns a map of [ so_name => task_id ].
+     */
+    private function fetchTaskIdsForOrders(Odoo $odoo, array $orderNames): array
+    {
+        if (empty($orderNames)) {
+            return [];
+        }
+
+        try {
+            $response = $odoo->executeKw('project.task', 'web_search_read', [
+                [['sale_order_id.name', 'in', $orderNames]],
+                [
+                    'id'            => (object)[],
+                    'sale_order_id' => (object)['fields' => (object)['name' => (object)[]]],
+                ],
+                0,
+                count($orderNames) * 5,
+                'id desc'
+            ]);
+
+            $tasks = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
+            $map = [];
+            foreach ($tasks as $task) {
+                $soName = $task->sale_order_id->name ?? null;
+                if ($soName && !isset($map[$soName])) {
+                    $map[$soName] = $task->id;
+                }
+            }
+            return $map;
+        } catch (\Exception $e) {
+            Log::warning('Could not fetch task IDs for orders: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Execute the console command.
      */
     public function handle(Odoo $odoo)
@@ -54,11 +91,11 @@ class SyncOdooInstallationDates extends Command
         if (!$this->option('all')) {
             $lastSyncRecord = \App\Models\SyncLog::where('command', $this->getName())
                 ->where('status', 'success')
-                ->latest('end_time')
+                ->latest('completed_at')
                 ->first();
             
             if ($lastSyncRecord) {
-                $lastSync = $lastSyncRecord->end_time;
+                $lastSync = $lastSyncRecord->completed_at;
                 $this->info("Performing delta sync since: " . $lastSync->toDateTimeString());
             }
         }
@@ -98,7 +135,7 @@ class SyncOdooInstallationDates extends Command
 
             $this->info("Found {$totalFound} updated moves in Odoo.");
 
-            $updatesCount = $this->processMovesAndSave($moves);
+            $updatesCount = $this->processMovesAndSave($odoo, $moves);
 
             \App\Models\SyncLog::create([
                 'command'           => $this->getName(),
@@ -160,7 +197,7 @@ class SyncOdooInstallationDates extends Command
                 ]);
 
                 $moves = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
-                $totalUpdates += $this->processMovesAndSave($moves);
+                $totalUpdates += $this->processMovesAndSave($odoo, $moves);
 
             } catch (\Exception $e) {
                 Log::error("Failed chunk in full sync: " . $e->getMessage());
@@ -182,7 +219,7 @@ class SyncOdooInstallationDates extends Command
         ]);
     }
 
-    protected function processMovesAndSave($moves)
+    protected function processMovesAndSave(Odoo $odoo, $moves)
     {
         $knownOrderNames = SalesOrder::pluck('name')->flip()->toArray();
 
@@ -229,8 +266,16 @@ class SyncOdooInstallationDates extends Command
             }
         }
 
+        // Batch-fetch task IDs for all SO names that have updates
+        $soNamesWithUpdates = array_keys($updates);
+        $taskIdMap = $this->fetchTaskIdsForOrders($odoo, $soNamesWithUpdates);
+
         foreach ($updates as $orderName => $date) {
-            SalesOrder::where('name', $orderName)->update(['installation_date' => Carbon::parse($date)]);
+            $taskId = $taskIdMap[$orderName] ?? null;
+            SalesOrder::where('name', $orderName)->update([
+                'installation_date' => Carbon::parse($date),
+                'odoo_task_id'      => $taskId,
+            ]);
         }
 
         return count($updates);

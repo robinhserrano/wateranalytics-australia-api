@@ -101,6 +101,8 @@ const formatDate = (date: string | null) => {
                         <TableRow
                             v-for="task in tasks.data"
                             :key="task.id"
+                            class="cursor-pointer hover:bg-muted/50 transition-colors"
+                            @click="router.visit(route('installation-tasks.show', task.id))"
                         >
                             <TableCell class="font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
                                 <div class="flex items-center gap-1.5">
