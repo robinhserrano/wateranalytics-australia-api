@@ -715,7 +715,7 @@ const executeToggle = () => {
                             <span class="font-medium">{{ formatDate(order.create_date) }}</span>
                         </div>
                         <div class="flex justify-between" v-if="order.installation_date && order.has_installation">
-                            <span class="text-muted-foreground text-blue-600 font-semibold">Install Deadline</span>
+                            <span class="text-muted-foreground text-blue-600 font-semibold">Est. Install Date</span>
                             <span class="font-medium text-blue-600">{{ formatDate(order.installation_date) }}</span>
                         </div>
                         <div class="flex justify-between">
@@ -784,7 +784,7 @@ const executeToggle = () => {
                         <TableRow>
                             <TableHead>Order #</TableHead>
                             <TableHead>Date</TableHead>
-                            <TableHead class="text-blue-600 font-semibold">Install Deadline</TableHead>
+                            <TableHead class="text-blue-600 font-semibold">Est. Install Date</TableHead>
                             <TableHead>Customer</TableHead>
                             <TableHead v-if="canViewInstaller">Installer</TableHead>
                             <TableHead>Salesperson</TableHead>
