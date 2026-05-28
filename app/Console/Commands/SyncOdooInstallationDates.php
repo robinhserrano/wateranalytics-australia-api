@@ -43,8 +43,9 @@ class SyncOdooInstallationDates extends Command
     }
 
     /**
-     * Given a list of SO names, fetch the Odoo project.task IDs linked to those SOs.
-     * Returns a map of [ so_name => task_id ].
+     * Given a list of SO names, fetch the Odoo project.task IDs and deadlines
+     * linked to those SOs.
+     * Returns a map of [ so_name => ['task_id' => int, 'deadline' => string|null] ].
      */
     private function fetchTaskIdsForOrders(Odoo $odoo, array $orderNames): array
     {
@@ -57,6 +58,7 @@ class SyncOdooInstallationDates extends Command
                 [['sale_order_id.name', 'in', $orderNames]],
                 [
                     'id'            => (object)[],
+                    'date_deadline' => (object)[],
                     'sale_order_id' => (object)['fields' => (object)['name' => (object)[]]],
                 ],
                 0,
@@ -69,7 +71,10 @@ class SyncOdooInstallationDates extends Command
             foreach ($tasks as $task) {
                 $soName = $task->sale_order_id->name ?? null;
                 if ($soName && !isset($map[$soName])) {
-                    $map[$soName] = $task->id;
+                    $map[$soName] = [
+                        'task_id'  => $task->id,
+                        'deadline' => $task->date_deadline ?? null,
+                    ];
                 }
             }
             return $map;
@@ -266,14 +271,19 @@ class SyncOdooInstallationDates extends Command
             }
         }
 
-        // Batch-fetch task IDs for all SO names that have updates
+        // Batch-fetch task IDs and deadlines for all SO names that have updates
         $soNamesWithUpdates = array_keys($updates);
-        $taskIdMap = $this->fetchTaskIdsForOrders($odoo, $soNamesWithUpdates);
+        $taskMap = $this->fetchTaskIdsForOrders($odoo, $soNamesWithUpdates);
 
-        foreach ($updates as $orderName => $date) {
-            $taskId = $taskIdMap[$orderName] ?? null;
+        foreach ($updates as $orderName => $stockMoveDate) {
+            $taskId       = $taskMap[$orderName]['task_id'] ?? null;
+            $taskDeadline = $taskMap[$orderName]['deadline'] ?? null;
+
+            // Prefer the task's deadline; fall back to the stock-move date
+            $installationDate = $taskDeadline ?? $stockMoveDate;
+
             SalesOrder::where('name', $orderName)->update([
-                'installation_date' => Carbon::parse($date),
+                'installation_date' => Carbon::parse($installationDate),
                 'odoo_task_id'      => $taskId,
             ]);
         }

@@ -714,8 +714,8 @@ const executeToggle = () => {
                             <span class="text-muted-foreground">Date</span>
                             <span class="font-medium">{{ formatDate(order.create_date) }}</span>
                         </div>
-                        <div class="flex justify-between" v-if="order.installation_date">
-                            <span class="text-muted-foreground text-blue-600 font-semibold">Est. Install</span>
+                        <div class="flex justify-between" v-if="order.installation_date && order.has_installation">
+                            <span class="text-muted-foreground text-blue-600 font-semibold">Install Deadline</span>
                             <span class="font-medium text-blue-600">{{ formatDate(order.installation_date) }}</span>
                         </div>
                         <div class="flex justify-between">
@@ -784,7 +784,7 @@ const executeToggle = () => {
                         <TableRow>
                             <TableHead>Order #</TableHead>
                             <TableHead>Date</TableHead>
-                            <TableHead class="text-blue-600 font-semibold">Est. Install Date</TableHead>
+                            <TableHead class="text-blue-600 font-semibold">Install Deadline</TableHead>
                             <TableHead>Customer</TableHead>
                             <TableHead v-if="canViewInstaller">Installer</TableHead>
                             <TableHead>Salesperson</TableHead>
@@ -810,7 +810,7 @@ const executeToggle = () => {
                             </TableCell>
                             <TableCell>{{ formatDate(order.create_date) }}</TableCell>
                             <TableCell class="font-bold text-blue-600 whitespace-nowrap">
-                                <div v-if="order.installation_date" class="flex items-center gap-1.5">
+                                <div v-if="order.installation_date && order.has_installation" class="flex items-center gap-1.5">
                                     <Calendar class="size-3.5" />
                                     {{ formatDate(order.installation_date) }}
                                 </div>

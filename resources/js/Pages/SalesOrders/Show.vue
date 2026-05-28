@@ -407,9 +407,9 @@ const formatFileSize = (bytes: number) => {
                                 <span class="text-muted-foreground whitespace-nowrap">Payment Status</span>
                                 <span class="font-bold capitalize text-right">{{ salesOrder.x_studio_payment_type || salesOrder.x_studio_invoice_payment_status || '-' }}</span>
                             </div>
-                            <div class="flex items-center justify-between text-sm">
-                                <span class="text-muted-foreground">EST Install Date</span>
-                                <span :class="salesOrder.installation_date ? 'font-bold' : 'italic text-muted-foreground'">
+                            <div class="flex items-center justify-between text-sm" v-if="salesOrder.has_installation">
+                                <span class="text-muted-foreground">Install Deadline</span>
+                                <span :class="salesOrder.installation_date ? 'font-bold text-blue-600' : 'italic text-muted-foreground'">
                                     {{ salesOrder.installation_date ? formatDate(salesOrder.installation_date) : 'Not Set' }}
                                 </span>
                             </div>

@@ -14,6 +14,7 @@ class InstallationTaskController extends Controller
     {
         $query = SalesOrder::query()
             ->whereNotNull('installation_date')
+            ->whereNotNull('installer_id')   // exclude supply-only / unassigned orders
             ->orderBy('installation_date', 'asc');
 
         if ($request->has('search')) {

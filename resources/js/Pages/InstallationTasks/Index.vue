@@ -86,7 +86,7 @@ const formatDate = (date: string | null) => {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Est. Install Date</TableHead>
+                            <TableHead>Install Deadline</TableHead>
                             <TableHead>Order #</TableHead>
                             <TableHead>Customer</TableHead>
                             <TableHead>Salesperson</TableHead>
