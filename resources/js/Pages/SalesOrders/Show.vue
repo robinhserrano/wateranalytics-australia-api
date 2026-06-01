@@ -522,48 +522,35 @@ const formatFileSize = (bytes: number) => {
                         </CardHeader>
                         <CardContent class="grid gap-6 md:grid-cols-2">
 
-                            <template v-if="isAdmin || isSalesManager">
-                                <div class="space-y-4">
-                                    <div class="space-y-2">
-                                        <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Configuration</h4>
-                                        <div class="flex justify-between text-sm">
-                                            <span class="text-muted-foreground">Assigned User:</span>
-                                            <span class="font-medium">{{ salesOrder.commission_calculation.user?.name || 'Unknown' }}</span>
-                                        </div>
-                                        <div class="flex justify-between text-sm">
-                                            <span class="text-muted-foreground">Source:</span>
-                                            <span class="font-medium capitalize">{{ salesOrder.commission_calculation.sales_source === 'self_gen' ? 'Self Generated' : 'Company Lead' }}</span>
-                                        </div>
-                                         <div class="flex justify-between text-sm">
-                                            <span class="text-muted-foreground">Commission Split:</span>
-                                            <span class="font-medium">{{ salesOrder.commission_calculation.calculation_metadata?.commission_split || 0 }}%</span>
-                                        </div>
-                                    </div>
-
-                                     <div class="space-y-2">
-                                        <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Bases</h4>
-                                        <div class="flex justify-between text-sm">
-                                            <span class="text-muted-foreground">Company Lead Base:</span>
-                                            <span class="font-medium">{{ formatCurrency(salesOrder.commission_calculation.calculation_metadata?.company_lead_base) }}</span>
-                                        </div>
-                                         <div class="flex justify-between text-sm">
-                                            <span class="text-muted-foreground">Self Gen Base:</span>
-                                            <span class="font-medium">{{ formatCurrency(salesOrder.commission_calculation.calculation_metadata?.self_gen_base) }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-else>
-                                <!-- Non-privileged users see a compact placeholder to indicate hidden fields -->
+                            <div class="space-y-4" v-if="isAdmin || isSalesManager">
                                 <div class="space-y-2">
                                     <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Configuration</h4>
-                                    <div class="text-sm text-muted-foreground">Hidden</div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-muted-foreground">Assigned User:</span>
+                                        <span class="font-medium">{{ salesOrder.commission_calculation.user?.name || 'Unknown' }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-muted-foreground">Source:</span>
+                                        <span class="font-medium capitalize">{{ salesOrder.commission_calculation.sales_source === 'self_gen' ? 'Self Generated' : 'Company Lead' }}</span>
+                                    </div>
+                                     <div class="flex justify-between text-sm">
+                                        <span class="text-muted-foreground">Commission Split:</span>
+                                        <span class="font-medium">{{ salesOrder.commission_calculation.calculation_metadata?.commission_split || 0 }}%</span>
+                                    </div>
                                 </div>
-                                <div class="space-y-2">
+
+                                 <div class="space-y-2">
                                     <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Bases</h4>
-                                    <div class="text-sm text-muted-foreground">Hidden</div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-muted-foreground">Company Lead Base:</span>
+                                        <span class="font-medium">{{ formatCurrency(salesOrder.commission_calculation.calculation_metadata?.company_lead_base) }}</span>
+                                    </div>
+                                     <div class="flex justify-between text-sm">
+                                        <span class="text-muted-foreground">Self Gen Base:</span>
+                                        <span class="font-medium">{{ formatCurrency(salesOrder.commission_calculation.calculation_metadata?.self_gen_base) }}</span>
+                                    </div>
                                 </div>
-                            </template>
+                            </div>
 
 
                             <div class="space-y-2">
