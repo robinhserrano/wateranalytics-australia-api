@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { ref, watch, computed, onMounted } from 'vue';
-import { CheckCircle2, XCircle, AlertCircle, Send, User, MapPin, Info, Calendar, Loader2, RefreshCw, File, ExternalLink } from 'lucide-vue-next';
+import { CheckCircle2, XCircle, AlertCircle, Send, User, MapPin, Info, Loader2, RefreshCw, File, ExternalLink } from 'lucide-vue-next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const props = defineProps<{
@@ -292,7 +292,7 @@ const fetchMessages = async () => {
         const attachList: Attachment[] = result?.data?.['ir.attachment'] ?? [];
         attachList.forEach((a) => { attachments.value[a.id] = a; });
 
-    } catch (e) {
+    } catch {
         messagesError.value = 'Failed to load messages. Please try again.';
     } finally {
         loadingMessages.value = false;
@@ -522,35 +522,48 @@ const formatFileSize = (bytes: number) => {
                         </CardHeader>
                         <CardContent class="grid gap-6 md:grid-cols-2">
 
-                            <div class="space-y-4">
+                            <template v-if="isAdmin || isSalesManager">
+                                <div class="space-y-4">
+                                    <div class="space-y-2">
+                                        <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Configuration</h4>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-muted-foreground">Assigned User:</span>
+                                            <span class="font-medium">{{ salesOrder.commission_calculation.user?.name || 'Unknown' }}</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-muted-foreground">Source:</span>
+                                            <span class="font-medium capitalize">{{ salesOrder.commission_calculation.sales_source === 'self_gen' ? 'Self Generated' : 'Company Lead' }}</span>
+                                        </div>
+                                         <div class="flex justify-between text-sm">
+                                            <span class="text-muted-foreground">Commission Split:</span>
+                                            <span class="font-medium">{{ salesOrder.commission_calculation.calculation_metadata?.commission_split || 0 }}%</span>
+                                        </div>
+                                    </div>
+
+                                     <div class="space-y-2">
+                                        <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Bases</h4>
+                                        <div class="flex justify-between text-sm">
+                                            <span class="text-muted-foreground">Company Lead Base:</span>
+                                            <span class="font-medium">{{ formatCurrency(salesOrder.commission_calculation.calculation_metadata?.company_lead_base) }}</span>
+                                        </div>
+                                         <div class="flex justify-between text-sm">
+                                            <span class="text-muted-foreground">Self Gen Base:</span>
+                                            <span class="font-medium">{{ formatCurrency(salesOrder.commission_calculation.calculation_metadata?.self_gen_base) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            <template v-else>
+                                <!-- Non-privileged users see a compact placeholder to indicate hidden fields -->
                                 <div class="space-y-2">
                                     <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Configuration</h4>
-                                    <div class="flex justify-between text-sm">
-                                        <span class="text-muted-foreground">Assigned User:</span>
-                                        <span class="font-medium">{{ salesOrder.commission_calculation.user?.name || 'Unknown' }}</span>
-                                    </div>
-                                    <div class="flex justify-between text-sm">
-                                        <span class="text-muted-foreground">Source:</span>
-                                        <span class="font-medium capitalize">{{ salesOrder.commission_calculation.sales_source === 'self_gen' ? 'Self Generated' : 'Company Lead' }}</span>
-                                    </div>
-                                     <div class="flex justify-between text-sm">
-                                        <span class="text-muted-foreground">Commission Split:</span>
-                                        <span class="font-medium">{{ salesOrder.commission_calculation.calculation_metadata?.commission_split || 0 }}%</span>
-                                    </div>
+                                    <div class="text-sm text-muted-foreground">Hidden</div>
                                 </div>
-
-                                 <div class="space-y-2">
+                                <div class="space-y-2">
                                     <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Bases</h4>
-                                    <div class="flex justify-between text-sm">
-                                        <span class="text-muted-foreground">Company Lead Base:</span>
-                                        <span class="font-medium">{{ formatCurrency(salesOrder.commission_calculation.calculation_metadata?.company_lead_base) }}</span>
-                                    </div>
-                                     <div class="flex justify-between text-sm">
-                                        <span class="text-muted-foreground">Self Gen Base:</span>
-                                        <span class="font-medium">{{ formatCurrency(salesOrder.commission_calculation.calculation_metadata?.self_gen_base) }}</span>
-                                    </div>
+                                    <div class="text-sm text-muted-foreground">Hidden</div>
                                 </div>
-                            </div>
+                            </template>
 
 
                             <div class="space-y-2">
@@ -987,7 +1000,7 @@ const formatFileSize = (bytes: number) => {
                                                                             :src="route('installation-tasks.attachment', attId)"
                                                                             :alt="attachments[attId].name"
                                                                             class="max-w-[220px] max-h-[160px] object-cover block"
-                                                                            @error="(e: Event) => ((e.target as HTMLElement).style.display = 'none')"
+                                                                            @error="(_e: Event) => ((_e.target as HTMLElement).style.display = 'none')"
                                                                         />
                                                                         <div class="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors"></div>
                                                                         <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity truncate backdrop-blur-sm">
