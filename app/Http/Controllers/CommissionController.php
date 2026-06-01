@@ -274,12 +274,25 @@ class CommissionController extends Controller
 
     /**
      * Mark commission as confirmed by manager
+     * - Admins can confirm any commission regardless of delivery status.
+     * - Sales Managers can only confirm when the linked sales order is fully delivered.
      */
     public function confirm(Request $request, CommissionCalculation $commission)
     {
         $request->validate([
             'notes' => 'nullable|string',
         ]);
+
+        $user = Auth::user();
+        $isAdmin = $user->hasRole('Admin');
+
+        // Sales Managers must wait for full delivery before confirming
+        if (!$isAdmin) {
+            $salesOrder = $commission->salesOrder;
+            if (!$salesOrder || $salesOrder->delivery_status !== 'full') {
+                return back()->with('error', 'The sales order must be fully delivered before you can confirm the commission.');
+            }
+        }
 
         DB::beginTransaction();
         try {
@@ -290,7 +303,7 @@ class CommissionController extends Controller
             // Create approval record
             CommissionApproval::create([
                 'commission_calculation_id' => $commission->id,
-                'approver_id' => Auth::id(),
+                'approver_id' => $user->id,
                 'action' => 'confirmed',
                 'notes' => $request->notes,
             ]);

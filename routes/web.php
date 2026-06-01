@@ -17,6 +17,10 @@ require __DIR__.'/settings.php';
 Route::middleware(['auth', 'verified'])->group(function () {
     // Common Routes (All authenticated & verified users)
     Route::resource('sales-orders', App\Http\Controllers\SalesOrderController::class)->only(['index', 'show']);
+    Route::get('installation-tasks', [App\Http\Controllers\InstallationTaskController::class, 'index'])->name('installation-tasks.index');
+    Route::get('installation-tasks/{salesOrder}', [App\Http\Controllers\InstallationTaskController::class, 'show'])->name('installation-tasks.show');
+    Route::get('installation-tasks/{salesOrder}/messages', [App\Http\Controllers\InstallationTaskController::class, 'messages'])->name('installation-tasks.messages');
+    Route::get('installation-tasks/attachments/{attachmentId}', [App\Http\Controllers\InstallationTaskController::class, 'attachment'])->name('installation-tasks.attachment');
     Route::resource('stocks', App\Http\Controllers\ProductStockController::class)->only(['index', 'show']);
     
     // Admin Only Routes

@@ -214,6 +214,7 @@ class SalesOrderController extends Controller
             'salesOrder' => $salesOrder,
             'calculationError' => $calculationError,
             'canViewInstaller' => auth()->user()->hasPermissionTo('view-installer'),
+            'canConfirmCommission' => auth()->user()->hasAnyRole(['Admin', 'Sales Manager']),
         ]);
     }
 }

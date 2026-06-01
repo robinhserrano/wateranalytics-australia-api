@@ -714,6 +714,10 @@ const executeToggle = () => {
                             <span class="text-muted-foreground">Date</span>
                             <span class="font-medium">{{ formatDate(order.create_date) }}</span>
                         </div>
+                        <div class="flex justify-between" v-if="order.installation_date && order.has_installation">
+                            <span class="text-muted-foreground text-blue-600 font-semibold">Est. Install Date</span>
+                            <span class="font-medium text-blue-600">{{ formatDate(order.installation_date) }}</span>
+                        </div>
                         <div class="flex justify-between">
                             <span class="text-muted-foreground">Total</span>
                             <span class="font-medium">{{ formatCurrency(order.amount_total) }}</span>
@@ -780,6 +784,7 @@ const executeToggle = () => {
                         <TableRow>
                             <TableHead>Order #</TableHead>
                             <TableHead>Date</TableHead>
+                            <TableHead class="text-blue-600 font-semibold">Est. Install Date</TableHead>
                             <TableHead>Customer</TableHead>
                             <TableHead v-if="canViewInstaller">Installer</TableHead>
                             <TableHead>Salesperson</TableHead>
@@ -804,6 +809,13 @@ const executeToggle = () => {
                                 {{ order.name }}
                             </TableCell>
                             <TableCell>{{ formatDate(order.create_date) }}</TableCell>
+                            <TableCell class="font-bold text-blue-600 whitespace-nowrap">
+                                <div v-if="order.installation_date && order.has_installation" class="flex items-center gap-1.5">
+                                    <Calendar class="size-3.5" />
+                                    {{ formatDate(order.installation_date) }}
+                                </div>
+                                <span v-else class="text-muted-foreground/30 font-normal">-</span>
+                            </TableCell>
                             <TableCell>{{ order.partner_name }}</TableCell>
                             <TableCell v-if="canViewInstaller">
                                 <span v-if="order.installer_name">{{ order.installer_name }}</span>
