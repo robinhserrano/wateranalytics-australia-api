@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// @ts-ignore
 import { ArrowLeft, Edit } from 'lucide-vue-next';
 import { Input } from '@/components/ui/input';
 import {
@@ -25,7 +26,8 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { ref, watch, computed, onMounted } from 'vue';
-import { CheckCircle2, XCircle, AlertCircle, Send, User, MapPin, Info, Calendar, Loader2, RefreshCw, File, ExternalLink } from 'lucide-vue-next';
+// @ts-ignore
+import { CheckCircle2, XCircle, AlertCircle, Send, User, MapPin, Info, Loader2, RefreshCw, File, ExternalLink } from 'lucide-vue-next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const props = defineProps<{
@@ -73,6 +75,14 @@ const isAdmin = computed(() => {
 
 const isSalesManager = computed(() => {
     return (page.props.auth.user?.roles as any[])?.some((role: any) => role.name === 'Sales Manager');
+});
+
+const isAccountOfficer = computed(() => {
+    return (page.props.auth.user?.roles as any[])?.some((role: any) => role.name === 'Account Officer');
+});
+
+const isSalesPerson = computed(() => {
+    return !isAdmin.value && !isSalesManager.value && !isAccountOfficer.value;
 });
 
 const showInstallationTab = computed(() => {
@@ -292,7 +302,7 @@ const fetchMessages = async () => {
         const attachList: Attachment[] = result?.data?.['ir.attachment'] ?? [];
         attachList.forEach((a) => { attachments.value[a.id] = a; });
 
-    } catch (e) {
+    } catch {
         messagesError.value = 'Failed to load messages. Please try again.';
     } finally {
         loadingMessages.value = false;
@@ -497,32 +507,13 @@ const formatFileSize = (bytes: number) => {
                 <TabsContent value="details" class="space-y-4">
                     <Card v-if="salesOrder.commission_calculation" class="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
                         <CardHeader>
-                            <CardTitle class="flex justify-between items-center">
+                            <CardTitle>
                                 <span>Commission Breakdown</span>
-                                <div class="flex items-center gap-2">
-                                     <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        @click="router.post(route('commissions.recalculate', salesOrder.commission_calculation.id))"
-                                        class="h-8"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-refresh-cw mr-2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
-                                        Recalculate
-                                    </Button>
-                                    <div class="flex flex-col items-end">
-                                        <span class="text-sm font-normal px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 capitalize">
-                                            {{ salesOrder.commission_calculation.status }}
-                                        </span>
-                                        <div v-if="salesOrder.commission_calculation.status === 'rejected' && getLatestLog('rejected')" class="text-[10px] text-red-600 mt-1">
-                                            Rejected by {{ getLatestLog('rejected').approver?.name }} on {{ formatDate(getLatestLog('rejected').created_at) }}
-                                        </div>
-                                    </div>
-                                </div>
                             </CardTitle>
                         </CardHeader>
                         <CardContent class="grid gap-6 md:grid-cols-2">
 
-                            <div class="space-y-4">
+                            <div class="space-y-4" v-if="isAdmin || isSalesManager">
                                 <div class="space-y-2">
                                     <h4 class="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Configuration</h4>
                                     <div class="flex justify-between text-sm">
@@ -594,7 +585,7 @@ const formatFileSize = (bytes: number) => {
                                                 {{ formatCurrency(salesOrder.commission_calculation.manual_adjustment) }}
                                             </span>
                                             
-                                            <Dialog v-model:open="isAdjustmentDialogOpen">
+                                            <Dialog v-if="isAdmin || isSalesManager" v-model:open="isAdjustmentDialogOpen">
                                                 <DialogTrigger as-child>
                                                     <Button variant="ghost" size="icon" class="h-6 w-6">
                                                         <Edit class="h-3 w-3" />
@@ -738,7 +729,7 @@ const formatFileSize = (bytes: number) => {
                                         </div>
 
                                         <!-- Odoo Sync -->
-                                        <div class="col-span-2 sm:col-span-1">
+                                        <div v-if="isAdmin || isAccountOfficer" class="col-span-2 sm:col-span-1">
                                             <template v-if="!salesOrder.commission_calculation.entered_to_odoo">
                                                 <Dialog v-model:open="isOdooSyncDialogOpen">
                                                     <DialogTrigger as-child>
@@ -987,7 +978,7 @@ const formatFileSize = (bytes: number) => {
                                                                             :src="route('installation-tasks.attachment', attId)"
                                                                             :alt="attachments[attId].name"
                                                                             class="max-w-[220px] max-h-[160px] object-cover block"
-                                                                            @error="(e: Event) => ((e.target as HTMLElement).style.display = 'none')"
+                                                                            @error="(_e: Event) => ((_e.target as HTMLElement).style.display = 'none')"
                                                                         />
                                                                         <div class="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors"></div>
                                                                         <div class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity truncate backdrop-blur-sm">

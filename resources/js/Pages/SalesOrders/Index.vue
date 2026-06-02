@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     Table,
     TableBody,
@@ -375,6 +375,17 @@ const executeToggle = () => {
         }
     });
 };
+const page = usePage<any>();
+const isAdmin = computed(() =>
+    (page.props.auth.user?.roles as any[])?.some((role: any) => role.name === 'Admin')
+);
+const isAccountOfficer = computed(() =>
+    (page.props.auth.user?.roles as any[])?.some((role: any) => role.name === 'Account Officer')
+);
+const isSalesPerson = computed(() =>
+    !isAdmin.value && !isAccountOfficer.value &&
+    !(page.props.auth.user?.roles as any[])?.some((role: any) => role.name === 'Sales Manager')
+);
 </script>
 
 <template>
@@ -449,7 +460,7 @@ const executeToggle = () => {
                         </div>
                     </div>
 
-                    <Sheet v-model:open="isFilterSheetOpen">
+                    <Sheet v-if="!isSalesPerson" v-model:open="isFilterSheetOpen">
                         <SheetTrigger as-child>
                             <Button variant="outline" class="gap-2">
                                 <Filter class="size-4" />
