@@ -8,6 +8,8 @@ class SalesOrder extends Model
 {
     protected $guarded = [];
 
+    protected $appends = ['has_installation'];
+
     protected $casts = [
         'create_date' => 'datetime',
         'write_date' => 'datetime',
