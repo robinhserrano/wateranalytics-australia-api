@@ -142,6 +142,24 @@ class SalesOrderController extends Controller
             });
         }
 
+        // Apply Manager Confirmation filter
+        if ($request->filled('manager_confirmation_status')) {
+            $statuses = is_array($request->manager_confirmation_status) ? $request->manager_confirmation_status : [$request->manager_confirmation_status];
+            $query->where(function($q) use ($statuses) {
+                if (in_array('Confirmed', $statuses)) {
+                    $q->orWhereHas('commissionCalculation', function($sub) {
+                        $sub->where('confirmed_by_manager', true);
+                    });
+                }
+                if (in_array('Not Confirmed', $statuses)) {
+                    $q->orWhereDoesntHave('commissionCalculation')
+                      ->orWhereHas('commissionCalculation', function($sub) {
+                          $sub->where('confirmed_by_manager', false)->orWhereNull('confirmed_by_manager');
+                      });
+                }
+            });
+        }
+
         // Apply Date Range filter
         if ($request->filled('date_from')) {
             $query->whereDate('create_date', '>=', $request->date_from);
