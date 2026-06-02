@@ -58,6 +58,7 @@ const props = defineProps<{
         commission_status?: string[];
         invoice_status?: string[];
         delivery_status?: string[];
+        manager_confirmation_status?: string[];
         user_ids?: string[];
         date_from?: string;
         date_to?: string;
@@ -78,9 +79,12 @@ const ensureArray = (val: any): string[] => {
 const commissionStatus = ref<string[]>(ensureArray(props.filters.commission_status));
 const invoiceStatus = ref<string[]>(ensureArray(props.filters.invoice_status));
 const deliveryStatus = ref<string[]>(ensureArray(props.filters.delivery_status));
+const managerConfirmationStatus = ref<string[]>(ensureArray(props.filters.manager_confirmation_status));
 const selectedUserIds = ref<string[]>(ensureArray(props.filters.user_ids));
 const dateFrom = ref<string>(props.filters.date_from || '');
 const dateTo = ref<string>(props.filters.date_to || '');
+
+const managerConfirmationOptions = ['Confirmed', 'Not Confirmed'];
 
 const userSearchQuery = ref('');
 const isUserSearchOpen = ref(false);
@@ -107,6 +111,7 @@ const applyFilters = () => {
             commission_status: commissionStatus.value,
             invoice_status: invoiceStatus.value,
             delivery_status: deliveryStatus.value,
+            manager_confirmation_status: managerConfirmationStatus.value,
             user_ids: selectedUserIds.value,
             date_from: dateFrom.value,
             date_to: dateTo.value,
@@ -120,6 +125,7 @@ const resetFilters = () => {
     commissionStatus.value = [];
     invoiceStatus.value = [];
     deliveryStatus.value = [];
+    managerConfirmationStatus.value = [];
     selectedUserIds.value = [];
     dateFrom.value = '';
     dateTo.value = '';
@@ -130,13 +136,22 @@ const setPayableCommissionsFilter = () => {
     commissionStatus.value = ['Not Paid'];
     invoiceStatus.value = ['Paid'];
     deliveryStatus.value = ['Fully Delivered'];
-    selectedUserIds.value = [];
+    managerConfirmationStatus.value = [];
+    
+    const nonInternalUsers = props.users.filter(u => {
+        return !u.roles?.some(r => r.name === 'Sales - Internal');
+    }).map(u => String(u.id));
+    
+    nonInternalUsers.push('pending');
+    
+    selectedUserIds.value = nonInternalUsers;
 };
 
 const setPayableCommissionsAccountingFilter = () => {
     commissionStatus.value = ['Not Paid'];
     invoiceStatus.value = ['Paid'];
     deliveryStatus.value = ['Fully Delivered'];
+    managerConfirmationStatus.value = ['Confirmed'];
     
     const nonInternalUsers = props.users.filter(u => {
         return !u.roles?.some(r => r.name === 'Sales - Internal');
@@ -148,16 +163,10 @@ const setPayableCommissionsAccountingFilter = () => {
 };
 
 const isPayableCommissionsActive = computed(() => {
-    return commissionStatus.value.length === 1 && commissionStatus.value[0] === 'Not Paid' &&
-           invoiceStatus.value.length === 1 && invoiceStatus.value[0] === 'Paid' &&
-           deliveryStatus.value.length === 1 && deliveryStatus.value[0] === 'Fully Delivered' &&
-           selectedUserIds.value.length === 0;
-});
-
-const isPayableCommissionsAccountingActive = computed(() => {
     if (commissionStatus.value.length !== 1 || commissionStatus.value[0] !== 'Not Paid' ||
         invoiceStatus.value.length !== 1 || invoiceStatus.value[0] !== 'Paid' ||
-        deliveryStatus.value.length !== 1 || deliveryStatus.value[0] !== 'Fully Delivered') {
+        deliveryStatus.value.length !== 1 || deliveryStatus.value[0] !== 'Fully Delivered' ||
+        managerConfirmationStatus.value.length !== 0) {
         return false;
     }
     
@@ -167,7 +176,23 @@ const isPayableCommissionsAccountingActive = computed(() => {
     nonInternalUsers.push('pending');
     
     if (selectedUserIds.value.length !== nonInternalUsers.length) return false;
+    return nonInternalUsers.every(id => selectedUserIds.value.includes(id));
+});
+
+const isPayableCommissionsAccountingActive = computed(() => {
+    if (commissionStatus.value.length !== 1 || commissionStatus.value[0] !== 'Not Paid' ||
+        invoiceStatus.value.length !== 1 || invoiceStatus.value[0] !== 'Paid' ||
+        deliveryStatus.value.length !== 1 || deliveryStatus.value[0] !== 'Fully Delivered' ||
+        managerConfirmationStatus.value.length !== 1 || managerConfirmationStatus.value[0] !== 'Confirmed') {
+        return false;
+    }
     
+    const nonInternalUsers = props.users.filter(u => {
+        return !u.roles?.some(r => r.name === 'Sales - Internal');
+    }).map(u => String(u.id));
+    nonInternalUsers.push('pending');
+    
+    if (selectedUserIds.value.length !== nonInternalUsers.length) return false;
     return nonInternalUsers.every(id => selectedUserIds.value.includes(id));
 });
 
@@ -577,6 +602,23 @@ const isSalesPerson = computed(() =>
                                                 @update:model-value="toggleFilter(commissionStatus, option)"
                                             />
                                             <label :for="'comm-' + option" class="text-sm font-medium leading-none cursor-pointer">
+                                                {{ option }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Manager Confirmation Status -->
+                                <div class="grid gap-4 mt-2">
+                                    <Label class="text-base font-semibold">Manager Confirmation</Label>
+                                    <div class="grid gap-2">
+                                        <div v-for="option in managerConfirmationOptions" :key="option" class="flex items-center space-x-2">
+                                            <Checkbox 
+                                                :id="'manconf-' + option" 
+                                                :model-value="managerConfirmationStatus.includes(option)"
+                                                @update:model-value="toggleFilter(managerConfirmationStatus, option)"
+                                            />
+                                            <label :for="'manconf-' + option" class="text-sm font-medium leading-none cursor-pointer">
                                                 {{ option }}
                                             </label>
                                         </div>
