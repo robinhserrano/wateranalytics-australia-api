@@ -67,6 +67,7 @@ const props = defineProps<{
     viewScope?: string;
     canViewInstaller?: boolean;
     canConfirmCommission?: boolean;
+    canMarkOdoo?: boolean;
 }>();
 
 const search = ref(props.filters.search || '');
@@ -400,6 +401,40 @@ const executeToggle = () => {
         }
     });
 };
+
+// Entered to Odoo Modal State
+const odooModalOpen = ref(false);
+const orderToOdooMark = ref<any>(null);
+
+const initiateOdooToggle = (order: any) => {
+    if (!props.canMarkOdoo || !order.commission_calculation) return;
+    
+    // Only allow marking as entered, no un-marking according to current backend functionality
+    if (order.commission_calculation.entered_to_odoo) return;
+    
+    orderToOdooMark.value = order;
+    odooModalOpen.value = true;
+};
+
+const executeOdooToggle = () => {
+    const order = orderToOdooMark.value;
+    if (!order) return;
+
+    const commissionId = order.commission_calculation.id;
+    
+    // Add to processing state (we can reuse processingConfirmations for the spinner)
+    processingConfirmations.value[commissionId] = true;
+    odooModalOpen.value = false;
+    
+    router.post(route('commissions.mark-odoo', commissionId), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            processingConfirmations.value[commissionId] = false;
+            orderToOdooMark.value = null;
+        }
+    });
+};
+
 const page = usePage<any>();
 const isAdmin = computed(() =>
     (page.props.auth.user?.roles as any[])?.some((role: any) => role.name === 'Admin')
@@ -916,7 +951,18 @@ const isSalesPerson = computed(() =>
                             </TableCell>
                             <TableCell>
                                 <div class="flex justify-center">
-                                    <Checkbox v-if="order.commission_calculation" :model-value="!!order.commission_calculation.entered_to_odoo" disabled />
+                                    <template v-if="order.commission_calculation">
+                                        <div v-if="processingConfirmations[order.commission_calculation.id]" class="flex justify-center items-center h-4 w-4">
+                                            <Loader2 class="size-3.5 animate-spin text-muted-foreground" />
+                                        </div>
+                                        <Checkbox 
+                                            v-else
+                                            :model-value="!!order.commission_calculation.entered_to_odoo" 
+                                            :disabled="!props.canMarkOdoo || !!order.commission_calculation.entered_to_odoo"
+                                            :class="props.canMarkOdoo && !order.commission_calculation.entered_to_odoo ? 'cursor-pointer' : ''"
+                                            @click.prevent="props.canMarkOdoo && !order.commission_calculation.entered_to_odoo ? initiateOdooToggle(order) : null"
+                                        />
+                                    </template>
                                     <span v-else class="text-muted-foreground">-</span>
                                 </div>
                             </TableCell>
@@ -981,6 +1027,31 @@ const isSalesPerson = computed(() =>
                         @click="executeToggle"
                     >
                         {{ confirmActionType === 'confirm' ? 'Yes, Confirm' : 'Yes, Unconfirm' }}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- Entered to Odoo Modal -->
+        <Dialog :open="odooModalOpen" @update:open="odooModalOpen = $event">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Mark as Entered to Odoo</DialogTitle>
+                    <DialogDescription v-if="orderToOdooMark">
+                        Are you sure you want to mark the commission for order <strong>{{ orderToOdooMark.name }}</strong> as entered in Odoo?
+                        <br/><br/>
+                        <span class="text-xs text-muted-foreground">Note: This action cannot be undone directly from the UI.</span>
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter class="sm:justify-end gap-2 sm:gap-0">
+                    <Button variant="outline" @click="odooModalOpen = false">
+                        Cancel
+                    </Button>
+                    <Button 
+                        variant="default"
+                        @click="executeOdooToggle"
+                    >
+                        Yes, Mark Entered
                     </Button>
                 </DialogFooter>
             </DialogContent>

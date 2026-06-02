@@ -48,6 +48,11 @@ class SalesOrderController extends Controller
                 if (!empty($userNames)) {
                     $q->orWhereIn('user_name', $userNames);
                 }
+
+                // Match by commission owner (if reassigned locally)
+                $q->orWhereHas('commissionCalculation', function ($sub) use ($teamUserIds) {
+                    $sub->whereIn('user_id', $teamUserIds);
+                });
             });
         } else {
             // Salesperson - see only own orders
@@ -58,6 +63,11 @@ class SalesOrderController extends Controller
                 if ($user->name) {
                     $q->orWhere('user_name', $user->name);
                 }
+
+                // Match by commission owner (if reassigned locally)
+                $q->orWhereHas('commissionCalculation', function ($sub) use ($user) {
+                    $sub->where('user_id', $user->id);
+                });
             });
         }
 
@@ -190,11 +200,12 @@ class SalesOrderController extends Controller
 
         return Inertia::render('SalesOrders/Index', [
             'salesOrders' => $salesOrders,
-            'filters' => $request->only(['search', 'commission_status', 'invoice_status', 'delivery_status', 'user_ids', 'date_from', 'date_to']),
+            'filters' => $request->only(['search', 'commission_status', 'invoice_status', 'delivery_status', 'manager_confirmation_status', 'user_ids', 'date_from', 'date_to']),
             'users' => $users,
             'viewScope' => $viewScope,
             'canViewInstaller' => $user->hasPermissionTo('view-installer'),
             'canConfirmCommission' => $user->hasAnyRole(['Admin', 'Sales Manager']),
+            'canMarkOdoo' => $user->hasAnyRole(['Admin', 'Account Officer']),
         ]);
     }
 
