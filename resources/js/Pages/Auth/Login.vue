@@ -11,6 +11,9 @@ import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
 import { Form, Head } from '@inertiajs/vue3';
+import { ref } from 'vue';
+
+const remember = ref(false);
 
 defineProps<{
     status?: string;
@@ -72,8 +75,14 @@ defineProps<{
                 </div>
 
                 <div class="flex items-center justify-between">
-                    <Label for="remember" class="flex items-center space-x-3">
-                        <Checkbox id="remember" name="remember" :tabindex="3" />
+                    <Label for="remember" class="flex items-center space-x-3 cursor-pointer">
+                        <Checkbox 
+                            id="remember" 
+                            :tabindex="3" 
+                            :checked="remember"
+                            @update:checked="(val) => remember = !!val"
+                        />
+                        <input type="hidden" name="remember" value="on" v-if="remember" />
                         <span>Remember me</span>
                     </Label>
                 </div>
