@@ -58,14 +58,6 @@ defineProps<{
                 <div class="grid gap-2">
                     <div class="flex items-center justify-between">
                         <Label for="password">Password</Label>
-                        <TextLink
-                            v-if="canResetPassword"
-                            :href="request()"
-                            class="text-sm"
-                            :tabindex="5"
-                        >
-                            Forgot password?
-                        </TextLink>
                     </div>
                     <Input
                         id="password"
@@ -96,13 +88,6 @@ defineProps<{
                     <Spinner v-if="processing" />
                     Log in
                 </Button>
-            </div>
-            <div
-                v-if="canRegister"
-                class="mt-4 text-center text-sm text-muted-foreground"
-            >
-                Don't have an account?
-                <TextLink :href="register()" class="ml-1">Sign up</TextLink>
             </div>
 
         </Form>
