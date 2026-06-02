@@ -34,7 +34,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('commissions', App\Http\Controllers\CommissionController::class)->only(['index', 'show']);
         Route::post('commissions/calculate', [App\Http\Controllers\CommissionController::class, 'calculate'])->name('commissions.calculate');
         Route::post('commissions/{commission}/recalculate', [App\Http\Controllers\CommissionController::class, 'recalculate'])->name('commissions.recalculate');
-        Route::post('commissions/{commission}/adjust', [App\Http\Controllers\CommissionController::class, 'adjust'])->name('commissions.adjust');
         Route::post('commissions/{commission}/approve', [App\Http\Controllers\CommissionController::class, 'approve'])->name('commissions.approve');
         Route::post('commissions/{commission}/reject', [App\Http\Controllers\CommissionController::class, 'reject'])->name('commissions.reject');
         Route::post('commissions/{commission}/mark-paid', [App\Http\Controllers\CommissionController::class, 'markAsPaid'])->name('commissions.mark-paid');
@@ -69,6 +68,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::middleware(['role:Admin|Sales Manager'])->group(function () {
+        Route::post('commissions/{commission}/adjust', [App\Http\Controllers\CommissionController::class, 'adjust'])->name('commissions.adjust');
         Route::post('commissions/{commission}/confirm', [App\Http\Controllers\CommissionController::class, 'confirm'])->name('commissions.confirm');
         Route::post('commissions/{commission}/reset-confirm', [App\Http\Controllers\CommissionController::class, 'resetConfirm'])->name('commissions.reset-confirm');
     });
