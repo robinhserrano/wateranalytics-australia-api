@@ -103,10 +103,10 @@ class SalesOrderController extends Controller
                     } elseif ($status === 'Partial') {
                         $q->orWhere('x_studio_invoice_payment_status', 'partial');
                     } elseif ($status === 'Not Paid') {
-                        $q->orWhere('x_studio_invoice_payment_status', 'not_paid');
+                        $q->orWhereIn('x_studio_invoice_payment_status', ['not_paid', '0', 'false']);
                     } elseif ($status === 'Not Set') {
                         $q->orWhereNull('x_studio_invoice_payment_status')
-                            ->orWhere('x_studio_invoice_payment_status', '0');
+                            ->orWhere('x_studio_invoice_payment_status', '');
                     }
                 }
             });

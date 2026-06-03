@@ -202,6 +202,18 @@ const formatDate = (date: string | null) => {
     return new Date(date).toLocaleDateString('en-AU');
 };
 
+const formatPaymentStatus = (status: string | number | boolean | null | undefined) => {
+    if (status === null || status === undefined || status === '') return '-';
+
+    const normalized = String(status).trim().toLowerCase();
+
+    if (normalized === 'false' || normalized === '0') {
+        return 'Not Paid';
+    }
+
+    return String(status).replace(/_/g, ' ');
+};
+
 // ─── Odoo Messages state ───────────────────────────────────────────────────────
 
 interface Author {
@@ -419,7 +431,7 @@ const formatFileSize = (bytes: number) => {
                             </div>
                             <div class="flex items-start justify-between text-sm gap-4">
                                 <span class="text-muted-foreground whitespace-nowrap">Payment Status</span>
-                                <span class="font-bold capitalize text-right">{{ salesOrder.x_studio_invoice_payment_status || '-' }}</span>
+                                <span class="font-bold capitalize text-right">{{ formatPaymentStatus(salesOrder.x_studio_invoice_payment_status) }}</span>
                             </div>
                             <div class="flex items-center justify-between text-sm" v-if="salesOrder.has_installation">
                                 <span class="text-muted-foreground">Est. Install Date</span>
