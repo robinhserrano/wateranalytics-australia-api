@@ -414,8 +414,12 @@ const formatFileSize = (bytes: number) => {
                                 <span class="font-bold capitalize">{{ salesOrder.delivery_status || '-' }}</span>
                             </div>
                             <div class="flex items-start justify-between text-sm gap-4">
+                                <span class="text-muted-foreground whitespace-nowrap">Payment Type</span>
+                                <span class="font-bold capitalize text-right">{{ salesOrder.x_studio_payment_type || '-' }}</span>
+                            </div>
+                            <div class="flex items-start justify-between text-sm gap-4">
                                 <span class="text-muted-foreground whitespace-nowrap">Payment Status</span>
-                                <span class="font-bold capitalize text-right">{{ salesOrder.x_studio_payment_type || salesOrder.x_studio_invoice_payment_status || '-' }}</span>
+                                <span class="font-bold capitalize text-right">{{ salesOrder.x_studio_invoice_payment_status || '-' }}</span>
                             </div>
                             <div class="flex items-center justify-between text-sm" v-if="salesOrder.has_installation">
                                 <span class="text-muted-foreground">Est. Install Date</span>

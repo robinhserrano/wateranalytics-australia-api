@@ -33,21 +33,21 @@ class SalesOrderController extends Controller
         } elseif ($user->hasPermissionTo('view-team-sales-orders')) {
             // Manager - see team orders
             $teamUserIds = $this->getTeamUserIds($user);
-            
+
             $query->where(function ($q) use ($teamUserIds) {
                 $odooUserIds = \App\Models\User::whereIn('id', $teamUserIds)
                     ->whereNotNull('odoo_user_id')
                     ->pluck('odoo_user_id')
                     ->toArray();
-                
+
                 if (!empty($odooUserIds)) {
                     $q->whereIn('user_id', $odooUserIds);
                 }
-                
+
                 $userNames = \App\Models\User::whereIn('id', $teamUserIds)
                     ->pluck('name')
                     ->toArray();
-                
+
                 if (!empty($userNames)) {
                     $q->orWhereIn('user_name', $userNames);
                 }
@@ -69,8 +69,8 @@ class SalesOrderController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('partner_name', 'like', "%{$search}%")
-                  ->orWhere('user_name', 'like', "%{$search}%");
+                    ->orWhere('partner_name', 'like', "%{$search}%")
+                    ->orWhere('user_name', 'like', "%{$search}%");
             });
         }
 
@@ -98,15 +98,40 @@ class SalesOrderController extends Controller
      *
      * @urlParam id int required The ID of the sales order. Example: 1
      */
-    public function show($id)
+    public function show(Request $request, int $id)
     {
+        $user = $request->user();
         $order = SalesOrder::with([
             'lines.product',
             'lines.landingPrice',
             'commissionCalculation.user',
             'commissionCalculation.salesManager',
         ])->findOrFail($id);
-        
+
+        // Admins and Account Officers can view all sales orders
+        if ($user->hasPermissionTo('view-all-sales-orders')) {
+            // No further checks needed
+        }
+        // Sales Managers and Sales Team Managers can view sales orders if the commission owner or salesperson is in their team
+        elseif ($user->hasPermissionTo('view-team-sales-orders')) {
+            $teamUserIds = $this->getTeamUserIds($user);
+            $commissionOwnerId = $order->commissionCalculation->user_id ?? null;
+            $salespersonId = $order->user_id;
+
+            if (!in_array($commissionOwnerId, $teamUserIds) && !in_array($salespersonId, $teamUserIds)) {
+                abort(403, 'You do not have permission to view this sales order.');
+            }
+        }
+        // Salespersons can only view their own sales orders
+        else {
+            $commissionOwnerId = $order->commissionCalculation->user_id ?? null;
+            $salespersonId = $order->user_id;
+
+            if ($user->id !== $commissionOwnerId && $user->odoo_user_id !== $salespersonId) {
+                abort(403, 'You do not have permission to view this sales order.');
+            }
+        }
+
         return response()->json([
             'success' => true,
             'data' => $order,
@@ -116,16 +141,16 @@ class SalesOrderController extends Controller
     /**
      * Get team user IDs recursively
      */
-    private function getTeamUserIds($user): array
+    private function getTeamUserIds(\App\Models\User $user): array
     {
         $userIds = [$user->id];
-        
+
         $directReports = \App\Models\User::where('sales_manager_id', $user->id)->get();
-        
+
         foreach ($directReports as $report) {
             $userIds = array_merge($userIds, $this->getTeamUserIds($report));
         }
-        
+
         if ($user->team_id) {
             $team = $user->team;
             if ($team && $team->team_manager_id === $user->id) {
@@ -133,7 +158,7 @@ class SalesOrderController extends Controller
                 $userIds = array_merge($userIds, $teamMemberIds);
             }
         }
-        
+
         return array_unique($userIds);
     }
 }
