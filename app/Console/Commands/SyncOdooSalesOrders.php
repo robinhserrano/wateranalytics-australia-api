@@ -358,7 +358,10 @@ class SyncOdooSalesOrders extends Command
 
             // Auto-calculate commissions for newly synced orders
             $this->info('Calculating commissions for sales orders...');
-            $this->call('commissions:calculate-missing', ['--limit' => $totalSynced]);
+            $this->call('commissions:calculate-missing', [
+                '--limit' => $totalSynced,
+                '--update-unconfirmed' => true
+            ]);
 
             $logger->complete($log, $totalSynced, (isset($domain) && !empty($domain)) ? "Incremental sync completed." : "Full sync completed.");
             \Illuminate\Support\Facades\Cache::forget('contacts_dashboard_stats');
