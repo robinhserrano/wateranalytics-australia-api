@@ -119,7 +119,12 @@ class CommissionCalculator
         // Calculate commission amounts
         $baseCommission = $this->calculateBaseCommission($user, $salesSource, $isSpecialProduct);
         $extraCommission = $this->calculateExtraCommission($profit, $user->commission_split);
-        $finalCommission = $baseCommission + $extraCommission;
+        // Preserve existing manual adjustments and status if recalculating
+        $existingCalculation = CommissionCalculation::where('sales_order_id', $salesOrder->id)->first();
+        $manualAdjustment = $existingCalculation ? $existingCalculation->manual_adjustment : 0;
+        $status = $existingCalculation ? $existingCalculation->status : 'pending';
+
+        $finalCommission = $baseCommission + $extraCommission + $manualAdjustment;
 
         // Create or update commission calculation
         $commissionCalculation = CommissionCalculation::updateOrCreate(
@@ -135,10 +140,10 @@ class CommissionCalculator
                 'profit' => $profit,
                 'base_commission' => $baseCommission,
                 'extra_commission' => $extraCommission,
-                'manual_adjustment' => 0,
+                'manual_adjustment' => $manualAdjustment,
                 'final_commission' => $finalCommission,
                 'is_special_product' => $isSpecialProduct,
-                'status' => 'pending',
+                'status' => $status,
                 'calculation_metadata' => [
                     'calculated_at' => now(),
                     'order_amount' => $salesOrder->amount_total,
@@ -378,10 +383,7 @@ class CommissionCalculator
     {
         $salesOrder = $calculation->salesOrder;
         
-        // Delete the old calculation
-        $calculation->delete();
-
-        // Recalculate from scratch
+        // Recalculate (this will now preserve manual_adjustment via updateOrCreate)
         return $this->calculateCommission($salesOrder);
     }
 

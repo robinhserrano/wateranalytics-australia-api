@@ -14,6 +14,7 @@ class CalculateMissingCommissions extends Command
                             {--from-id= : Start processing from this sales_order ID}
                             {--to-id= : Stop processing at this sales_order ID}
                             {--force : Recalculate even if commission exists}
+                            {--update-unconfirmed : Also recalculate unconfirmed commissions}
                             {--all : Recalculate everything without limit}';
 
     protected $description = 'Calculate commissions for sales orders that don\'t have them yet';
@@ -31,6 +32,7 @@ class CalculateMissingCommissions extends Command
         $limit = (int) $this->option('limit');
         $chunkSize = max(1, (int) $this->option('chunk'));
         $force = $this->option('force');
+        $updateUnconfirmed = $this->option('update-unconfirmed');
         $all = $this->option('all');
         $fromId = $this->option('from-id') !== null ? (int) $this->option('from-id') : null;
         $toId = $this->option('to-id') !== null ? (int) $this->option('to-id') : null;
@@ -43,7 +45,19 @@ class CalculateMissingCommissions extends Command
         $baseQuery = SalesOrder::query();
 
         if (!$force) {
-            $baseQuery->whereDoesntHave('commissionCalculation');
+            if ($updateUnconfirmed) {
+                $baseQuery->where(function ($q) {
+                    $q->whereDoesntHave('commissionCalculation')
+                      ->orWhereHas('commissionCalculation', function ($sub) {
+                          $sub->where(function($s) {
+                              $s->where('confirmed_by_manager', false)
+                                ->orWhereNull('confirmed_by_manager');
+                          });
+                      });
+                });
+            } else {
+                $baseQuery->whereDoesntHave('commissionCalculation');
+            }
         }
 
         if ($fromId !== null && $fromId > 0) {
