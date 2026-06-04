@@ -29,13 +29,13 @@ const allNavItems: ExtendedNavItem[] = [
         title: 'Dashboard',
         href: route('dashboard'),
         icon: LayoutGrid,
-        roles: ['Admin', 'Sales Manager', 'Sales Team Manager', 'Sales Person'],
+        roles: ['Admin', 'Account Officer', 'Sales Manager', 'Sales Team Manager', 'Sales Person'],
     },
     {
         title: 'Sales Orders',
         href: route('sales-orders.index'),
         icon: ShoppingCart,
-        roles: ['Admin', 'Sales Manager', 'Sales Team Manager', 'Sales Person'],
+        roles: ['Admin', 'Account Officer', 'Sales Manager', 'Sales Team Manager', 'Sales Person'],
     },
     {
         title: 'My Team',
@@ -47,7 +47,7 @@ const allNavItems: ExtendedNavItem[] = [
         title: 'Stocks',
         href: route('stocks.index'),
         icon: Package,
-        roles: ['Admin', 'Sales Manager', 'Sales Team Manager', 'Sales Person'],
+        roles: ['Admin', 'Account Officer', 'Sales Manager', 'Sales Team Manager', 'Sales Person'],
     },
     {
         title: 'Commissions',

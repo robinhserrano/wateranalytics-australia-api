@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\SalesOrder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Log;
 
 class SalesOrderController extends Controller
 {
-    protected $calculator;
+    protected \App\Services\CommissionCalculator $calculator;
 
     public function __construct(\App\Services\CommissionCalculator $calculator)
     {
@@ -17,7 +18,7 @@ class SalesOrderController extends Controller
 
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $user = request()->user();
         $query = SalesOrder::query()->where('state', 'sale');
 
         // Apply role-based filtering
@@ -27,7 +28,7 @@ class SalesOrderController extends Controller
         } elseif ($user->hasPermissionTo('view-team-sales-orders')) {
             // Sales Manager or Sales Team Manager - see team orders
             $teamUserIds = $user->getTeamUserIds();
-            
+
             // Filter by user_id (Odoo user ID) or user_name
             $query->where(function ($q) use ($teamUserIds, $user) {
                 // Match by Odoo user IDs
@@ -35,20 +36,19 @@ class SalesOrderController extends Controller
                     ->whereNotNull('odoo_user_id')
                     ->pluck('odoo_user_id')
                     ->toArray();
-                
+
                 if (!empty($odooUserIds)) {
                     $q->whereIn('user_id', $odooUserIds);
                 }
-                
+
                 // Also match by user names
                 $userNames = \App\Models\User::whereIn('id', $teamUserIds)
                     ->pluck('name')
                     ->toArray();
-                
+
                 if (!empty($userNames)) {
                     $q->orWhereIn('user_name', $userNames);
                 }
-
                 // Match by commission owner (if reassigned locally)
                 $q->orWhereHas('commissionCalculation', function ($sub) use ($teamUserIds) {
                     $sub->whereIn('user_id', $teamUserIds);
@@ -63,7 +63,6 @@ class SalesOrderController extends Controller
                 if ($user->name) {
                     $q->orWhere('user_name', $user->name);
                 }
-
                 // Match by commission owner (if reassigned locally)
                 $q->orWhereHas('commissionCalculation', function ($sub) use ($user) {
                     $sub->where('user_id', $user->id);
@@ -76,8 +75,8 @@ class SalesOrderController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('partner_name', 'like', "%{$search}%")
-                  ->orWhere('user_name', 'like', "%{$search}%");
+                    ->orWhere('partner_name', 'like', "%{$search}%")
+                    ->orWhere('user_name', 'like', "%{$search}%");
             });
         }
 
@@ -97,17 +96,17 @@ class SalesOrderController extends Controller
         // Apply Invoice Payment Status filter
         if ($request->has('invoice_status')) {
             $statuses = is_array($request->invoice_status) ? $request->invoice_status : [$request->invoice_status];
-            $query->where(function($q) use ($statuses) {
+            $query->where(function ($q) use ($statuses) {
                 foreach ($statuses as $status) {
                     if ($status === 'Paid') {
                         $q->orWhereIn('x_studio_invoice_payment_status', ['paid', 'in_payment']);
                     } elseif ($status === 'Partial') {
                         $q->orWhere('x_studio_invoice_payment_status', 'partial');
                     } elseif ($status === 'Not Paid') {
-                        $q->orWhere('x_studio_invoice_payment_status', 'not_paid');
+                        $q->orWhereIn('x_studio_invoice_payment_status', ['not_paid', '0', 'false']);
                     } elseif ($status === 'Not Set') {
                         $q->orWhereNull('x_studio_invoice_payment_status')
-                          ->orWhere('x_studio_invoice_payment_status', '0');
+                            ->orWhere('x_studio_invoice_payment_status', '');
                     }
                 }
             });
@@ -116,7 +115,7 @@ class SalesOrderController extends Controller
         // Apply Delivery Status filter
         if ($request->has('delivery_status')) {
             $statuses = is_array($request->delivery_status) ? $request->delivery_status : [$request->delivery_status];
-            $query->where(function($q) use ($statuses) {
+            $query->where(function ($q) use ($statuses) {
                 foreach ($statuses as $status) {
                     if ($status === 'Fully Delivered') {
                         $q->orWhere('delivery_status', 'full');
@@ -124,7 +123,7 @@ class SalesOrderController extends Controller
                         $q->orWhereIn('delivery_status', ['partial', 'started', 'pending']);
                     } elseif ($status === 'Not Delivered') {
                         $q->orWhereNull('delivery_status')
-                          ->orWhere('delivery_status', '0');
+                            ->orWhere('delivery_status', '0');
                     }
                 }
             });
@@ -138,38 +137,36 @@ class SalesOrderController extends Controller
                 $realUserIds = array_filter($userIds, fn($id) => $id !== 'pending');
 
                 if (count($realUserIds) > 0) {
-                    $q->whereHas('commissionCalculation', function($sub) use ($realUserIds) {
+                    $q->whereHas('commissionCalculation', function ($sub) use ($realUserIds) {
                         $sub->whereIn('user_id', $realUserIds);
                     });
                 }
 
                 if ($hasPending) {
                     $q->orWhereDoesntHave('commissionCalculation')
-                      ->orWhereHas('commissionCalculation', function($sub) {
-                          $sub->whereNull('user_id');
-                      });
+                        ->orWhereHas('commissionCalculation', function ($sub) {
+                            $sub->whereNull('user_id');
+                        });
                 }
             });
         }
-
         // Apply Manager Confirmation filter
         if ($request->filled('manager_confirmation_status')) {
             $statuses = is_array($request->manager_confirmation_status) ? $request->manager_confirmation_status : [$request->manager_confirmation_status];
-            $query->where(function($q) use ($statuses) {
+            $query->where(function ($q) use ($statuses) {
                 if (in_array('Confirmed', $statuses)) {
-                    $q->orWhereHas('commissionCalculation', function($sub) {
+                    $q->orWhereHas('commissionCalculation', function ($sub) {
                         $sub->where('confirmed_by_manager', true);
                     });
                 }
                 if (in_array('Not Confirmed', $statuses)) {
                     $q->orWhereDoesntHave('commissionCalculation')
-                      ->orWhereHas('commissionCalculation', function($sub) {
-                          $sub->where('confirmed_by_manager', false)->orWhereNull('confirmed_by_manager');
-                      });
+                        ->orWhereHas('commissionCalculation', function ($sub) {
+                            $sub->where('confirmed_by_manager', false)->orWhereNull('confirmed_by_manager');
+                        });
                 }
             });
         }
-
         // Apply Date Range filter
         if ($request->filled('date_from')) {
             $query->whereDate('create_date', '>=', $request->date_from);
@@ -206,13 +203,40 @@ class SalesOrderController extends Controller
             'canViewInstaller' => $user->hasPermissionTo('view-installer'),
             'canConfirmCommission' => $user->hasAnyRole(['Admin', 'Sales Manager']),
             'canMarkOdoo' => $user->hasAnyRole(['Admin', 'Account Officer']),
+
         ]);
     }
 
 
 
-    public function show(SalesOrder $salesOrder)
+    public function show(Request $request, SalesOrder $salesOrder)
     {
+        $user = $request->user();
+
+        // Admins and Account Officers can view all sales orders
+        if ($user->hasPermissionTo('view-all-sales-orders')) {
+            // No further checks needed
+        }
+        // Sales Managers and Sales Team Managers can view sales orders if the commission owner or salesperson is in their team
+        elseif ($user->hasPermissionTo('view-team-sales-orders')) {
+            $teamUserIds = $user->getTeamUserIds();
+            $commissionOwnerId = $salesOrder->commissionCalculation->user_id ?? null;
+            $salespersonId = $salesOrder->user_id;
+
+            if (!in_array($commissionOwnerId, $teamUserIds) && !in_array($salespersonId, $teamUserIds)) {
+                abort(403, 'You do not have permission to view this sales order.');
+            }
+        }
+        // Salespersons can only view their own sales orders
+        else {
+            $commissionOwnerId = $salesOrder->commissionCalculation->user_id ?? null;
+            $salespersonId = $salesOrder->user_id;
+
+            if ($user->id !== $commissionOwnerId && $user->odoo_user_id !== $salespersonId) {
+                abort(403, 'You do not have permission to view this sales order.');
+            }
+        }
+
         $calculationError = null;
 
         // Auto-calculate commission if missing and possible
@@ -224,7 +248,7 @@ class SalesOrderController extends Controller
                 $salesOrder->refresh(); // Refresh to get the new relation
             } catch (\Exception $e) {
                 // Log warning and capture error for UI
-                \Log::warning("Auto-calculation failed for order {$salesOrder->id}: " . $e->getMessage());
+                Log::warning("Auto-calculation failed for order {$salesOrder->id}: " . $e->getMessage());
                 $calculationError = $e->getMessage();
             }
         }
@@ -242,8 +266,8 @@ class SalesOrderController extends Controller
         return Inertia::render('SalesOrders/Show', [
             'salesOrder' => $salesOrder,
             'calculationError' => $calculationError,
-            'canViewInstaller' => auth()->user()->hasPermissionTo('view-installer'),
-            'canConfirmCommission' => auth()->user()->hasAnyRole(['Admin', 'Sales Manager']),
+            'canViewInstaller' => $user->hasPermissionTo('view-installer'),
+            'canConfirmCommission' => $user->hasAnyRole(['Admin', 'Sales Manager']),
         ]);
     }
 }
