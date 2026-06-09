@@ -82,7 +82,7 @@ class SyncOdooInstallationDates extends Command
      */
     private function fetchTaskIdsForOrders(Odoo $odoo, array $orderNames): array
     {
-        if (\empty($orderNames)) {
+        if (empty($orderNames)) {
             return [];
         }
 
