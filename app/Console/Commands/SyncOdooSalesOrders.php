@@ -47,14 +47,14 @@ class SyncOdooSalesOrders extends Command
             do {
                 $userResponse = $odoo->executeKw('res.users', 'web_search_read', [
                     [['active', 'in', [true, false]]],
-                    ['partner_id' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]]],
+                    ['partner_id' => (object) ['fields' => (object) ['id' => (object) [], 'display_name' => (object) []]]],
                     $userOffset,
                     $userLimit,
                     'id asc'
                 ]);
                 $odooUsers = $userResponse->records ?? (is_array($userResponse) ? ($userResponse['records'] ?? []) : []);
                 foreach ($odooUsers as $u) {
-                    $u = (object)$u;
+                    $u = (object) $u;
                     $partnerRaw = $u->partner_id ?? null;
                     $partnerId = null;
                     if (is_array($partnerRaw)) {
@@ -75,67 +75,70 @@ class SyncOdooSalesOrders extends Command
         }
 
         $specification = [
-            'name' => (object)[],
-            'create_date' => (object)[],
-            'write_date' => (object)[],
-            'partner_id' => (object)['fields' => (object)['display_name' => (object)[]]],
-            'partner_shipping_id' => (object)['fields' => (object)[
-                'display_name' => (object)[],
-                'contact_address_complete' => (object)[],
-                'state_id' => (object)['fields' => (object)['display_name' => (object)[]]],
-            ]],
-            'user_id' => (object)['fields' => (object)['display_name' => (object)[]]],
-            'team_id' => (object)['fields' => (object)['display_name' => (object)[]]],
-            'amount_untaxed' => (object)[],
-            'amount_tax' => (object)[],
-            'amount_total' => (object)[],
-            'amount_to_invoice' => (object)[],
-            'delivery_status' => (object)[],
-            'state' => (object)[],
-            'tag_ids' => (object)[],
-            'is_subscription' => (object)[],
-            'subscription_state' => (object)[],
-            'end_date' => (object)[],
-            'x_studio_sales_rep_1' => (object)[],
-            'x_studio_sales_source' => (object)[],
-            'x_studio_commission_paid' => (object)[],
-            'x_studio_referred_by' => (object)[],
-            'x_studio_referrer_processed' => (object)[],
-            'x_studio_payment_type' => (object)[],
-            'installer' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]],
-            'x_studio_invoice_payment_status' => (object)[],
-            'recurring_total' => (object)[],
-            'plan_id' => (object)['fields' => (object)['display_name' => (object)[]]],
-            'start_date' => (object)[],
-            'next_invoice_date' => (object)[],
-            'order_line' => (object)[
-                'fields' => (object)[
-                    'id' => (object)[],
-                    'name' => (object)[],
-                    'product_uom_qty' => (object)[],
-                    'price_unit' => (object)[],
-                    'price_subtotal' => (object)[],
-                    'price_total' => (object)[],
-                    'qty_delivered' => (object)[],
-                    'qty_invoiced' => (object)[],
-                    'discount' => (object)[],
-                    'tax_id' => (object)['fields' => (object)['display_name' => (object)[]]],
-                    'product_id' => (object)[
-                        'fields' => (object)[
-                            'id' => (object)[],
-                            'display_name' => (object)[],
-                            'default_code' => (object)[],
-                            'categ_id' => (object)['fields' => (object)['display_name' => (object)[]]],
-                            'list_price' => (object)[],
-                            'type' => (object)[],
-                            'write_date' => (object)[],
+            'name' => (object) [],
+            'create_date' => (object) [],
+            'write_date' => (object) [],
+            'partner_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
+            'partner_shipping_id' => (object) [
+                'fields' => (object) [
+                    'display_name' => (object) [],
+                    'contact_address_complete' => (object) [],
+                    'state_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
+                ]
+            ],
+            'user_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
+            'team_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
+            'amount_untaxed' => (object) [],
+            'amount_tax' => (object) [],
+            'amount_total' => (object) [],
+            'amount_to_invoice' => (object) [],
+            'delivery_status' => (object) [],
+            'state' => (object) [],
+            'tag_ids' => (object) [],
+            'is_subscription' => (object) [],
+            'subscription_state' => (object) [],
+            'end_date' => (object) [],
+            'x_studio_sales_rep_1' => (object) [],
+            'x_studio_sales_source' => (object) [],
+            'x_studio_commission_paid' => (object) [],
+            'x_studio_referred_by' => (object) [],
+            'x_studio_referrer_processed' => (object) [],
+            'x_studio_payment_type' => (object) [],
+            'installer' => (object) ['fields' => (object) ['id' => (object) [], 'display_name' => (object) []]],
+            'x_studio_invoice_payment_status' => (object) [],
+            'invoice_payment_status' => (object) [],
+            'recurring_total' => (object) [],
+            'plan_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
+            'start_date' => (object) [],
+            'next_invoice_date' => (object) [],
+            'order_line' => (object) [
+                'fields' => (object) [
+                    'id' => (object) [],
+                    'name' => (object) [],
+                    'product_uom_qty' => (object) [],
+                    'price_unit' => (object) [],
+                    'price_subtotal' => (object) [],
+                    'price_total' => (object) [],
+                    'qty_delivered' => (object) [],
+                    'qty_invoiced' => (object) [],
+                    'discount' => (object) [],
+                    'tax_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
+                    'product_id' => (object) [
+                        'fields' => (object) [
+                            'id' => (object) [],
+                            'display_name' => (object) [],
+                            'default_code' => (object) [],
+                            'categ_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
+                            'list_price' => (object) [],
+                            'type' => (object) [],
+                            'write_date' => (object) [],
                         ]
                     ],
                 ]
             ],
         ];
 
-        $limit = 500; 
+        $limit = 500;
         $offset = 0;
         $totalSynced = 0;
         $domain = [
@@ -161,7 +164,7 @@ class SyncOdooSalesOrders extends Command
             // Loop to fetch all pages
             do {
                 $this->info("Fetching records offset $offset...");
-                
+
                 $response = $odoo->executeKw('sale.order', 'web_search_read', [
                     $domain,
                     $specification,
@@ -182,7 +185,7 @@ class SyncOdooSalesOrders extends Command
                 $odooProductMetadata = [];
 
                 foreach ($orders as $order) {
-                    $order = (object)$order;
+                    $order = (object) $order;
                     $odooIds[] = $order->id;
 
                     $syncData[] = [
@@ -190,18 +193,18 @@ class SyncOdooSalesOrders extends Command
                         'name' => $order->name,
                         'create_date' => $order->create_date,
                         'write_date' => $order->write_date,
-                        
+
                         'partner_id' => $order->partner_id->id ?? null,
                         'partner_name' => $order->partner_id->display_name ?? null,
                         'partner_shipping_id' => $order->partner_shipping_id->id ?? null,
                         'partner_shipping_name' => $order->partner_shipping_id->display_name ?? null,
                         'partner_shipping_address' => $order->partner_shipping_id->contact_address_complete ?? null,
                         'partner_shipping_state' => $order->partner_shipping_id->state_id->display_name ?? null,
-                        
+
                         'user_id' => $order->user_id->id ?? null,
                         'user_name' => $order->user_id->display_name ?? null,
                         'salesperson_partner_id' => $userToPartnerMap[$order->user_id->id ?? 0] ?? null,
-                        
+
                         'team_id' => $order->team_id->id ?? null,
                         'team_name' => $order->team_id->display_name ?? null,
                         'installer_id' => $order->installer->id ?? null,
@@ -213,7 +216,7 @@ class SyncOdooSalesOrders extends Command
                         'x_studio_referred_by' => is_array($order->x_studio_referred_by) ? $order->x_studio_referred_by[1] : ($order->x_studio_referred_by ?? null),
                         'x_studio_referrer_processed' => $order->x_studio_referrer_processed ?? null,
                         'x_studio_payment_type' => is_array($order->x_studio_payment_type) ? $order->x_studio_payment_type[1] : ($order->x_studio_payment_type ?? null),
-                        
+
                         'amount_untaxed' => $order->amount_untaxed ?? 0,
                         'amount_tax' => $order->amount_tax ?? 0,
                         'amount_total' => $order->amount_total,
@@ -221,13 +224,13 @@ class SyncOdooSalesOrders extends Command
                         'plan_name' => $order->plan_id->display_name ?? null,
                         'subscription_plan_id' => $order->plan_id->id ?? null,
                         'amount_to_invoice' => $order->amount_to_invoice,
-                        
+
                         'delivery_status' => $order->delivery_status ?? null,
-                        'x_studio_invoice_payment_status' => $order->x_studio_invoice_payment_status ?? null,
+                        'x_studio_invoice_payment_status' => $this->resolvePaymentStatus($order),
                         'state' => $order->state,
-                        
+
                         'tag_ids' => json_encode($order->tag_ids ?? []),
-                        
+
                         'is_subscription' => $order->is_subscription ?? false,
                         'subscription_state' => $order->subscription_state ?? null,
                         'start_date' => (!empty($order->start_date) && !str_starts_with($order->start_date, '1970')) ? $order->start_date : null,
@@ -239,9 +242,9 @@ class SyncOdooSalesOrders extends Command
                     // Process Nested Order Lines
                     if (!empty($order->order_line)) {
                         foreach ($order->order_line as $line) {
-                            $line = (object)$line;
+                            $line = (object) $line;
                             $productId = $line->product_id->id ?? null;
-                            
+
                             // Collect Product Metadata for missing local products
                             if ($productId) {
                                 $odooProductMetadata[$productId] = $line->product_id;
@@ -260,7 +263,9 @@ class SyncOdooSalesOrders extends Command
                                 'qty_delivered' => $line->qty_delivered ?? 0,
                                 'qty_invoiced' => $line->qty_invoiced ?? 0,
                                 'discount' => $line->discount ?? 0,
-                                'tax_names' => !empty($line->tax_id) && is_array($line->tax_id) ? implode(', ', array_map(function($t) { return is_object($t) ? ($t->display_name ?? '') : (is_array($t) ? ($t['display_name'] ?? '') : ''); }, $line->tax_id)) : null,
+                                'tax_names' => !empty($line->tax_id) && is_array($line->tax_id) ? implode(', ', array_map(function ($t) {
+                                    return is_object($t) ? ($t->display_name ?? '') : (is_array($t) ? ($t['display_name'] ?? '') : '');
+                                }, $line->tax_id)) : null,
                                 'lower_name' => strtolower($line->product_id->display_name ?? ''),
                             ];
                         }
@@ -276,7 +281,7 @@ class SyncOdooSalesOrders extends Command
                     if (!empty($missingProductIds)) {
                         $this->info("Adding " . count($missingProductIds) . " missing products from Golden Sync metadata...");
                         foreach ($missingProductIds as $mId) {
-                            $mp = (object)$odooProductMetadata[$mId];
+                            $mp = (object) $odooProductMetadata[$mId];
                             Product::create([
                                 'odoo_id' => $mp->id,
                                 'name' => $mp->display_name,
@@ -294,13 +299,45 @@ class SyncOdooSalesOrders extends Command
                 // Batch Upsert Sales Orders
                 $this->info("Upserting " . count($syncData) . " sales orders...");
                 SalesOrder::upsert($syncData, ['odoo_id'], [
-                    'name', 'create_date', 'write_date', 'partner_id', 'partner_name', 
-                    'partner_shipping_id', 'partner_shipping_name', 'partner_shipping_address', 'partner_shipping_state', 
-                    'user_id', 'user_name', 'salesperson_partner_id', 'team_id', 'team_name', 'installer_id', 'installer_name', 'x_studio_sales_rep_1', 'x_studio_sales_source', 
-                    'x_studio_commission_paid', 'x_studio_referred_by', 'x_studio_referrer_processed', 'x_studio_payment_type', 
-                    'amount_untaxed', 'amount_tax', 'amount_total', 'recurring_total', 'plan_name', 'subscription_plan_id', 'amount_to_invoice', 
-                    'delivery_status', 'x_studio_invoice_payment_status', 'state', 'tag_ids', 
-                    'is_subscription', 'subscription_state', 'start_date', 'next_invoice_date', 'end_date', 'updated_at'
+                    'name',
+                    'create_date',
+                    'write_date',
+                    'partner_id',
+                    'partner_name',
+                    'partner_shipping_id',
+                    'partner_shipping_name',
+                    'partner_shipping_address',
+                    'partner_shipping_state',
+                    'user_id',
+                    'user_name',
+                    'salesperson_partner_id',
+                    'team_id',
+                    'team_name',
+                    'installer_id',
+                    'installer_name',
+                    'x_studio_sales_rep_1',
+                    'x_studio_sales_source',
+                    'x_studio_commission_paid',
+                    'x_studio_referred_by',
+                    'x_studio_referrer_processed',
+                    'x_studio_payment_type',
+                    'amount_untaxed',
+                    'amount_tax',
+                    'amount_total',
+                    'recurring_total',
+                    'plan_name',
+                    'subscription_plan_id',
+                    'amount_to_invoice',
+                    'delivery_status',
+                    'x_studio_invoice_payment_status',
+                    'state',
+                    'tag_ids',
+                    'is_subscription',
+                    'subscription_state',
+                    'start_date',
+                    'next_invoice_date',
+                    'end_date',
+                    'updated_at'
                 ]);
 
                 // Re-fetch to get local IDs for line mapping
@@ -337,10 +374,22 @@ class SyncOdooSalesOrders extends Command
                 if (!empty($finalLineData)) {
                     $this->info("Upserting " . count($finalLineData) . " order lines...");
                     SalesOrderLine::upsert($finalLineData, ['odoo_id'], [
-                        'sales_order_id', 'odoo_order_id', 'product_id', 'product_name', 'name', 
-                        'product_uom_qty', 'price_unit', 'price_subtotal', 'price_total', 
-                        'qty_delivered', 'qty_invoiced', 'discount', 'tax_names',
-                        'is_supply_only', 'is_installation_service', 'updated_at'
+                        'sales_order_id',
+                        'odoo_order_id',
+                        'product_id',
+                        'product_name',
+                        'name',
+                        'product_uom_qty',
+                        'price_unit',
+                        'price_subtotal',
+                        'price_total',
+                        'qty_delivered',
+                        'qty_invoiced',
+                        'discount',
+                        'tax_names',
+                        'is_supply_only',
+                        'is_installation_service',
+                        'updated_at'
                     ]);
 
                     // Refresh denormalized data for affected contacts
@@ -373,5 +422,34 @@ class SyncOdooSalesOrders extends Command
             $logger->fail($log, $e);
             return 1;
         }
+    }
+
+    /**
+     * Resolve the effective invoice payment status for a sale.order record.
+     *
+     * Odoo returns boolean false for custom studio fields that have never been
+     * explicitly set. In that case we fall back to Odoo's native
+     * invoice_payment_status field (e.g. 'paid', 'not_paid', 'partial',
+     * 'in_payment') so the UI always shows the correct status even when the
+     * custom field was never populated.
+     *
+     * Priority:
+     *   1. x_studio_invoice_payment_status (custom) — if it's a real string value
+     *   2. invoice_payment_status (native Odoo)       — reliable fallback
+     *   3. null                                        — truly unknown
+     */
+    private function resolvePaymentStatus(object $order): ?string
+    {
+        $custom = $order->x_studio_invoice_payment_status ?? null;
+        $native = $order->invoice_payment_status ?? null;
+
+        // Odoo returns boolean false for unset custom fields.
+        // Treat false / empty string / literal "false" as "not set".
+        if ($custom !== null && $custom !== false && $custom !== '' && $custom !== 'false') {
+            return (string) $custom;
+        }
+
+        // Fall back to native Odoo field (always populated for confirmed orders)
+        return $native !== null && $native !== false ? (string) $native : null;
     }
 }
