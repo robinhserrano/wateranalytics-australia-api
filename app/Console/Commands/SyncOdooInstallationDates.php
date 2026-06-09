@@ -173,20 +173,24 @@ class SyncOdooInstallationDates extends Command
         $names = \array_keys($filtered);
         $dateCases = '';
         $taskCases = '';
-        $bindings = [];
+        $dateBindings = [];
+        $taskBindings = [];
 
         foreach ($filtered as $name => $data) {
             $dateCases .= ' WHEN name = ? THEN ?';
-            $bindings[] = $name;
-            $bindings[] = $data['installation_date'];
+            $dateBindings[] = $name;
+            $dateBindings[] = $data['installation_date'];
 
             $taskCases .= ' WHEN name = ? THEN ?';
-            $bindings[] = $name;
-            $bindings[] = $data['odoo_task_id'];
+            $taskBindings[] = $name;
+            $taskBindings[] = $data['odoo_task_id'];
         }
 
         $placeholders = \implode(',', \array_fill(0, \count($names), '?'));
-        $bindings = \array_merge($bindings, $names);
+
+        // Bindings order must match SQL placeholder order:
+        // 1) date CASE bindings, 2) task CASE bindings, 3) WHERE IN bindings
+        $bindings = \array_merge($dateBindings, $taskBindings, $names);
 
         DB::update("
             UPDATE sales_orders
