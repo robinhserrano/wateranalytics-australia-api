@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Obuchmann\OdooJsonRpc\Odoo;
 use App\Models\SalesOrder;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SyncOdooInstallationDates extends Command
@@ -25,9 +26,17 @@ class SyncOdooInstallationDates extends Command
     protected $description = 'Sync Installation Dates from Odoo Stock Moves to Sales Orders';
 
     /**
-     * Fetch spec — always the same for both sync paths.
-     * We request both picking types so we can distinguish outgoing vs internal.
+     * Cached map of all known local SO names => local ID.
+     * Loaded once per command run to avoid repeated full-table scans inside loops.
+     *
+     * @var array<string, int>|null
      */
+    private ?array $knownOrderNames = null;
+
+    // -------------------------------------------------------------------------
+    // Odoo field spec
+    // -------------------------------------------------------------------------
+
     private function getSpecification(): array
     {
         return [
@@ -44,6 +53,10 @@ class SyncOdooInstallationDates extends Command
         ];
     }
 
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
     /**
      * Safely unpack Odoo records from either a stdClass or array response.
      */
@@ -59,10 +72,7 @@ class SyncOdooInstallationDates extends Command
     }
 
     /**
-     * Resolve a many2one field that Odoo may return as:
-     *   - stdClass { id, display_name, ... }
-     *   - [id, display_name]  (legacy tuple)
-     *   - false / null        (unset)
+     * Resolve a many2one field that Odoo may return as stdClass or legacy tuple.
      */
     private function resolveMany2oneId(mixed $field): ?int
     {
@@ -76,9 +86,25 @@ class SyncOdooInstallationDates extends Command
     }
 
     /**
-     * Given a list of SO names, fetch the Odoo project.task IDs and deadlines
-     * linked to those SOs.
-     * Returns a map of [ so_name => ['task_id' => int, 'deadline' => string|null] ].
+     * Load (and cache) the full SO name => local ID map once per run.
+     * Prevents repeated full-table pluck calls inside chunk loops.
+     *
+     * @return array<string, int>
+     */
+    private function getKnownOrderNames(): array
+    {
+        if ($this->knownOrderNames === null) {
+            $this->knownOrderNames = SalesOrder::pluck('id', 'name')->toArray();
+        }
+        return $this->knownOrderNames;
+    }
+
+    /**
+     * Fetch project.task records for a batch of SO names in one Odoo call.
+     * Returns [ so_name => ['task_id' => int, 'deadline' => string|null] ].
+     *
+     * @param  string[]  $orderNames
+     * @return array<string, array{task_id: int, deadline: string|null}>
      */
     private function fetchTaskIdsForOrders(Odoo $odoo, array $orderNames): array
     {
@@ -121,8 +147,63 @@ class SyncOdooInstallationDates extends Command
     }
 
     /**
-     * Execute the console command.
+     * Bulk-update sales_orders rows using a single CASE...WHEN SQL statement
+     * instead of one UPDATE query per row.
+     *
+     * $updates format:
+     *   [ so_name => ['installation_date' => string|null, 'odoo_task_id' => int|null] ]
+     *
+     * @param  array<string, array{installation_date: string|null, odoo_task_id: int|null}>  $updates
      */
+    private function bulkUpdateOrders(array $updates): int
+    {
+        if (empty($updates)) {
+            return 0;
+        }
+
+        $knownNames = $this->getKnownOrderNames();
+
+        // Only keep names that actually exist locally
+        $filtered = \array_filter($updates, fn($name) => isset($knownNames[$name]), ARRAY_FILTER_USE_KEY);
+
+        if (empty($filtered)) {
+            return 0;
+        }
+
+        $names = \array_keys($filtered);
+        $dateCases = '';
+        $taskCases = '';
+        $bindings = [];
+
+        foreach ($filtered as $name => $data) {
+            $dateCases .= ' WHEN name = ? THEN ?';
+            $bindings[] = $name;
+            $bindings[] = $data['installation_date'];
+
+            $taskCases .= ' WHEN name = ? THEN ?';
+            $bindings[] = $name;
+            $bindings[] = $data['odoo_task_id'];
+        }
+
+        $placeholders = \implode(',', \array_fill(0, \count($names), '?'));
+        $bindings = \array_merge($bindings, $names);
+
+        DB::update("
+            UPDATE sales_orders
+            SET
+                installation_date = CASE {$dateCases} ELSE installation_date END,
+                odoo_task_id      = CASE {$taskCases} ELSE odoo_task_id END,
+                updated_at        = NOW()
+            WHERE name IN ({$placeholders})
+        ", $bindings);
+
+        return \count($filtered);
+    }
+
+    // -------------------------------------------------------------------------
+    // Entry point
+    // -------------------------------------------------------------------------
+
     public function handle(Odoo $odoo): int
     {
         $this->info('Starting Odoo Installation Date Sync...');
@@ -152,6 +233,10 @@ class SyncOdooInstallationDates extends Command
 
         return 0;
     }
+
+    // -------------------------------------------------------------------------
+    // Sync strategies
+    // -------------------------------------------------------------------------
 
     protected function performIncrementalSync(Odoo $odoo, Carbon $lastSync): void
     {
@@ -215,62 +300,71 @@ class SyncOdooInstallationDates extends Command
         $bar = $this->output->createProgressBar($totalToProcess);
         $totalUpdates = 0;
 
-        $query->chunk(100, function ($orders) use ($odoo, $bar, &$totalUpdates) {
-            $orderNames = $orders->pluck('name')->toArray();
+        // Select only columns we need — avoids hydrating full Eloquent models
+        $query->select(['id', 'name', 'odoo_task_id', 'installation_date'])
+            ->chunk(100, function ($orders) use ($odoo, $bar, &$totalUpdates) {
+                $orderNames = $orders->pluck('name')->toArray();
 
-            // 1. Pre-fetch Odoo Tasks so we can link task_id even before stock moves are done
-            $taskMap = $this->fetchTaskIdsForOrders($odoo, $orderNames);
+                // --- Task sync (one Odoo call, one bulk DB update per chunk) ----
+                $taskMap = $this->fetchTaskIdsForOrders($odoo, $orderNames);
+                $taskUpdates = [];
 
-            foreach ($orders as $order) {
-                // Eloquent models are always objects; guard defensively anyway
-                $orderName = \is_object($order) ? $order->name : ($order['name'] ?? null);
-                if (!$orderName || !isset($taskMap[$orderName])) {
-                    continue;
+                foreach ($orders as $order) {
+                    $orderName = $order->name;
+                    if (!isset($taskMap[$orderName])) {
+                        continue;
+                    }
+
+                    $taskId = $taskMap[$orderName]['task_id'];
+                    $deadline = $taskMap[$orderName]['deadline'];
+                    $currentTaskId = $order->odoo_task_id;
+                    $currentInstDate = $order->installation_date;
+
+                    $deadlineChanged = $deadline && (
+                        $currentInstDate === null ||
+                        Carbon::parse($deadline)->notEqualTo($currentInstDate)
+                    );
+
+                    if ((int) $currentTaskId !== (int) $taskId || $deadlineChanged) {
+                        $taskUpdates[$orderName] = [
+                            'installation_date' => $deadline
+                                ? Carbon::parse($deadline)->toDateTimeString()
+                                : ($currentInstDate ? Carbon::parse($currentInstDate)->toDateTimeString() : null),
+                            'odoo_task_id' => $taskId,
+                        ];
+                    }
                 }
 
-                $taskId = $taskMap[$orderName]['task_id'];
-                $deadline = $taskMap[$orderName]['deadline'];
-                $currentTaskId = \is_object($order) ? $order->odoo_task_id : ($order['odoo_task_id'] ?? null);
-                $currentInstDate = \is_object($order) ? $order->installation_date : ($order['installation_date'] ?? null);
+                // Single bulk UPDATE for all task changes in this chunk
+                $totalUpdates += $this->bulkUpdateOrders($taskUpdates);
 
-                $deadlineChanged = $deadline && Carbon::parse($deadline)->notEqualTo($currentInstDate);
+                // --- Stock move sync (one Odoo call per chunk) ------------------
+                $domain = [
+                    ['state', '=', 'done'],
+                    '|',
+                    ['origin', 'in', $orderNames],
+                    ['picking_id.origin', 'in', $orderNames],
+                    ['product_id.categ_id', 'in', [4, 5, 16]],
+                ];
 
-                if ((int) $currentTaskId !== (int) $taskId || $deadlineChanged) {
-                    SalesOrder::where('name', $orderName)->update([
-                        'odoo_task_id' => $taskId,
-                        'installation_date' => $deadline ? Carbon::parse($deadline) : $currentInstDate,
+                try {
+                    $response = $odoo->executeKw('stock.move.line', 'web_search_read', [
+                        $domain,
+                        $this->getSpecification(),
+                        0,
+                        1000,
+                        'write_date desc',
                     ]);
-                    $totalUpdates++;
+
+                    $moves = $this->unpackRecords($response);
+                    $totalUpdates += $this->processMovesAndSave($odoo, $moves);
+
+                } catch (\Exception $e) {
+                    Log::error('Failed chunk in full sync: ' . $e->getMessage());
                 }
-            }
 
-            // 2. Query stock moves — match on move origin OR picking origin
-            $domain = [
-                ['state', '=', 'done'],
-                '|',
-                ['origin', 'in', $orderNames],
-                ['picking_id.origin', 'in', $orderNames],
-                ['product_id.categ_id', 'in', [4, 5, 16]],
-            ];
-
-            try {
-                $response = $odoo->executeKw('stock.move.line', 'web_search_read', [
-                    $domain,
-                    $this->getSpecification(),
-                    0,
-                    1000,
-                    'write_date desc',
-                ]);
-
-                $moves = $this->unpackRecords($response);
-                $totalUpdates += $this->processMovesAndSave($odoo, $moves);
-
-            } catch (\Exception $e) {
-                Log::error('Failed chunk in full sync: ' . $e->getMessage());
-            }
-
-            $bar->advance($orders->count());
-        });
+                $bar->advance($orders->count());
+            });
 
         $bar->finish();
         $this->newLine();
@@ -285,10 +379,15 @@ class SyncOdooInstallationDates extends Command
         ]);
     }
 
+    // -------------------------------------------------------------------------
+    // Core move processing
+    // -------------------------------------------------------------------------
+
     protected function processMovesAndSave(Odoo $odoo, array $moves): int
     {
-        $knownOrderNames = SalesOrder::pluck('name')->flip()->toArray();
+        $knownNames = $this->getKnownOrderNames();
 
+        // Pass 1: resolve best installation date per SO from stock moves
         $updates = [];
         foreach ($moves as $move) {
             $move = (object) $move;
@@ -296,24 +395,14 @@ class SyncOdooInstallationDates extends Command
             $pickingTypeCode = $move->picking_id->picking_type_id->code ?? null;
             $isInternal = $pickingTypeCode === 'internal';
 
-            // Resolve SO name:
-            //   - Internal transfers : picking_id.origin holds the SO name
-            //   - Outgoing / other   : move's own origin field holds the SO name
             $soName = $isInternal
                 ? ($move->picking_id->origin ?? $move->origin ?? null)
                 : ($move->origin ?? null);
 
-            if (!$soName || !isset($knownOrderNames[$soName])) {
+            if (!$soName || !isset($knownNames[$soName])) {
                 continue;
             }
 
-            // categ_id comes back as a stdClass — use ->id, not [0]
-            // (kept for potential future use; variable intentionally unused for now)
-            $categoryId = $this->resolveMany2oneId($move->product_id->categ_id ?? null);
-
-            // Date rule:
-            //   - Internal  → scheduled_date  (installer's booked visit date)
-            //   - Outgoing  → date_done        (actual delivery/completion date)
             $installationDate = $isInternal
                 ? ($move->scheduled_date ?? null)
                 : ($move->picking_id->date_done ?? $move->scheduled_date ?? null);
@@ -322,33 +411,34 @@ class SyncOdooInstallationDates extends Command
                 continue;
             }
 
-            if (!isset($updates[$soName])) {
+            // Keep latest date among all moves for the same SO
+            if (!isset($updates[$soName]) || Carbon::parse($installationDate)->gt(Carbon::parse($updates[$soName]))) {
                 $updates[$soName] = $installationDate;
-            } else {
-                // Keep the latest date among all matching moves for the same SO
-                if (Carbon::parse($installationDate)->gt(Carbon::parse($updates[$soName]))) {
-                    $updates[$soName] = $installationDate;
-                }
             }
         }
 
-        // Batch-fetch task IDs and deadlines for all SO names that have updates
-        $soNamesWithUpdates = \array_keys($updates);
-        $taskMap = $this->fetchTaskIdsForOrders($odoo, $soNamesWithUpdates);
+        if (empty($updates)) {
+            return 0;
+        }
 
+        // Pass 2: batch-fetch task deadlines for all affected SOs in one Odoo call
+        $soNames = \array_keys($updates);
+        $taskMap = $this->fetchTaskIdsForOrders($odoo, $soNames);
+
+        // Pass 3: merge task deadline + build final update payload
+        $finalUpdates = [];
         foreach ($updates as $orderName => $stockMoveDate) {
             $taskId = $taskMap[$orderName]['task_id'] ?? null;
             $taskDeadline = $taskMap[$orderName]['deadline'] ?? null;
 
-            // Prefer the task deadline; fall back to the stock-move date
-            $installationDate = $taskDeadline ?? $stockMoveDate;
-
-            SalesOrder::where('name', $orderName)->update([
-                'installation_date' => Carbon::parse($installationDate),
+            $finalUpdates[$orderName] = [
+                // Prefer task deadline; fall back to stock-move date
+                'installation_date' => Carbon::parse($taskDeadline ?? $stockMoveDate)->toDateTimeString(),
                 'odoo_task_id' => $taskId,
-            ]);
+            ];
         }
 
-        return \count($updates);
+        // Pass 4: single bulk UPDATE for all SOs
+        return $this->bulkUpdateOrders($finalUpdates);
     }
 }
