@@ -106,7 +106,7 @@ class SyncOdooSalesOrders extends Command
             'x_studio_payment_type' => (object) [],
             'installer' => (object) ['fields' => (object) ['id' => (object) [], 'display_name' => (object) []]],
             'x_studio_invoice_payment_status' => (object) [],
-            'invoice_payment_status' => (object) [],
+            // 'invoice_payment_status' => (object) [],
             'recurring_total' => (object) [],
             'plan_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
             'start_date' => (object) [],
@@ -441,7 +441,7 @@ class SyncOdooSalesOrders extends Command
     private function resolvePaymentStatus(object $order): ?string
     {
         $custom = $order->x_studio_invoice_payment_status ?? null;
-        $native = $order->invoice_payment_status ?? null;
+        // $native = $order->invoice_payment_status ?? null;
 
         // Odoo returns boolean false for unset custom fields.
         // Treat false / empty string / literal "false" as "not set".
