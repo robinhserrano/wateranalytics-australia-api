@@ -450,6 +450,6 @@ class SyncOdooSalesOrders extends Command
         }
 
         // Fall back to native Odoo field (always populated for confirmed orders)
-        return $native !== null && $native !== false ? (string) $native : null;
+        return null;
     }
 }
