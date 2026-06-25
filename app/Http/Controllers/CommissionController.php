@@ -378,8 +378,8 @@ class CommissionController extends Controller
      */
     public function resetConfirm(Request $request, CommissionCalculation $commission)
     {
-        // Check if user is admin
-        if (!Auth::user()->hasRole('Admin')) {
+        // Check if user is admin or sales manager
+        if (!Auth::user()->hasRole('Admin') && !Auth::user()->hasRole('Sales Manager')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 

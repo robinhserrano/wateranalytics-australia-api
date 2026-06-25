@@ -717,7 +717,7 @@ const formatFileSize = (bytes: number) => {
                                                         <span>Confirmed by Manager</span>
                                                     </div>
                                                     
-                                                    <Dialog v-if="isAdmin" v-model:open="isResetConfirmDialogOpen">
+                                                    <Dialog v-if="isAdmin || isSalesManager" v-model:open="isResetConfirmDialogOpen">
                                                         <DialogTrigger as-child>
                                                             <Button variant="ghost" size="sm" class="h-7 text-xs text-muted-foreground hover:text-red-600">Reset</Button>
                                                         </DialogTrigger>
