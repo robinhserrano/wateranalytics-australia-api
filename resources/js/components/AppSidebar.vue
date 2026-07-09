@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, Box, DollarSign, Folder, LayoutGrid, Package, ShoppingCart, Users, Shield, Activity } from 'lucide-vue-next';
+import { BarChart3, BookOpen, Box, DollarSign, Folder, LayoutGrid, Package, ShoppingCart, Users, Shield, Activity } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 import { computed } from 'vue';
 
@@ -54,6 +54,12 @@ const allNavItems: ExtendedNavItem[] = [
         href: route('commissions.index'),
         icon: DollarSign,
         roles: ['Admin'],
+    },
+    {
+        title: 'Reports',
+        href: route('reports.index'),
+        icon: BarChart3,
+        roles: ['Admin', 'Sales Manager'],
     },
     {
         title: 'Contacts',
