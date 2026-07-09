@@ -167,6 +167,24 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
+        $isAdmin = auth()->user()->hasRole('Admin');
+
+        // Only admins may edit another user's record or change privileged fields
+        // (role, manager, commission rates). Everyone else may only update their
+        // own name/email/password.
+        if (!$isAdmin) {
+            if (auth()->id() !== $user->id) {
+                abort(403, 'Unauthorized action.');
+            }
+
+            $request->request->remove('role_names');
+            $request->request->remove('sales_manager_id');
+            $request->request->remove('commission_split');
+            $request->request->remove('company_lead_base');
+            $request->request->remove('self_gen_base');
+            $request->request->remove('legacy_id');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $user->id,
