@@ -39,8 +39,16 @@ const props = defineProps<{
 
 const goBack = () => window.history.back();
 
-// Initialize manual adjustment ref
-const manualAdjustment = ref(props.salesOrder.commission_calculation?.manual_adjustment || 0);
+// Manual adjustment is entered as an unsigned magnitude + Add/Deduct toggle
+// (rather than a single signed field) because most mobile keyboards'
+// inputmode="decimal" numpad has no minus-sign key, making it impossible to
+// type a negative (deduction) amount on a phone.
+const adjustmentSign = ref<'add' | 'deduct'>((props.salesOrder.commission_calculation?.manual_adjustment || 0) < 0 ? 'deduct' : 'add');
+const adjustmentMagnitude = ref(String(Math.abs(props.salesOrder.commission_calculation?.manual_adjustment || 0)));
+const manualAdjustment = computed(() => {
+    const magnitude = Math.abs(parseFloat(adjustmentMagnitude.value) || 0);
+    return adjustmentSign.value === 'deduct' ? -magnitude : magnitude;
+});
 const isAdjustmentDialogOpen = ref(false);
 const isConfirmDialogOpen = ref(false);
 const isRejectDialogOpen = ref(false);
@@ -103,9 +111,10 @@ const getLatestLog = (action: string) => {
         .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 };
 
-// Update ref if prop changes (e.g. after recalculation)
+// Update refs if prop changes (e.g. after recalculation)
 watch(() => props.salesOrder.commission_calculation?.manual_adjustment, (newVal) => {
-    manualAdjustment.value = newVal || 0;
+    adjustmentSign.value = (newVal || 0) < 0 ? 'deduct' : 'add';
+    adjustmentMagnitude.value = String(Math.abs(newVal || 0));
 });
 
 const applyAdjustment = () => {
@@ -114,10 +123,10 @@ const applyAdjustment = () => {
         isAdjustmentDialogOpen.value = false;
         return;
     }
-    
+
     router.post(route('commissions.adjust', props.salesOrder.commission_calculation.id), {
         adjustment_amount: manualAdjustment.value,
-        reason: 'Manual Adjustment via UI' 
+        reason: 'Manual Adjustment via UI'
     }, {
         preserveScroll: true,
         onSuccess: () => {
@@ -616,11 +625,34 @@ const formatFileSize = (bytes: number) => {
                                                     </DialogHeader>
                                                     <div class="grid gap-4 py-4">
                                                         <div class="grid grid-cols-4 items-center gap-4">
+                                                            <span class="text-right text-sm font-medium">Type</span>
+                                                            <div class="col-span-3 flex gap-2">
+                                                                <Button
+                                                                    type="button"
+                                                                    :variant="adjustmentSign === 'add' ? 'default' : 'outline'"
+                                                                    size="sm"
+                                                                    class="flex-1"
+                                                                    @click="adjustmentSign = 'add'"
+                                                                >
+                                                                    Add
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    :variant="adjustmentSign === 'deduct' ? 'destructive' : 'outline'"
+                                                                    size="sm"
+                                                                    class="flex-1"
+                                                                    @click="adjustmentSign = 'deduct'"
+                                                                >
+                                                                    Deduct
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                        <div class="grid grid-cols-4 items-center gap-4">
                                                             <span class="text-right text-sm font-medium">Amount</span>
                                                             <Input
                                                                 type="text"
                                                                 inputmode="decimal"
-                                                                v-model="manualAdjustment"
+                                                                v-model="adjustmentMagnitude"
                                                                 class="col-span-3"
                                                                 placeholder="0.00"
                                                             />
