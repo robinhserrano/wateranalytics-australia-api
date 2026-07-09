@@ -31,6 +31,18 @@ router.on('navigate', (event) => {
     posthog.capture('$pageview');
 });
 
+// If the session/CSRF token has expired (e.g. a tab left open past
+// SESSION_LIFETIME), Inertia's default behavior is to show a dead-end
+// "419 | Page Expired" error overlay. Do a full reload instead: the current
+// URL (filters and all) is preserved, and the reload fetches a fresh
+// session/CSRF token so the user just needs to click the action again.
+router.on('invalid', (event) => {
+    if (event.detail.response.status === 419) {
+        event.preventDefault();
+        window.location.reload();
+    }
+});
+
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     resolve: (name) =>

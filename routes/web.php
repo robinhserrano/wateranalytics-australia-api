@@ -70,6 +70,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('commissions/{commission}/adjust', [App\Http\Controllers\CommissionController::class, 'adjust'])->name('commissions.adjust');
         Route::post('commissions/{commission}/confirm', [App\Http\Controllers\CommissionController::class, 'confirm'])->name('commissions.confirm');
         Route::post('commissions/{commission}/reset-confirm', [App\Http\Controllers\CommissionController::class, 'resetConfirm'])->name('commissions.reset-confirm');
+        Route::get('reports', [App\Http\Controllers\ReportController::class, 'index'])->name('reports.index');
     });
 
     Route::middleware(['role:Admin|Account Officer'])->group(function () {

@@ -70,20 +70,40 @@ const props = defineProps<{
     canMarkOdoo?: boolean;
 }>();
 
-const search = ref(props.filters.search || '');
+// Persist filters per-browser so they survive closing the tab / opening fresh.
+// Only used when the URL itself has no filters (a real filtered link always wins).
+const FILTERS_STORAGE_KEY = 'sales-orders-filters';
+const hasUrlFilters = Object.values(props.filters).some(v => v && (!Array.isArray(v) || v.length));
+const cachedFilters = !hasUrlFilters ? JSON.parse(localStorage.getItem(FILTERS_STORAGE_KEY) || '{}') : {};
+const initialFilters = { ...cachedFilters, ...props.filters };
+
+const search = ref(initialFilters.search || '');
 
 const ensureArray = (val: any): string[] => {
     if (!val) return [];
     return Array.isArray(val) ? val : [val];
 };
 
-const commissionStatus = ref<string[]>(ensureArray(props.filters.commission_status));
-const invoiceStatus = ref<string[]>(ensureArray(props.filters.invoice_status));
-const deliveryStatus = ref<string[]>(ensureArray(props.filters.delivery_status));
-const managerConfirmationStatus = ref<string[]>(ensureArray(props.filters.manager_confirmation_status));
-const selectedUserIds = ref<string[]>(ensureArray(props.filters.user_ids));
-const dateFrom = ref<string>(props.filters.date_from || '');
-const dateTo = ref<string>(props.filters.date_to || '');
+const commissionStatus = ref<string[]>(ensureArray(initialFilters.commission_status));
+const invoiceStatus = ref<string[]>(ensureArray(initialFilters.invoice_status));
+const deliveryStatus = ref<string[]>(ensureArray(initialFilters.delivery_status));
+const managerConfirmationStatus = ref<string[]>(ensureArray(initialFilters.manager_confirmation_status));
+const selectedUserIds = ref<string[]>(ensureArray(initialFilters.user_ids));
+const dateFrom = ref<string>(initialFilters.date_from || '');
+const dateTo = ref<string>(initialFilters.date_to || '');
+
+watch([search, commissionStatus, invoiceStatus, deliveryStatus, managerConfirmationStatus, selectedUserIds, dateFrom, dateTo], () => {
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({
+        search: search.value,
+        commission_status: commissionStatus.value,
+        invoice_status: invoiceStatus.value,
+        delivery_status: deliveryStatus.value,
+        manager_confirmation_status: managerConfirmationStatus.value,
+        user_ids: selectedUserIds.value,
+        date_from: dateFrom.value,
+        date_to: dateTo.value,
+    }));
+}, { deep: true });
 
 const managerConfirmationOptions = ['Confirmed', 'Not Confirmed'];
 
@@ -121,6 +141,12 @@ const applyFilters = () => {
     );
     isFilterSheetOpen.value = false;
 };
+
+// If we loaded cached filters that weren't already in the URL, apply them now
+// so the results list matches what the filter sheet shows.
+if (!hasUrlFilters && Object.keys(cachedFilters).length) {
+    applyFilters();
+}
 
 const resetFilters = () => {
     commissionStatus.value = [];

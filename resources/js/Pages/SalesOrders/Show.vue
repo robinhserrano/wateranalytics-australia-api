@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import {
     Table,
     TableBody,
@@ -36,6 +36,8 @@ const props = defineProps<{
     canViewInstaller?: boolean;
     canConfirmCommission?: boolean;
 }>();
+
+const goBack = () => window.history.back();
 
 // Initialize manual adjustment ref
 const manualAdjustment = ref(props.salesOrder.commission_calculation?.manual_adjustment || 0);
@@ -366,10 +368,8 @@ const formatFileSize = (bytes: number) => {
     <AppLayout>
         <div class="flex h-full flex-1 flex-col gap-4 p-4">
             <div class="flex items-center gap-4">
-                <Button variant="outline" size="icon" as-child>
-                    <Link :href="route('sales-orders.index')">
-                        <ArrowLeft class="size-4" />
-                    </Link>
+                <Button variant="outline" size="icon" @click="goBack">
+                    <ArrowLeft class="size-4" />
                 </Button>
                 <h1 class="text-2xl font-bold tracking-tight">
                     Order {{ salesOrder.name }}
