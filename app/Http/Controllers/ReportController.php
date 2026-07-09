@@ -51,10 +51,17 @@ class ReportController extends Controller
                 'label' => Carbon::createFromFormat('Y-m', $month)->format("M 'y"),
                 'total_sales' => (float) $rowsForMonth->sum(fn ($r) => $r->salesOrder->amount_total),
                 'total_profit' => (float) $rowsForMonth->sum('profit'),
+                'active_reps' => $rowsForMonth->pluck('user_id')->unique()->count(),
             ];
         })->values();
 
         $usersQuery = $isAdmin ? User::query() : User::whereIn('id', $teamUserIds);
+
+        $requestedMonth = $request->input('month');
+        $monthDetail = null;
+        if ($requestedMonth && $months->contains($requestedMonth)) {
+            $monthDetail = $this->buildMonthDetail($requestedMonth, $scopedUserIds);
+        }
 
         return Inertia::render('Reports/Index', [
             'monthly' => $monthly,
@@ -69,6 +76,44 @@ class ReportController extends Controller
             'filters' => [
                 'user_ids' => $requestedUserIds,
             ],
+            'monthDetail' => $monthDetail,
         ]);
+    }
+
+    /**
+     * Order-level breakdown for a single month, scoped the same way as the
+     * main report (never wider than $scopedUserIds).
+     */
+    private function buildMonthDetail(string $month, ?array $scopedUserIds): array
+    {
+        $monthStart = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $monthEnd = $monthStart->copy()->endOfMonth();
+
+        $rows = CommissionCalculation::query()
+            ->select('id', 'user_id', 'sales_order_id', 'profit')
+            ->whereHas('salesOrder', function ($q) use ($monthStart, $monthEnd) {
+                $q->where('state', 'sale')->whereBetween('create_date', [$monthStart, $monthEnd]);
+            })
+            ->when($scopedUserIds !== null, fn ($q) => $q->whereIn('user_id', $scopedUserIds))
+            ->with(['salesOrder:id,name,partner_name,amount_total,create_date,delivery_status', 'user:id,name'])
+            ->get();
+
+        return [
+            'month' => $month,
+            'label' => Carbon::createFromFormat('Y-m', $month)->format("M 'y"),
+            'total_sales' => (float) $rows->sum(fn ($r) => $r->salesOrder->amount_total),
+            'total_profit' => (float) $rows->sum('profit'),
+            'active_reps' => $rows->pluck('user_id')->unique()->count(),
+            'orders' => $rows->map(fn ($r) => [
+                'id' => $r->salesOrder->id,
+                'name' => $r->salesOrder->name,
+                'partner_name' => $r->salesOrder->partner_name,
+                'owner' => $r->user->name ?? null,
+                'amount_total' => (float) $r->salesOrder->amount_total,
+                'profit' => (float) $r->profit,
+                'delivery_status' => $r->salesOrder->delivery_status,
+                'create_date' => optional($r->salesOrder->create_date)->toDateString(),
+            ])->sortByDesc('create_date')->values(),
+        ];
     }
 }

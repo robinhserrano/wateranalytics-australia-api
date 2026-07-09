@@ -107,3 +107,51 @@ test('commissions older than 12 months are excluded from the totals', function (
     expect($totals['total_sales'])->toBe(500.0)
         ->and($totals['total_profit'])->toBe(50.0);
 });
+
+test('active_reps counts distinct salespeople per month', function () {
+    $admin = reportRoleUser('Admin');
+    $userA = User::factory()->create();
+    $userB = User::factory()->create();
+    commissionForUser($userA, 1000, 100, now());
+    commissionForUser($userA, 500, 50, now()); // same user, same month, shouldn't double count
+    commissionForUser($userB, 2000, 200, now());
+
+    $response = $this->actingAs($admin)->get(route('reports.index'));
+
+    $monthly = collect($response->viewData('page')['props']['monthly']);
+    $currentMonth = $monthly->firstWhere('month', now()->format('Y-m'));
+    expect($currentMonth['active_reps'])->toBe(2);
+});
+
+test('month drill-down returns the orders for that month, scoped like the rest of the report', function () {
+    $manager = reportRoleUser('Sales Manager');
+    $report = User::factory()->create(['sales_manager_id' => $manager->id]);
+    $outsider = User::factory()->create();
+
+    $inMonth = commissionForUser($report, 700, 70, now());
+    commissionForUser($outsider, 9000, 9000, now()); // different team, must not appear
+    commissionForUser($report, 300, 30, now()->subMonths(2)); // different month, must not appear
+
+    $response = $this->actingAs($manager)->get(route('reports.index', ['month' => now()->format('Y-m')]));
+
+    $response->assertOk();
+    $detail = $response->viewData('page')['props']['monthDetail'];
+    expect($detail)->not->toBeNull()
+        ->and($detail['active_reps'])->toBe(1)
+        ->and($detail['total_sales'])->toBe(700.0)
+        ->and(collect($detail['orders'])->pluck('id')->all())->toBe([$inMonth->salesOrder->id]);
+});
+
+test('a sales manager cannot pull an outsider into the month drill-down by requesting their id', function () {
+    $manager = reportRoleUser('Sales Manager');
+    $outsider = User::factory()->create();
+    commissionForUser($outsider, 9000, 9000, now());
+
+    $response = $this->actingAs($manager)->get(route('reports.index', [
+        'user_ids' => [$outsider->id],
+        'month' => now()->format('Y-m'),
+    ]));
+
+    $detail = $response->viewData('page')['props']['monthDetail'];
+    expect($detail['orders'])->toBeEmpty();
+});
