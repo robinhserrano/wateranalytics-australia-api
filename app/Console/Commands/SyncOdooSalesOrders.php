@@ -11,6 +11,7 @@ use App\Models\SyncLog;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use App\Services\SyncLogger;
+use App\Services\OdooUserDirectory;
 
 class SyncOdooSalesOrders extends Command
 {
@@ -31,43 +32,22 @@ class SyncOdooSalesOrders extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger)
+    public function handle(Odoo $odoo, SyncLogger $logger, OdooUserDirectory $userDirectory)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Sales Order Sync (Golden Sync)...');
 
-        // Fetch Odoo User → Partner mapping (res.users → partner_id)
-        // This resolves the ambiguity where sales orders may reference different
-        // Odoo user accounts (e.g., 493 or 568) for the same person.
+        // Odoo User → Partner mapping (res.users → partner_id), via the shared
+        // (cached) user directory. Resolves the ambiguity where sales orders may
+        // reference different Odoo user accounts (e.g., 493 or 568) for the same person.
         $this->info('Fetching Odoo User → Partner ID mapping...');
         $userToPartnerMap = [];
         try {
-            $userOffset = 0;
-            $userLimit = 1000;
-            do {
-                $userResponse = $odoo->executeKw('res.users', 'web_search_read', [
-                    [['active', 'in', [true, false]]],
-                    ['partner_id' => (object) ['fields' => (object) ['id' => (object) [], 'display_name' => (object) []]]],
-                    $userOffset,
-                    $userLimit,
-                    'id asc'
-                ]);
-                $odooUsers = $userResponse->records ?? (is_array($userResponse) ? ($userResponse['records'] ?? []) : []);
-                foreach ($odooUsers as $u) {
-                    $u = (object) $u;
-                    $partnerRaw = $u->partner_id ?? null;
-                    $partnerId = null;
-                    if (is_array($partnerRaw)) {
-                        $partnerId = $partnerRaw[0] ?? null;
-                    } elseif (is_object($partnerRaw)) {
-                        $partnerId = $partnerRaw->id ?? null;
-                    }
-                    if ($partnerId) {
-                        $userToPartnerMap[$u->id] = $partnerId;
-                    }
+            foreach ($userDirectory->users($odoo) as $u) {
+                if ($u['partner_id']) {
+                    $userToPartnerMap[$u['id']] = $u['partner_id'];
                 }
-                $userOffset += $userLimit;
-            } while (count($odooUsers) === $userLimit);
+            }
             $this->info('Mapped ' . count($userToPartnerMap) . ' Odoo users to partner IDs.');
         } catch (\Exception $e) {
             $this->warn('Could not fetch user→partner map: ' . $e->getMessage());
@@ -165,13 +145,13 @@ class SyncOdooSalesOrders extends Command
             do {
                 $this->info("Fetching records offset $offset...");
 
-                $response = $odoo->executeKw('sale.order', 'web_search_read', [
+                $response = retry(3, fn () => $odoo->executeKw('sale.order', 'web_search_read', [
                     $domain,
                     $specification,
                     $offset,
                     $limit,
                     'write_date desc'
-                ]);
+                ]), 500);
 
                 $orders = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
 
@@ -425,31 +405,17 @@ class SyncOdooSalesOrders extends Command
     }
 
     /**
-     * Resolve the effective invoice payment status for a sale.order record.
-     *
-     * Odoo returns boolean false for custom studio fields that have never been
-     * explicitly set. In that case we fall back to Odoo's native
-     * invoice_payment_status field (e.g. 'paid', 'not_paid', 'partial',
-     * 'in_payment') so the UI always shows the correct status even when the
-     * custom field was never populated.
-     *
-     * Priority:
-     *   1. x_studio_invoice_payment_status (custom) — if it's a real string value
-     *   2. invoice_payment_status (native Odoo)       — reliable fallback
-     *   3. null                                        — truly unknown
+     * Resolve x_studio_invoice_payment_status, treating Odoo's "unset" boolean
+     * false (and its string forms) as null rather than a real status.
      */
     private function resolvePaymentStatus(object $order): ?string
     {
         $custom = $order->x_studio_invoice_payment_status ?? null;
-        // $native = $order->invoice_payment_status ?? null;
 
-        // Odoo returns boolean false for unset custom fields.
-        // Treat false / empty string / literal "false" as "not set".
         if ($custom !== null && $custom !== false && $custom !== '' && $custom !== 'false') {
             return (string) $custom;
         }
 
-        // Fall back to native Odoo field (always populated for confirmed orders)
         return null;
     }
 }

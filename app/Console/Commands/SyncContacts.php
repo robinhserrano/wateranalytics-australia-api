@@ -10,6 +10,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Obuchmann\OdooJsonRpc\Odoo;
 use App\Services\SyncLogger;
+use App\Services\OdooUserDirectory;
 
 class SyncContacts extends Command
 {
@@ -30,7 +31,7 @@ class SyncContacts extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger)
+    public function handle(Odoo $odoo, SyncLogger $logger, OdooUserDirectory $userDirectory)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Contact Sync...');
@@ -101,13 +102,13 @@ class SyncContacts extends Command
                     $specification[$field] = (object)[];
                 }
 
-                $response = $odoo->executeKw('res.partner', 'web_search_read', [
+                $response = retry(3, fn () => $odoo->executeKw('res.partner', 'web_search_read', [
                     $domain,
                     $specification,
                     $offset,
                     $limit,
                     'id desc'
-                ]);
+                ]), 500);
 
                 $contacts = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
 
@@ -209,44 +210,16 @@ class SyncContacts extends Command
             // This catches ghost contacts (e.g., Contact 5611 whose User 493 has partner_id=5611).
             $this->info('Backfilling odoo_user_ids from Odoo res.users...');
             try {
-                // Build partner_id → [user_ids] map from res.users
+                // Build partner_id → [user_ids] map from the shared (cached) user directory
                 $partnerToUserIds = [];
-                $userOffset = 0;
-                $userLimit = 1000;
-                do {
-                    $userResponse = $odoo->executeKw('res.users', 'web_search_read', [
-                        [['active', 'in', [true, false]]],
-                        ['partner_id' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]], 'active' => (object)[]],
-                        $userOffset,
-                        $userLimit,
-                        'id asc'
-                    ]);
-                    $odooUsers = $userResponse->records ?? (is_array($userResponse) ? ($userResponse['records'] ?? []) : []);
-                    foreach ($odooUsers as $u) {
-                        $u = (object)$u;
-                        $partnerRaw = $u->partner_id ?? null;
-                        
-                        $partnerId = null;
-                        $partnerName = 'Unknown (Ghost)';
-                        
-                        if (is_array($partnerRaw)) {
-                            $partnerId = $partnerRaw[0] ?? null;
-                            $partnerName = $partnerRaw[1] ?? 'Unknown (Ghost)';
-                        } elseif (is_object($partnerRaw)) {
-                            $partnerId = $partnerRaw->id ?? null;
-                            $partnerName = $partnerRaw->display_name ?? 'Unknown (Ghost)';
-                        }
-
-                        $isActive = $u->active ?? true; // Default to true if not provided
-                        $suffixedUserId = $isActive ? (string)$u->id : $u->id . '-G';
-
-                        if ($partnerId) {
-                            $partnerToUserIds[$partnerId]['user_ids'][] = $suffixedUserId;
-                            $partnerToUserIds[$partnerId]['name'] = $partnerName;
-                        }
+                foreach ($userDirectory->users($odoo) as $u) {
+                    if (!$u['partner_id']) {
+                        continue;
                     }
-                    $userOffset += $userLimit;
-                } while (count($odooUsers) === $userLimit);
+                    $suffixedUserId = $u['active'] ? (string) $u['id'] : $u['id'] . '-G';
+                    $partnerToUserIds[$u['partner_id']]['user_ids'][] = $suffixedUserId;
+                    $partnerToUserIds[$u['partner_id']]['name'] = $u['partner_name'];
+                }
 
                 $this->info('Fetched ' . count($partnerToUserIds) . ' user→partner mappings from res.users.');
 
