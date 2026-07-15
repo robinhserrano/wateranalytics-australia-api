@@ -428,20 +428,17 @@ class SyncOdooSalesOrders extends Command
      * Resolve the effective invoice payment status for a sale.order record.
      *
      * Odoo returns boolean false for custom studio fields that have never been
-     * explicitly set. In that case we fall back to Odoo's native
-     * invoice_payment_status field (e.g. 'paid', 'not_paid', 'partial',
-     * 'in_payment') so the UI always shows the correct status even when the
-     * custom field was never populated.
+     * explicitly set. In that case we fall back to checking amount_to_invoice:
+     * a fully invoiced/delivered order with nothing left to invoice is paid.
      *
      * Priority:
      *   1. x_studio_invoice_payment_status (custom) — if it's a real string value
-     *   2. invoice_payment_status (native Odoo)       — reliable fallback
+     *   2. amount_to_invoice == 0                     — nothing owing, treat as paid
      *   3. null                                        — truly unknown
      */
     private function resolvePaymentStatus(object $order): ?string
     {
         $custom = $order->x_studio_invoice_payment_status ?? null;
-        // $native = $order->invoice_payment_status ?? null;
 
         // Odoo returns boolean false for unset custom fields.
         // Treat false / empty string / literal "false" as "not set".
@@ -449,7 +446,10 @@ class SyncOdooSalesOrders extends Command
             return (string) $custom;
         }
 
-        // Fall back to native Odoo field (always populated for confirmed orders)
+        if (($order->amount_to_invoice ?? null) !== null && (float) $order->amount_to_invoice === 0.0) {
+            return 'paid';
+        }
+
         return null;
     }
 }
