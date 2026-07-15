@@ -2,15 +2,17 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Obuchmann\OdooJsonRpc\Odoo;
+use App\Models\Contact;
+use App\Models\Product;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
-use App\Models\Product;
 use App\Models\SyncLog;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
 use App\Services\SyncLogger;
+use Carbon\Carbon;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Obuchmann\OdooJsonRpc\Odoo;
 
 class SyncOdooSalesOrders extends Command
 {
@@ -50,7 +52,7 @@ class SyncOdooSalesOrders extends Command
                     ['partner_id' => (object) ['fields' => (object) ['id' => (object) [], 'display_name' => (object) []]]],
                     $userOffset,
                     $userLimit,
-                    'id asc'
+                    'id asc',
                 ]);
                 $odooUsers = $userResponse->records ?? (is_array($userResponse) ? ($userResponse['records'] ?? []) : []);
                 foreach ($odooUsers as $u) {
@@ -68,9 +70,9 @@ class SyncOdooSalesOrders extends Command
                 }
                 $userOffset += $userLimit;
             } while (count($odooUsers) === $userLimit);
-            $this->info('Mapped ' . count($userToPartnerMap) . ' Odoo users to partner IDs.');
+            $this->info('Mapped '.count($userToPartnerMap).' Odoo users to partner IDs.');
         } catch (\Exception $e) {
-            $this->warn('Could not fetch user→partner map: ' . $e->getMessage());
+            $this->warn('Could not fetch user→partner map: '.$e->getMessage());
             $this->warn('salesperson_partner_id will be null for this sync run.');
         }
 
@@ -84,7 +86,7 @@ class SyncOdooSalesOrders extends Command
                     'display_name' => (object) [],
                     'contact_address_complete' => (object) [],
                     'state_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
-                ]
+                ],
             ],
             'user_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
             'team_id' => (object) ['fields' => (object) ['display_name' => (object) []]],
@@ -132,9 +134,9 @@ class SyncOdooSalesOrders extends Command
                             'list_price' => (object) [],
                             'type' => (object) [],
                             'write_date' => (object) [],
-                        ]
+                        ],
                     ],
-                ]
+                ],
             ],
         ];
 
@@ -143,11 +145,11 @@ class SyncOdooSalesOrders extends Command
         $totalSynced = 0;
         $domain = [
             ['tag_ids', 'in', [2]],
-            ['state', '=', 'sale']
+            ['state', '=', 'sale'],
         ];
 
         // Incremental Sync logic
-        if (!$this->option('all')) {
+        if (! $this->option('all')) {
             $lastSuccessfulSync = SyncLog::where('command', $this->signature)
                 ->where('status', 'completed')
                 ->latest('completed_at')
@@ -155,7 +157,12 @@ class SyncOdooSalesOrders extends Command
 
             if ($lastSuccessfulSync) {
                 $lastSyncDate = $lastSuccessfulSync->completed_at->toDateTimeString();
+                // Payment/invoice status changes on the linked invoice don't always
+                // bump sale.order.write_date, so also catch orders whose invoices
+                // were modified since the last sync (e.g. a payment being registered).
+                $domain[] = '|';
                 $domain[] = ['write_date', '>', $lastSyncDate];
+                $domain[] = ['invoice_ids.write_date', '>', $lastSyncDate];
                 $this->info("Fetching records modified since $lastSyncDate...");
             }
         }
@@ -170,7 +177,7 @@ class SyncOdooSalesOrders extends Command
                     $specification,
                     $offset,
                     $limit,
-                    'write_date desc'
+                    'write_date desc',
                 ]);
 
                 $orders = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
@@ -233,14 +240,14 @@ class SyncOdooSalesOrders extends Command
 
                         'is_subscription' => $order->is_subscription ?? false,
                         'subscription_state' => $order->subscription_state ?? null,
-                        'start_date' => (!empty($order->start_date) && !str_starts_with($order->start_date, '1970')) ? $order->start_date : null,
-                        'next_invoice_date' => (!empty($order->next_invoice_date) && !str_starts_with($order->next_invoice_date, '1970')) ? $order->next_invoice_date : null,
-                        'end_date' => (!empty($order->end_date) && !str_starts_with($order->end_date, '1970')) ? $order->end_date : null,
+                        'start_date' => (! empty($order->start_date) && ! str_starts_with($order->start_date, '1970')) ? $order->start_date : null,
+                        'next_invoice_date' => (! empty($order->next_invoice_date) && ! str_starts_with($order->next_invoice_date, '1970')) ? $order->next_invoice_date : null,
+                        'end_date' => (! empty($order->end_date) && ! str_starts_with($order->end_date, '1970')) ? $order->end_date : null,
                         'updated_at' => Carbon::now(),
                     ];
 
                     // Process Nested Order Lines
-                    if (!empty($order->order_line)) {
+                    if (! empty($order->order_line)) {
                         foreach ($order->order_line as $line) {
                             $line = (object) $line;
                             $productId = $line->product_id->id ?? null;
@@ -263,7 +270,7 @@ class SyncOdooSalesOrders extends Command
                                 'qty_delivered' => $line->qty_delivered ?? 0,
                                 'qty_invoiced' => $line->qty_invoiced ?? 0,
                                 'discount' => $line->discount ?? 0,
-                                'tax_names' => !empty($line->tax_id) && is_array($line->tax_id) ? implode(', ', array_map(function ($t) {
+                                'tax_names' => ! empty($line->tax_id) && is_array($line->tax_id) ? implode(', ', array_map(function ($t) {
                                     return is_object($t) ? ($t->display_name ?? '') : (is_array($t) ? ($t['display_name'] ?? '') : '');
                                 }, $line->tax_id)) : null,
                                 'lower_name' => strtolower($line->product_id->display_name ?? ''),
@@ -273,13 +280,13 @@ class SyncOdooSalesOrders extends Command
                 }
 
                 // Sync missing products from metadata
-                if (!empty($odooProductMetadata)) {
+                if (! empty($odooProductMetadata)) {
                     $odooProductIds = array_keys($odooProductMetadata);
                     $existingLocalProductIds = Product::whereIn('odoo_id', $odooProductIds)->pluck('odoo_id')->toArray();
                     $missingProductIds = array_diff($odooProductIds, $existingLocalProductIds);
 
-                    if (!empty($missingProductIds)) {
-                        $this->info("Adding " . count($missingProductIds) . " missing products from Golden Sync metadata...");
+                    if (! empty($missingProductIds)) {
+                        $this->info('Adding '.count($missingProductIds).' missing products from Golden Sync metadata...');
                         foreach ($missingProductIds as $mId) {
                             $mp = (object) $odooProductMetadata[$mId];
                             Product::create([
@@ -297,7 +304,7 @@ class SyncOdooSalesOrders extends Command
                 }
 
                 // Batch Upsert Sales Orders
-                $this->info("Upserting " . count($syncData) . " sales orders...");
+                $this->info('Upserting '.count($syncData).' sales orders...');
                 SalesOrder::upsert($syncData, ['odoo_id'], [
                     'name',
                     'create_date',
@@ -337,7 +344,7 @@ class SyncOdooSalesOrders extends Command
                     'start_date',
                     'next_invoice_date',
                     'end_date',
-                    'updated_at'
+                    'updated_at',
                 ]);
 
                 // Re-fetch to get local IDs for line mapping
@@ -371,8 +378,8 @@ class SyncOdooSalesOrders extends Command
                     }
                 }
 
-                if (!empty($finalLineData)) {
-                    $this->info("Upserting " . count($finalLineData) . " order lines...");
+                if (! empty($finalLineData)) {
+                    $this->info('Upserting '.count($finalLineData).' order lines...');
                     SalesOrderLine::upsert($finalLineData, ['odoo_id'], [
                         'sales_order_id',
                         'odoo_order_id',
@@ -389,13 +396,13 @@ class SyncOdooSalesOrders extends Command
                         'tax_names',
                         'is_supply_only',
                         'is_installation_service',
-                        'updated_at'
+                        'updated_at',
                     ]);
 
                     // Refresh denormalized data for affected contacts
                     $affectedSalesOrderIds = array_unique(array_column($finalLineData, 'sales_order_id'));
                     $partnerOdooIds = SalesOrder::whereIn('id', $affectedSalesOrderIds)->pluck('partner_id')->unique()->toArray();
-                    \App\Models\Contact::whereIn('odoo_id', $partnerOdooIds)->get()->each->refreshDenormalizedData();
+                    Contact::whereIn('odoo_id', $partnerOdooIds)->get()->each->refreshDenormalizedData();
                 }
 
                 $totalSynced += count($orders);
@@ -409,17 +416,19 @@ class SyncOdooSalesOrders extends Command
             $this->info('Calculating commissions for sales orders...');
             $this->call('commissions:calculate-missing', [
                 '--limit' => $totalSynced,
-                '--update-unconfirmed' => true
+                '--update-unconfirmed' => true,
             ]);
 
-            $logger->complete($log, $totalSynced, (isset($domain) && !empty($domain)) ? "Incremental sync completed." : "Full sync completed.");
-            \Illuminate\Support\Facades\Cache::forget('contacts_dashboard_stats');
+            $logger->complete($log, $totalSynced, (isset($domain) && ! empty($domain)) ? 'Incremental sync completed.' : 'Full sync completed.');
+            Cache::forget('contacts_dashboard_stats');
+
             return 0;
 
         } catch (\Exception $e) {
-            $this->error("Failed to fetch from Odoo: " . $e->getMessage());
-            Log::error("Odoo Sync Error: " . $e->getMessage());
+            $this->error('Failed to fetch from Odoo: '.$e->getMessage());
+            Log::error('Odoo Sync Error: '.$e->getMessage());
             $logger->fail($log, $e);
+
             return 1;
         }
     }
