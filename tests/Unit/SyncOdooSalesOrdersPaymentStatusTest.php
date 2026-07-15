@@ -30,3 +30,17 @@ test('resolvePaymentStatus treats the literal string "false" as not set', functi
 test('resolvePaymentStatus returns null when the field is missing entirely', function () {
     expect(resolvePaymentStatus((object) []))->toBeNull();
 });
+
+test('resolvePaymentStatus falls back to paid when amount_to_invoice is 0', function () {
+    expect(resolvePaymentStatus((object) [
+        'x_studio_invoice_payment_status' => false,
+        'amount_to_invoice' => 0,
+    ]))->toBe('paid');
+});
+
+test('resolvePaymentStatus does not fall back to paid when amount_to_invoice is still owing', function () {
+    expect(resolvePaymentStatus((object) [
+        'x_studio_invoice_payment_status' => false,
+        'amount_to_invoice' => 150.0,
+    ]))->toBeNull();
+});
