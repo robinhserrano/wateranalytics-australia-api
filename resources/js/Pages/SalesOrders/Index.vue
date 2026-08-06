@@ -34,10 +34,10 @@ import {
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
-import { DateFormatter, type DateValue, getLocalTimeZone, parseDate, today } from '@internationalized/date';
+import { DateFormatter, getLocalTimeZone, parseDate } from '@internationalized/date';
 import { ref, watch, computed } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
-import { Search, Filter, X, RotateCcw, ChevronDown, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-vue-next';
+import { Search, Filter, X, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-vue-next';
 
 const props = defineProps<{
     salesOrders: {
@@ -264,7 +264,7 @@ const parseCalendarDate = (val: string) => {
     if (!val) return undefined;
     try {
         return parseDate(val);
-    } catch (e) {
+    } catch {
         return undefined;
     }
 };
@@ -274,7 +274,7 @@ const displayDate = (dateStr: string) => {
     try {
         const d = parseDate(dateStr);
         return df.format(d.toDate(getLocalTimeZone()));
-    } catch (e) {
+    } catch {
         return dateStr;
     }
 };
@@ -304,12 +304,6 @@ const getActiveFilterCount = () => {
     if (dateFrom.value) count++;
     if (dateTo.value) count++;
     return count;
-};
-
-const getSelectedUserNames = () => {
-    return props.users
-        .filter(u => selectedUserIds.value.includes(String(u.id)))
-        .map(u => u.name);
 };
 
 const formatCurrency = (amount: number | null) => {
@@ -344,10 +338,6 @@ const getBadgeStyles = (source: string | null) => {
         backgroundColor: '#f1f5f9',
         borderColor: '#cbd5e1'
     };
-};
-
-const formatBoolean = (val: any) => {
-    return val ? 'Yes' : 'No';
 };
 
 const formatDeliveryStatus = (status: string | null) => {

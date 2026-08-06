@@ -23,7 +23,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { ArrowLeft, Package, DollarSign, Box, Tag, Edit, Plus, Receipt } from 'lucide-vue-next';
+import { ArrowLeft, Package, DollarSign, Box, Tag, Plus, Receipt } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps<{

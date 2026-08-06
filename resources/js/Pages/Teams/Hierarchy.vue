@@ -3,12 +3,11 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Maximize2, Minimize2, Network } from 'lucide-vue-next';
+import { ArrowLeft } from 'lucide-vue-next';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
 import UserNode from '@/components/Hierarchy/UserNode.vue';
-import { ref, onMounted, defineComponent, h } from 'vue';
 import dagre from 'dagre';
 
 // Import Vue Flow styles
@@ -39,7 +38,7 @@ const breadcrumbs = [
     { title: 'Hierarchy', href: route('teams.hierarchy') },
 ];
 
-const { onPaneReady, fitView, addEdges, addNodes } = useVueFlow();
+const { onPaneReady, fitView } = useVueFlow();
 
 const layout = (users: User[]) => {
     const dagreGraph = new dagre.graphlib.Graph();

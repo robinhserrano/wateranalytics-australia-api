@@ -24,11 +24,7 @@ import {
     TableHeader, 
     TableRow 
 } from '@/components/ui/table';
-import { 
-    TrendingUp, 
-    ShoppingCart, 
-    Calendar,
-    CircleDollarSign,
+import {
     ExternalLink,
     ChevronLeft
 } from 'lucide-vue-next';

@@ -34,7 +34,6 @@ import { router, usePage } from '@inertiajs/vue3';
 import debounce from 'lodash/debounce';
 import { ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-vue-next';
 import { getRoleStyle } from '@/lib/utils';
-import { format } from 'date-fns';
 
 const props = defineProps<{
     users: {
@@ -124,14 +123,6 @@ const formatNumber = (num: number | string) => {
     return val.toFixed(2);
 };
 
-const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    try {
-        return format(new Date(dateString), 'MMM dd, yyyy');
-    } catch (e) {
-        return dateString;
-    }
-};
 
 const userIsActive = (latestSaleDate: string | null) => {
     if (!latestSaleDate) return false;
