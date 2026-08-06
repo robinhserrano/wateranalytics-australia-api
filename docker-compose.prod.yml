@@ -71,7 +71,9 @@ services:
         container_name: laravel-queue
         restart: unless-stopped
         working_dir: /var/www
-        command: "php artisan queue:work --tries=3 --timeout=90"
+        command: "php artisan horizon"
+        stop_signal: SIGTERM
+        stop_grace_period: 90s
         volumes:
             - ./.env:/var/www/.env
             - storage:/var/www/storage

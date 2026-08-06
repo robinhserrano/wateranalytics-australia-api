@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CommissionCalculation;
 use App\Models\CommissionApproval;
+use App\Models\CommissionCalculation;
 use App\Models\SalesOrder;
 use App\Services\CommissionCalculator;
 use Illuminate\Http\Request;
@@ -73,7 +73,7 @@ class CommissionController extends Controller
             $search = $request->search;
             $query->whereHas('salesOrder', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('partner_name', 'like', "%{$search}%");
+                    ->orWhere('partner_name', 'like', "%{$search}%");
             })->orWhereHas('user', function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%");
             });
@@ -158,7 +158,7 @@ class CommissionController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to calculate commission: ' . $e->getMessage(),
+                'message' => 'Failed to calculate commission: '.$e->getMessage(),
             ], 422);
         }
     }
@@ -171,11 +171,9 @@ class CommissionController extends Controller
         try {
             $newCommission = $this->calculator->recalculate($commission);
 
-
-
             return back()->with('success', 'Commission recalculated successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to recalculate commission: ' . $e->getMessage());
+            return back()->with('error', 'Failed to recalculate commission: '.$e->getMessage());
         }
     }
 
@@ -199,7 +197,7 @@ class CommissionController extends Controller
 
             return back()->with('success', 'Adjustment applied successfully');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to apply adjustment: ' . $e->getMessage());
+            return back()->with('error', 'Failed to apply adjustment: '.$e->getMessage());
         }
     }
 
@@ -233,7 +231,8 @@ class CommissionController extends Controller
             return back()->with('success', 'Commission approved successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to approve commission: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to approve commission: '.$e->getMessage());
         }
     }
 
@@ -268,7 +267,8 @@ class CommissionController extends Controller
             return back()->with('success', 'Commission rejected');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to reject commission: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to reject commission: '.$e->getMessage());
         }
     }
 
@@ -287,9 +287,9 @@ class CommissionController extends Controller
         $isAdmin = $user->hasRole('Admin');
 
         // Sales Managers must wait for full delivery before confirming
-        if (!$isAdmin) {
+        if (! $isAdmin) {
             $salesOrder = $commission->salesOrder;
-            if (!$salesOrder || $salesOrder->delivery_status !== 'full') {
+            if (! $salesOrder || $salesOrder->delivery_status !== 'full') {
                 return back()->with('error', 'The sales order must be fully delivered before you can confirm the commission.');
             }
         }
@@ -313,7 +313,8 @@ class CommissionController extends Controller
             return back()->with('success', 'Commission confirmed by manager');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to confirm commission: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to confirm commission: '.$e->getMessage());
         }
     }
 
@@ -341,7 +342,8 @@ class CommissionController extends Controller
             return back()->with('success', 'Commission marked as paid');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to mark commission as paid: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to mark commission as paid: '.$e->getMessage());
         }
     }
 
@@ -369,7 +371,8 @@ class CommissionController extends Controller
             return back()->with('success', 'Commission marked as entered to Odoo');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to mark as entered to Odoo: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to mark as entered to Odoo: '.$e->getMessage());
         }
     }
 
@@ -379,7 +382,7 @@ class CommissionController extends Controller
     public function resetConfirm(Request $request, CommissionCalculation $commission)
     {
         // Check if user is admin or sales manager
-        if (!Auth::user()->hasRole('Admin') && !Auth::user()->hasRole('Sales Manager')) {
+        if (! Auth::user()->hasRole('Admin') && ! Auth::user()->hasRole('Sales Manager')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -402,7 +405,8 @@ class CommissionController extends Controller
             return back()->with('success', 'Manager confirmation reset successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to reset confirmation: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to reset confirmation: '.$e->getMessage());
         }
     }
 
@@ -412,7 +416,7 @@ class CommissionController extends Controller
     public function resetOdooSync(Request $request, CommissionCalculation $commission)
     {
         // Check if user is admin
-        if (!Auth::user()->hasRole('Admin')) {
+        if (! Auth::user()->hasRole('Admin')) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -434,7 +438,8 @@ class CommissionController extends Controller
             return back()->with('success', 'Odoo sync status reset successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to reset Odoo sync: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to reset Odoo sync: '.$e->getMessage());
         }
     }
 
@@ -451,26 +456,29 @@ class CommissionController extends Controller
 
         DB::beginTransaction();
         try {
-            $count = 0;
-            foreach ($request->commission_ids as $commissionId) {
-                $commission = CommissionCalculation::find($commissionId);
-                
-                if ($commission && $commission->status === 'pending') {
-                    $commission->update([
-                        'status' => 'approved',
-                        'approved_by' => Auth::id(),
-                        'approved_at' => now(),
-                    ]);
+            $pendingIds = CommissionCalculation::whereIn('id', $request->commission_ids)
+                ->where('status', 'pending')
+                ->pluck('id');
 
-                    CommissionApproval::create([
-                        'commission_calculation_id' => $commission->id,
-                        'approver_id' => Auth::id(),
-                        'action' => 'approved',
-                        'notes' => $request->notes ?? 'Bulk approval',
-                    ]);
+            $count = $pendingIds->count();
 
-                    $count++;
-                }
+            if ($count > 0) {
+                $now = now();
+
+                CommissionCalculation::whereIn('id', $pendingIds)->update([
+                    'status' => 'approved',
+                    'approved_by' => Auth::id(),
+                    'approved_at' => $now,
+                ]);
+
+                CommissionApproval::insert($pendingIds->map(fn ($id) => [
+                    'commission_calculation_id' => $id,
+                    'approver_id' => Auth::id(),
+                    'action' => 'approved',
+                    'notes' => $request->notes ?? 'Bulk approval',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])->all());
             }
 
             DB::commit();
@@ -478,7 +486,8 @@ class CommissionController extends Controller
             return back()->with('success', "{$count} commissions approved successfully");
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Failed to bulk approve commissions: ' . $e->getMessage());
+
+            return back()->with('error', 'Failed to bulk approve commissions: '.$e->getMessage());
         }
     }
 

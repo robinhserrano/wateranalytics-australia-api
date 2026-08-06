@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\SalesOrder;
-use App\Models\User;
 use App\Models\CommissionCalculation;
-use App\Models\SalesOrderLine;
+use App\Models\Contact;
 use App\Models\LandingPrice;
+use App\Models\SalesOrder;
+use App\Models\SalesOrderLine;
+use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class CommissionCalculator
@@ -15,6 +17,7 @@ class CommissionCalculator
      * Special product that gets fixed $200 commission
      */
     private const SPECIAL_PRODUCT_CODE = 'usro-6s1-2w';
+
     private const SPECIAL_PRODUCT_COMMISSION = 200.00;
 
     /**
@@ -33,10 +36,22 @@ class CommissionCalculator
     private const ADDITIONAL_COST_MARKUP = 1.1;
 
     /**
+     * Memoized salesperson-resolution lookup maps, built once per instance
+     * (e.g. once per whole `commissions:calculate-missing` run) instead of
+     * re-querying Contact/User for every sales order.
+     */
+    private ?Collection $contactUserIdByOdooId = null;
+
+    private ?Collection $contactUserIdByDisplayName = null;
+
+    private ?Collection $usersByOdooOrSalespersonId = null;
+
+    private ?Collection $usersByName = null;
+
+    private ?Collection $usersById = null;
+
+    /**
      * Main method to calculate commission for a sales order
-     * 
-     * @param SalesOrder $salesOrder
-     * @return CommissionCalculation
      */
     public function calculateCommission(SalesOrder $salesOrder): ?CommissionCalculation
     {
@@ -48,59 +63,12 @@ class CommissionCalculator
             'lines.landingPrice',
         ]);
 
-        // Determine the salesperson
-        // Priority 1: Check if the customer (Contact) has an explicitly assigned user (Commission Owner)
-        // This satisfies the requirement: "user values... must be used based from which user owns... the specific contact id"
-        $user = null;
-        if ($salesOrder->partner_id) {
-            $contact = \App\Models\Contact::where('odoo_id', $salesOrder->partner_id)->first();
-            if ($contact && $contact->user_id) {
-                $user = User::find($contact->user_id);
-            }
-        }
+        $user = $this->resolveSalesperson($salesOrder);
 
-        // Priority 2: Match salesperson through the resolved salesperson_partner_id
-        if (!$user && $salesOrder->salesperson_partner_id) {
-            $contact = \App\Models\Contact::where('odoo_id', $salesOrder->salesperson_partner_id)->first();
-            if ($contact && $contact->user_id) {
-                $user = User::find($contact->user_id);
-            }
-        }
-
-        // Priority 3: Fallback to older methods
-        if (!$user) {
-            // 3a. Try matching by Odoo User ID
-            if ($salesOrder->user_id) {
-                $user = User::where('odoo_user_id', $salesOrder->user_id)
-                            ->orWhere('odoo_salesperson_id', $salesOrder->user_id)
-                            ->first();
-            }
-
-            // 3b. Try matching by Name (if ID match failed or ID missing)
-            if (!$user && $salesOrder->user_name) {
-                $user = User::where('name', $salesOrder->user_name)->first();
-            }
-
-            // 3c. Try lookup by Salesperson Name match to Contact Display Name -> Resolve to Contact Owner
-            if (!$user && $salesOrder->user_name) {
-                $contact = \App\Models\Contact::where('display_name', $salesOrder->user_name)->first();
-                if ($contact && $contact->user_id) {
-                    $user = User::find($contact->user_id);
-                }
-            }
-
-            // 3d. Try lookup by Salesperson ID match to Contact Odoo ID -> Resolve to Contact Owner
-            if (!$user && $salesOrder->user_id) {
-                $contact = \App\Models\Contact::where('odoo_id', $salesOrder->user_id)->first();
-                if ($contact && $contact->user_id) {
-                    $user = User::find($contact->user_id);
-                }
-            }
-        }
-        
-        if (!$user) {
+        if (! $user) {
             // Skip this order if no user can be found
             \Log::info("Skipping commission calculation for order #{$salesOrder->id}: No matching user found");
+
             return null;
         }
 
@@ -120,7 +88,8 @@ class CommissionCalculator
         $baseCommission = $this->calculateBaseCommission($user, $salesSource, $isSpecialProduct);
         $extraCommission = $this->calculateExtraCommission($profit, $user->commission_split);
         // Preserve existing manual adjustments and status if recalculating
-        $existingCalculation = CommissionCalculation::where('sales_order_id', $salesOrder->id)->first();
+        // (uses the commissionCalculation relation so callers can eager-load it across a batch)
+        $existingCalculation = $salesOrder->commissionCalculation;
         $manualAdjustment = $existingCalculation ? $existingCalculation->manual_adjustment : 0;
         $status = $existingCalculation ? $existingCalculation->status : 'pending';
 
@@ -166,13 +135,10 @@ class CommissionCalculator
 
     /**
      * Calculate selling price based on payment type
-     * 
+     *
      * Formula:
      * - Cash Payment: amountTotal
      * - Non-Cash Payment: amountTotal × 0.9 (10% discount)
-     * 
-     * @param SalesOrder $salesOrder
-     * @return float
      */
     public function calculateSellingPrice(SalesOrder $salesOrder): float
     {
@@ -189,15 +155,12 @@ class CommissionCalculator
 
     /**
      * Calculate additional cost from order lines
-     * 
+     *
      * Formula:
      * Sum of (Tax Exclusive line item amounts × 1.1) for lines that:
      * - Do not have a matching Landing Price
      * - Are not 'installation service'
      * - Are not 'supply only'
-     * 
-     * @param SalesOrder $salesOrder
-     * @return float
      */
     public function calculateAdditionalCost(SalesOrder $salesOrder): float
     {
@@ -212,7 +175,7 @@ class CommissionCalculator
             }
 
             // Skip if it's installation service or supply only (flags or name)
-            if ($line->is_installation_service || $line->is_supply_only || 
+            if ($line->is_installation_service || $line->is_supply_only ||
                 str_contains(strtolower($line->product_name ?? ''), 'installation service') ||
                 str_contains(strtolower($line->product_name ?? ''), 'supply only')) {
                 continue;
@@ -220,7 +183,7 @@ class CommissionCalculator
 
             // Use tax_exclusive_amount if available, otherwise calculate from price_subtotal
             $taxExclusiveAmount = $line->tax_exclusive_amount ?? $line->price_subtotal ?? 0;
-            
+
             // Apply 1.1 markup
             $additionalCost += $taxExclusiveAmount * self::ADDITIONAL_COST_MARKUP;
         }
@@ -230,19 +193,16 @@ class CommissionCalculator
 
     /**
      * Calculate landing price from order lines
-     * 
+     *
      * Formula:
      * Sum of associated Installation Service or Supply Only costs from LandingPrice
      * - Uses supplyOnly cost if order contains a 'supply only' product line
      * - Uses installationService cost otherwise
-     * 
-     * @param SalesOrder $salesOrder
-     * @return float
      */
     public function calculateLandingPrice(SalesOrder $salesOrder): float
     {
         $landingPrice = 0;
-        
+
         // Check if order has any supply-only items (flag or name)
         $hasSupplyOnly = $salesOrder->lines->contains(function ($line) {
             return $line->is_supply_only || str_contains(strtolower($line->product_name ?? ''), 'supply only');
@@ -251,7 +211,7 @@ class CommissionCalculator
         foreach ($salesOrder->lines as $line) {
             $lineLandingPrice = $this->resolveLandingPriceForLine($line, $salesOrder);
 
-            if (!$lineLandingPrice) {
+            if (! $lineLandingPrice) {
                 continue;
             }
 
@@ -268,14 +228,9 @@ class CommissionCalculator
 
     /**
      * Calculate profit
-     * 
+     *
      * Formula:
      * Profit = Selling Price - Additional Cost - Landing Price
-     * 
-     * @param float $sellingPrice
-     * @param float $additionalCost
-     * @param float $landingPrice
-     * @return float
      */
     public function calculateProfit(float $sellingPrice, float $additionalCost, float $landingPrice): float
     {
@@ -284,16 +239,11 @@ class CommissionCalculator
 
     /**
      * Calculate base commission
-     * 
+     *
      * Rules:
      * 1. Special Product (usro-6s1-2w): $200 fixed
      * 2. Self-Generated: User's selfGen amount (default $1000)
      * 3. Company Lead: User's companyLead amount (default $500)
-     * 
-     * @param User $user
-     * @param string $salesSource
-     * @param bool $isSpecialProduct
-     * @return float
      */
     private function calculateBaseCommission(User $user, string $salesSource, bool $isSpecialProduct): float
     {
@@ -312,14 +262,10 @@ class CommissionCalculator
 
     /**
      * Calculate extra commission based on profit
-     * 
+     *
      * Formula:
      * - If Profit > 0: Profit × (Commission Split / 100)
      * - If Profit ≤ 0: Profit (full negative profit)
-     * 
-     * @param float $profit
-     * @param float $commissionSplit
-     * @return float
      */
     private function calculateExtraCommission(float $profit, float $commissionSplit): float
     {
@@ -333,12 +279,8 @@ class CommissionCalculator
 
     /**
      * Apply manual adjustment to a commission calculation
-     * 
-     * @param CommissionCalculation $calculation
-     * @param float $adjustmentAmount
-     * @param int $adjustedBy
-     * @param string $reason
-     * @return CommissionCalculation
+     *
+     * @param  float  $adjustmentAmount
      */
     public function applyManualAdjustment(
         CommissionCalculation $calculation,
@@ -356,14 +298,14 @@ class CommissionCalculator
                 $calculation->adjustments()->create([
                     'adjusted_by' => $adjustedBy,
                     'adjustment_amount' => $difference,
-                    'reason' => $reason . " (Adjusted total to $targetTotal)",
+                    'reason' => $reason." (Adjusted total to $targetTotal)",
                 ]);
 
                 // Update commission calculation
                 $calculation->manual_adjustment = $targetTotal;
-                $calculation->final_commission = 
-                    $calculation->base_commission + 
-                    $calculation->extra_commission + 
+                $calculation->final_commission =
+                    $calculation->base_commission +
+                    $calculation->extra_commission +
                     $calculation->manual_adjustment;
                 $calculation->save();
             }
@@ -375,29 +317,107 @@ class CommissionCalculator
     /**
      * Recalculate commission for an existing calculation
      * Useful when order details change
-     * 
-     * @param CommissionCalculation $calculation
-     * @return CommissionCalculation
      */
     public function recalculate(CommissionCalculation $calculation): CommissionCalculation
     {
         $salesOrder = $calculation->salesOrder;
-        
+
         // Recalculate (this will now preserve manual_adjustment via updateOrCreate)
         return $this->calculateCommission($salesOrder);
     }
 
     /**
+     * Resolve the salesperson (User) that owns a sales order, via a
+     * priority-ordered fallback chain. Backed by lookup maps that are
+     * built once per instance (see loadSalespersonLookupMaps()) so
+     * processing many orders in one run doesn't re-query per order.
+     */
+    private function resolveSalesperson(SalesOrder $salesOrder): ?User
+    {
+        $this->loadSalespersonLookupMaps();
+
+        // Priority 1: Check if the customer (Contact) has an explicitly assigned user (Commission Owner)
+        // This satisfies the requirement: "user values... must be used based from which user owns... the specific contact id"
+        $userId = $salesOrder->partner_id
+            ? $this->contactUserIdByOdooId->get($salesOrder->partner_id)
+            : null;
+
+        // Priority 2: Match salesperson through the resolved salesperson_partner_id
+        if (! $userId && $salesOrder->salesperson_partner_id) {
+            $userId = $this->contactUserIdByOdooId->get($salesOrder->salesperson_partner_id);
+        }
+
+        // Priority 3: Fallback to older methods
+        if (! $userId) {
+            // 3a. Try matching by Odoo User ID
+            if ($salesOrder->user_id) {
+                $userId = $this->usersByOdooOrSalespersonId->get($salesOrder->user_id)?->id;
+            }
+
+            // 3b. Try matching by Name (if ID match failed or ID missing)
+            if (! $userId && $salesOrder->user_name) {
+                $userId = $this->usersByName->get($salesOrder->user_name)?->id;
+            }
+
+            // 3c. Try lookup by Salesperson Name match to Contact Display Name -> Resolve to Contact Owner
+            if (! $userId && $salesOrder->user_name) {
+                $userId = $this->contactUserIdByDisplayName->get($salesOrder->user_name);
+            }
+
+            // 3d. Try lookup by Salesperson ID match to Contact Odoo ID -> Resolve to Contact Owner
+            if (! $userId && $salesOrder->user_id) {
+                $userId = $this->contactUserIdByOdooId->get($salesOrder->user_id);
+            }
+        }
+
+        return $userId ? $this->usersById->get($userId) : null;
+    }
+
+    /**
+     * Build the memoized Contact/User lookup maps used by resolveSalesperson(),
+     * once per CommissionCalculator instance.
+     */
+    private function loadSalespersonLookupMaps(): void
+    {
+        if ($this->usersById !== null) {
+            return;
+        }
+
+        $this->usersById = User::all()->keyBy('id');
+
+        $this->usersByOdooOrSalespersonId = collect();
+        $this->usersByName = collect();
+        foreach ($this->usersById as $user) {
+            if ($user->odoo_user_id) {
+                $this->usersByOdooOrSalespersonId->put($user->odoo_user_id, $user);
+            }
+            if ($user->odoo_salesperson_id) {
+                $this->usersByOdooOrSalespersonId->put($user->odoo_salesperson_id, $user);
+            }
+            if ($user->name) {
+                $this->usersByName->put($user->name, $user);
+            }
+        }
+
+        $this->contactUserIdByOdooId = collect();
+        $this->contactUserIdByDisplayName = collect();
+        Contact::query()
+            ->whereNotNull('user_id')
+            ->get(['odoo_id', 'display_name', 'user_id'])
+            ->each(function (Contact $contact) {
+                $this->contactUserIdByOdooId->put($contact->odoo_id, $contact->user_id);
+                $this->contactUserIdByDisplayName->put($contact->display_name, $contact->user_id);
+            });
+    }
+
+    /**
      * Determine sales source from order
-     * 
-     * @param SalesOrder $salesOrder
-     * @return string
      */
     private function determineSalesSource(SalesOrder $salesOrder): string
     {
         // Check if the order has x_studio_sales_source field
         $source = strtolower($salesOrder->x_studio_sales_source ?? '');
-        
+
         if (str_contains($source, 'self')) {
             return 'self_gen';
         }
@@ -407,14 +427,12 @@ class CommissionCalculator
 
     /**
      * Check if order contains the special product
-     * 
-     * @param SalesOrder $salesOrder
-     * @return bool
      */
     private function isSpecialProduct(SalesOrder $salesOrder): bool
     {
         return $salesOrder->lines->contains(function (SalesOrderLine $line) {
             $productName = strtolower($line->product_name ?? '');
+
             return str_contains($productName, self::SPECIAL_PRODUCT_CODE);
         });
     }
@@ -424,7 +442,7 @@ class CommissionCalculator
      */
     private function resolveLandingPriceForLine(SalesOrderLine $line, SalesOrder $salesOrder): ?LandingPrice
     {
-        if (!$line->product || !$line->product->relationLoaded('landingPrices')) {
+        if (! $line->product || ! $line->product->relationLoaded('landingPrices')) {
             return null;
         }
 
@@ -436,7 +454,7 @@ class CommissionCalculator
         $createDate = $salesOrder->create_date ?? now();
 
         $matched = $landingPrices->first(function ($price) use ($createDate) {
-            return !$price->effective_from || $price->effective_from <= $createDate;
+            return ! $price->effective_from || $price->effective_from <= $createDate;
         });
 
         return $matched ?: $landingPrices->first();
