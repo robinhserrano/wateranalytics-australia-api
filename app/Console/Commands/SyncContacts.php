@@ -3,13 +3,15 @@
 namespace App\Console\Commands;
 
 use App\Models\Contact;
-use App\Models\Tag;
 use App\Models\SyncLog;
+use App\Models\Tag;
+use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Obuchmann\OdooJsonRpc\Odoo;
-use App\Services\SyncLogger;
 
 class SyncContacts extends Command
 {
@@ -36,15 +38,15 @@ class SyncContacts extends Command
         $this->info('Starting Odoo Contact Sync...');
 
         $lastSync = null;
-        if (!$this->option('all')) {
+        if (! $this->option('all')) {
             $lastSyncRecord = SyncLog::where('command', $this->signature)
                 ->where('status', 'completed')
                 ->latest('completed_at')
                 ->first();
-            
+
             if ($lastSyncRecord) {
                 $lastSync = $lastSyncRecord->completed_at;
-                $this->info("Performing delta sync since: " . $lastSync->toDateTimeString());
+                $this->info('Performing delta sync since: '.$lastSync->toDateTimeString());
             }
         }
 
@@ -79,18 +81,23 @@ class SyncContacts extends Command
                 $odooCategories = $odoo->model('res.partner.category')
                     ->fields(['name', 'color'])
                     ->get();
-                
-                foreach ($odooCategories as $cat) {
-                    Tag::updateOrCreate(
-                        ['odoo_id' => $cat->id],
-                        [
+
+                if (! empty($odooCategories)) {
+                    $now = Carbon::now();
+                    $tagData = [];
+                    foreach ($odooCategories as $cat) {
+                        $tagData[] = [
+                            'odoo_id' => $cat->id,
                             'name' => $cat->name,
                             'color' => $cat->color,
-                        ]
-                    );
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+                    Tag::upsert($tagData, ['odoo_id'], ['name', 'color', 'updated_at']);
                 }
             } catch (\Exception $e) {
-                $this->warn('Could not fetch categories: ' . $e->getMessage());
+                $this->warn('Could not fetch categories: '.$e->getMessage());
             }
 
             do {
@@ -98,7 +105,7 @@ class SyncContacts extends Command
 
                 $specification = [];
                 foreach ($fields as $field) {
-                    $specification[$field] = (object)[];
+                    $specification[$field] = (object) [];
                 }
 
                 $response = $odoo->executeKw('res.partner', 'web_search_read', [
@@ -106,7 +113,7 @@ class SyncContacts extends Command
                     $specification,
                     $offset,
                     $limit,
-                    'id desc'
+                    'id desc',
                 ]);
 
                 $contacts = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
@@ -120,12 +127,12 @@ class SyncContacts extends Command
                 $odooIds = [];
 
                 foreach ($contacts as $contact) {
-                    $contact = (object)$contact;
+                    $contact = (object) $contact;
                     $odooIds[] = $contact->id;
                     $parentId = null;
                     $parentName = null;
 
-                    if (!empty($contact->parent_id) && is_array($contact->parent_id)) {
+                    if (! empty($contact->parent_id) && is_array($contact->parent_id)) {
                         $parentId = $contact->parent_id[0];
                         $parentName = $contact->parent_id[1];
                     }
@@ -143,22 +150,22 @@ class SyncContacts extends Command
                         'state' => is_array($contact->state_id) ? $contact->state_id[1] : null,
                         'phone' => $contact->phone ?? null,
                         'email' => $contact->email ?? null,
-                        'odoo_user_ids' => !empty($contact->user_ids) ? json_encode($contact->user_ids) : null,
+                        'odoo_user_ids' => ! empty($contact->user_ids) ? json_encode($contact->user_ids) : null,
                         'write_date' => $contact->write_date ?? null,
                         'updated_at' => Carbon::now(),
                     ];
 
-                    if (!empty($contact->category_id) && is_array($contact->category_id)) {
+                    if (! empty($contact->category_id) && is_array($contact->category_id)) {
                         $contactTags[$contact->id] = $contact->category_id;
                     } else {
                         $contactTags[$contact->id] = [];
                     }
                 }
 
-                $this->info("Upserting " . count($syncData) . " contacts...");
+                $this->info('Upserting '.count($syncData).' contacts...');
                 Contact::upsert($syncData, ['odoo_id'], [
-                    'display_name', 'contact_address_complete', 'parent_id', 'parent_name', 
-                    'street', 'street2', 'zip', 'city', 'state', 'phone', 'email', 'odoo_user_ids', 'write_date', 'updated_at'
+                    'display_name', 'contact_address_complete', 'parent_id', 'parent_name',
+                    'street', 'street2', 'zip', 'city', 'state', 'phone', 'email', 'odoo_user_ids', 'write_date', 'updated_at',
                 ]);
 
                 // Bulk sync tags to avoid N+1 sync() calls
@@ -182,10 +189,10 @@ class SyncContacts extends Command
                 }
 
                 // Delete existing pivot entries for these contacts and bulk insert new ones
-                \Illuminate\Support\Facades\DB::transaction(function () use ($contactIdsToClean, $pivotData) {
-                    \Illuminate\Support\Facades\DB::table('contact_tag')->whereIn('contact_id', $contactIdsToClean)->delete();
-                    if (!empty($pivotData)) {
-                        \Illuminate\Support\Facades\DB::table('contact_tag')->insert($pivotData);
+                DB::transaction(function () use ($contactIdsToClean, $pivotData) {
+                    DB::table('contact_tag')->whereIn('contact_id', $contactIdsToClean)->delete();
+                    if (! empty($pivotData)) {
+                        DB::table('contact_tag')->insert($pivotData);
                     }
                 });
 
@@ -216,19 +223,19 @@ class SyncContacts extends Command
                 do {
                     $userResponse = $odoo->executeKw('res.users', 'web_search_read', [
                         [['active', 'in', [true, false]]],
-                        ['partner_id' => (object)['fields' => (object)['id' => (object)[], 'display_name' => (object)[]]], 'active' => (object)[]],
+                        ['partner_id' => (object) ['fields' => (object) ['id' => (object) [], 'display_name' => (object) []]], 'active' => (object) []],
                         $userOffset,
                         $userLimit,
-                        'id asc'
+                        'id asc',
                     ]);
                     $odooUsers = $userResponse->records ?? (is_array($userResponse) ? ($userResponse['records'] ?? []) : []);
                     foreach ($odooUsers as $u) {
-                        $u = (object)$u;
+                        $u = (object) $u;
                         $partnerRaw = $u->partner_id ?? null;
-                        
+
                         $partnerId = null;
                         $partnerName = 'Unknown (Ghost)';
-                        
+
                         if (is_array($partnerRaw)) {
                             $partnerId = $partnerRaw[0] ?? null;
                             $partnerName = $partnerRaw[1] ?? 'Unknown (Ghost)';
@@ -238,7 +245,7 @@ class SyncContacts extends Command
                         }
 
                         $isActive = $u->active ?? true; // Default to true if not provided
-                        $suffixedUserId = $isActive ? (string)$u->id : $u->id . '-G';
+                        $suffixedUserId = $isActive ? (string) $u->id : $u->id.'-G';
 
                         if ($partnerId) {
                             $partnerToUserIds[$partnerId]['user_ids'][] = $suffixedUserId;
@@ -248,11 +255,11 @@ class SyncContacts extends Command
                     $userOffset += $userLimit;
                 } while (count($odooUsers) === $userLimit);
 
-                $this->info('Fetched ' . count($partnerToUserIds) . ' user→partner mappings from res.users.');
+                $this->info('Fetched '.count($partnerToUserIds).' user→partner mappings from res.users.');
 
                 $backfilled = 0;
                 $upsertData = [];
-                $now = \Carbon\Carbon::now();
+                $now = Carbon::now();
 
                 foreach ($partnerToUserIds as $partnerId => $data) {
                     $upsertData[] = [
@@ -266,24 +273,26 @@ class SyncContacts extends Command
                 }
 
                 // Batch upsert to guarantee they exist, even if standard res.partner search hid them!
-                if (!empty($upsertData)) {
-                    \App\Models\Contact::upsert($upsertData, ['odoo_id'], ['display_name', 'odoo_user_ids', 'updated_at']);
+                if (! empty($upsertData)) {
+                    Contact::upsert($upsertData, ['odoo_id'], ['display_name', 'odoo_user_ids', 'updated_at']);
                     $backfilled = count($upsertData);
                 }
 
                 $this->info("Refreshed/Upserted odoo_user_ids on {$backfilled} contacts (guaranteed visibility).");
             } catch (\Exception $e) {
-                $this->warn('Could not backfill odoo_user_ids: ' . $e->getMessage());
+                $this->warn('Could not backfill odoo_user_ids: '.$e->getMessage());
             }
 
-            $logger->complete($log, $totalSynced, $lastSync ? "Incremental sync completed." : "Full sync completed.");
-            \Illuminate\Support\Facades\Cache::forget('contacts_dashboard_stats');
+            $logger->complete($log, $totalSynced, $lastSync ? 'Incremental sync completed.' : 'Full sync completed.');
+            Cache::forget('contacts_dashboard_stats');
+
             return 0;
 
         } catch (\Exception $e) {
-            $this->error("Failed to fetch from Odoo: " . $e->getMessage());
-            Log::error("Odoo Contact Sync Error: " . $e->getMessage());
+            $this->error('Failed to fetch from Odoo: '.$e->getMessage());
+            Log::error('Odoo Contact Sync Error: '.$e->getMessage());
             $logger->fail($log, $e);
+
             return 1;
         }
     }
