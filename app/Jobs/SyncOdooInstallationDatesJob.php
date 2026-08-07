@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\SyncLog;
 use App\Services\SyncLogger;
+use Illuminate\Support\Facades\Cache;
 
 class SyncOdooInstallationDatesJob extends OdooSyncStepJob
 {
@@ -26,5 +27,9 @@ class SyncOdooInstallationDatesJob extends OdooSyncStepJob
             0,
             'Pipeline completed.'
         );
+
+        // Release the pipeline mutex acquired in routes/console.php - the
+        // failure path releases it via the chain's ->catch() instead.
+        Cache::forget(self::PIPELINE_LOCK_KEY);
     }
 }

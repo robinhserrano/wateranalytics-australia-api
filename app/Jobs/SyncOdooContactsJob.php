@@ -2,26 +2,18 @@
 
 namespace App\Jobs;
 
-use Illuminate\Contracts\Queue\ShouldBeUnique;
-
 /**
- * First step of the chained pipeline. Unique across the whole pipeline
- * (not just this step) so a new scheduler tick can't dispatch a second
- * run while one is still in progress - mirrors the old
- * ->withoutOverlapping(15) guard on the synchronous scheduled command.
+ * First step of the chained pipeline.
+ *
+ * NOTE: this used to `implements ShouldBeUnique`, but Laravel's unique-job
+ * lock is only honored by PendingDispatch (plain Job::dispatch()) - it is
+ * NOT checked anywhere in PendingChain (Bus::chain(...)->dispatch()), so it
+ * silently did nothing here. The actual overlap guard now lives in
+ * routes/console.php as a manual Cache::add()/forget() mutex around the
+ * whole chain dispatch.
  */
-class SyncOdooContactsJob extends OdooSyncStepJob implements ShouldBeUnique
+class SyncOdooContactsJob extends OdooSyncStepJob
 {
-    public function uniqueId(): string
-    {
-        return 'odoo-sync-pipeline';
-    }
-
-    public function uniqueFor(): int
-    {
-        return 900;
-    }
-
     protected function command(): string
     {
         return 'odoo:sync-contacts';

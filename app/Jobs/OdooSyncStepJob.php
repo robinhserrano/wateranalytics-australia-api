@@ -18,6 +18,15 @@ abstract class OdooSyncStepJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * Cache key used as a manual mutex around the whole chain dispatch (see
+     * routes/console.php). Bus::chain(...)->dispatch() does not honor
+     * ShouldBeUnique on the first job - Laravel only checks it in
+     * PendingDispatch (plain Job::dispatch()), never in PendingChain - so
+     * this replaces that (previously silently-ignored) protection.
+     */
+    public const PIPELINE_LOCK_KEY = 'odoo-sync-pipeline-lock';
+
     public $tries = 3;
 
     public $timeout = 300;
