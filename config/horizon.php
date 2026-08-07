@@ -210,6 +210,23 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+        // Isolated from 'default' so a slow/stuck Odoo API call in the sync
+        // pipeline can't starve other queued work (or vice versa). The sync
+        // steps are chained (sequential by design), so more than 1 process
+        // here doesn't speed anything up - it just gives a run in progress
+        // its own worker instead of contending for a 'default' one.
+        'odoo-sync-supervisor' => [
+            'connection' => 'redis',
+            'queue' => ['odoo-sync'],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 1,
+            'timeout' => 330,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
