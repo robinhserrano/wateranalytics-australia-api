@@ -26,6 +26,10 @@ services:
         image: nginx:alpine
         container_name: nginx-web
         restart: unless-stopped
+        # certbot renews certs on its own schedule but has no way to tell nginx
+        # to pick them up. Reloading nginx every 6h is a harmless no-op when the
+        # cert hasn't changed, and is what actually applies a renewed cert.
+        entrypoint: /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
         ports:
             - "80:80"
             - "443:443"
@@ -71,7 +75,9 @@ services:
         container_name: laravel-queue
         restart: unless-stopped
         working_dir: /var/www
-        command: "php artisan queue:work --tries=3 --timeout=90"
+        command: "php artisan horizon"
+        stop_signal: SIGTERM
+        stop_grace_period: 90s
         volumes:
             - ./.env:/var/www/.env
             - storage:/var/www/storage

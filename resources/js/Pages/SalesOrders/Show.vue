@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-// @ts-ignore
 import { ArrowLeft, Edit } from 'lucide-vue-next';
 import { Input } from '@/components/ui/input';
 import {
@@ -26,7 +25,6 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { ref, watch, computed, onMounted } from 'vue';
-// @ts-ignore
 import { CheckCircle2, XCircle, AlertCircle, Send, User, MapPin, Info, Loader2, RefreshCw, File, ExternalLink } from 'lucide-vue-next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -81,10 +79,6 @@ const isSalesManager = computed(() => {
 
 const isAccountOfficer = computed(() => {
     return (page.props.auth.user?.roles as any[])?.some((role: any) => role.name === 'Account Officer');
-});
-
-const isSalesPerson = computed(() => {
-    return !isAdmin.value && !isSalesManager.value && !isAccountOfficer.value;
 });
 
 const showInstallationTab = computed(() => {

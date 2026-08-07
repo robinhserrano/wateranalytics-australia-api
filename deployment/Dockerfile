@@ -5,7 +5,12 @@ FROM composer:latest as generator
 WORKDIR /app
 COPY composer.json composer.lock ./
 # Install dependencies but skip scripts until app files are present
-RUN composer install --no-dev --no-interaction --optimize-autoloader --no-scripts
+# This stage only runs wayfinder:build/dump-autoload, never Horizon itself,
+# so it's safe to ignore the ext-pcntl/ext-posix platform check the bare
+# composer:latest image can't satisfy (Stage 2's php:8.4-fpm-alpine image
+# does install pcntl, for the actual runtime).
+RUN composer install --no-dev --no-interaction --optimize-autoloader --no-scripts \
+    --ignore-platform-req=ext-pcntl --ignore-platform-req=ext-posix
 COPY . .
 
 # Create minimal .env for build-time commands (wayfinder, key generation, etc)

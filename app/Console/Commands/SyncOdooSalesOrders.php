@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\SyncLog;
+use App\Services\CommissionCalculator;
 use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -33,46 +34,30 @@ class SyncOdooSalesOrders extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger)
+    public function handle(Odoo $odoo, SyncLogger $logger, CommissionCalculator $calculator)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Sales Order Sync (Golden Sync)...');
 
-        // Fetch Odoo User → Partner mapping (res.users → partner_id)
-        // This resolves the ambiguity where sales orders may reference different
-        // Odoo user accounts (e.g., 493 or 568) for the same person.
-        $this->info('Fetching Odoo User → Partner ID mapping...');
+        // Build Odoo user_id → partner_id mapping from already-synced Contacts
+        // instead of re-fetching all of res.users here. SyncContacts (which runs
+        // earlier in the pipeline) already fetches res.users and persists the
+        // same mapping as Contact.odoo_user_ids, so this avoids a full,
+        // paginated res.users round-trip every single sync run.
+        $this->info('Building Odoo User → Partner ID mapping from synced contacts...');
         $userToPartnerMap = [];
         try {
-            $userOffset = 0;
-            $userLimit = 1000;
-            do {
-                $userResponse = $odoo->executeKw('res.users', 'web_search_read', [
-                    [['active', 'in', [true, false]]],
-                    ['partner_id' => (object) ['fields' => (object) ['id' => (object) [], 'display_name' => (object) []]]],
-                    $userOffset,
-                    $userLimit,
-                    'id asc',
-                ]);
-                $odooUsers = $userResponse->records ?? (is_array($userResponse) ? ($userResponse['records'] ?? []) : []);
-                foreach ($odooUsers as $u) {
-                    $u = (object) $u;
-                    $partnerRaw = $u->partner_id ?? null;
-                    $partnerId = null;
-                    if (is_array($partnerRaw)) {
-                        $partnerId = $partnerRaw[0] ?? null;
-                    } elseif (is_object($partnerRaw)) {
-                        $partnerId = $partnerRaw->id ?? null;
+            Contact::query()
+                ->whereNotNull('odoo_user_ids')
+                ->pluck('odoo_user_ids', 'odoo_id')
+                ->each(function ($userIdsJson, $partnerId) use (&$userToPartnerMap) {
+                    foreach ((json_decode((string) $userIdsJson, true) ?: []) as $userId) {
+                        $userToPartnerMap[(int) rtrim((string) $userId, '-G')] = $partnerId;
                     }
-                    if ($partnerId) {
-                        $userToPartnerMap[$u->id] = $partnerId;
-                    }
-                }
-                $userOffset += $userLimit;
-            } while (count($odooUsers) === $userLimit);
+                });
             $this->info('Mapped '.count($userToPartnerMap).' Odoo users to partner IDs.');
         } catch (\Exception $e) {
-            $this->warn('Could not fetch user→partner map: '.$e->getMessage());
+            $this->warn('Could not build user→partner map: '.$e->getMessage());
             $this->warn('salesperson_partner_id will be null for this sync run.');
         }
 
@@ -143,6 +128,7 @@ class SyncOdooSalesOrders extends Command
         $limit = 500;
         $offset = 0;
         $totalSynced = 0;
+        $syncedOdooIds = [];
         $domain = [
             ['tag_ids', 'in', [2]],
             ['state', '=', 'sale'],
@@ -287,9 +273,10 @@ class SyncOdooSalesOrders extends Command
 
                     if (! empty($missingProductIds)) {
                         $this->info('Adding '.count($missingProductIds).' missing products from Golden Sync metadata...');
+                        $missingProductData = [];
                         foreach ($missingProductIds as $mId) {
                             $mp = (object) $odooProductMetadata[$mId];
-                            Product::create([
+                            $missingProductData[] = [
                                 'odoo_id' => $mp->id,
                                 'name' => $mp->display_name,
                                 'default_code' => $mp->default_code ?? null,
@@ -298,8 +285,11 @@ class SyncOdooSalesOrders extends Command
                                 'list_price' => $mp->list_price ?? 0,
                                 'type' => $mp->type ?? null,
                                 'write_date' => $mp->write_date ?? null,
-                            ]);
+                            ];
                         }
+                        Product::upsert($missingProductData, ['odoo_id'], [
+                            'name', 'default_code', 'categ_id', 'categ_name', 'list_price', 'type', 'write_date',
+                        ]);
                     }
                 }
 
@@ -406,18 +396,21 @@ class SyncOdooSalesOrders extends Command
                 }
 
                 $totalSynced += count($orders);
+                array_push($syncedOdooIds, ...$odooIds);
                 $offset += $limit;
 
             } while (count($orders) === $limit);
 
             $this->info("Sync complete. Total records: $totalSynced");
 
-            // Auto-calculate commissions for newly synced orders
-            $this->info('Calculating commissions for sales orders...');
-            $this->call('commissions:calculate-missing', [
-                '--limit' => $totalSynced,
-                '--update-unconfirmed' => true,
-            ]);
+            // Auto-calculate commissions for orders synced this run - only those with
+            // no commission yet, or still pending (status is the source of truth here,
+            // not confirmed_by_manager, which is a separate manager-signoff step and
+            // can be true while status is still pending). Approved/rejected/paid
+            // commissions are left untouched: their numbers may have already been
+            // reviewed/paid out against the prior calculation, so they shouldn't
+            // silently change on the next sync.
+            $this->recalculateCommissionsForSyncedOrders($calculator, array_unique($syncedOdooIds));
 
             $logger->complete($log, $totalSynced, (isset($domain) && ! empty($domain)) ? 'Incremental sync completed.' : 'Full sync completed.');
             Cache::forget('contacts_dashboard_stats');
@@ -430,6 +423,51 @@ class SyncOdooSalesOrders extends Command
             $logger->fail($log, $e);
 
             return 1;
+        }
+    }
+
+    /**
+     * Recalculate commissions for exactly the orders synced this run, skipping
+     * any whose commission is already approved/rejected/paid, or that a human
+     * has already manually adjusted (even while still pending - the adjustment
+     * dollar amount is preserved across a recalculation, but the total can
+     * still shift underneath it if base/extra_commission change, which could
+     * surprise whoever added that adjustment). Failures are logged per-order
+     * rather than aborting the sync.
+     *
+     * @param  array<int>  $syncedOdooIds
+     */
+    private function recalculateCommissionsForSyncedOrders(CommissionCalculator $calculator, array $syncedOdooIds): void
+    {
+        if (empty($syncedOdooIds)) {
+            return;
+        }
+
+        $orders = SalesOrder::whereIn('odoo_id', $syncedOdooIds)
+            ->where(function ($query) {
+                $query->whereDoesntHave('commissionCalculation')
+                    ->orWhereHas('commissionCalculation', function ($sub) {
+                        $sub->where('status', 'pending')
+                            ->where('manual_adjustment', 0);
+                    });
+            })
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return;
+        }
+
+        $this->info("Calculating commissions for {$orders->count()} synced order(s)...");
+
+        foreach ($orders as $order) {
+            try {
+                $calculator->calculateCommission($order);
+            } catch (\Exception $e) {
+                Log::warning("Commission calculation failed for order {$order->id}", [
+                    'error' => $e->getMessage(),
+                    'order_id' => $order->id,
+                ]);
+            }
         }
     }
 

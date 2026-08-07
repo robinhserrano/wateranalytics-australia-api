@@ -8,13 +8,13 @@ use Illuminate\Console\Command;
 
 class CalculateMissingCommissions extends Command
 {
-    protected $signature = 'commissions:calculate-missing 
+    protected $signature = 'commissions:calculate-missing
                             {--limit=100 : Maximum number of orders to process}
                             {--chunk=200 : Number of orders to process per batch}
                             {--from-id= : Start processing from this sales_order ID}
                             {--to-id= : Stop processing at this sales_order ID}
-                            {--force : Recalculate even if commission exists}
-                            {--update-unconfirmed : Also recalculate unconfirmed commissions}
+                            {--force : Recalculate even if commission exists, including approved/rejected/paid}
+                            {--update-unconfirmed : Also recalculate commissions still pending (status=pending)}
                             {--all : Recalculate everything without limit}';
 
     protected $description = 'Calculate commissions for sales orders that don\'t have them yet';
@@ -44,16 +44,25 @@ class CalculateMissingCommissions extends Command
 
         $baseQuery = SalesOrder::query();
 
-        if (!$force) {
+        if (! $force) {
             if ($updateUnconfirmed) {
+                // status, not confirmed_by_manager: that's a separate sales-manager
+                // signoff flag that can be true while status is still pending, or
+                // false on an order nobody's touched yet - neither implies the
+                // commission is safe to leave stale. status is the actual signal
+                // for "has anyone signed off on the final numbers" (approved/
+                // rejected/paid should never be silently recalculated).
+                // manual_adjustment != 0 is excluded too, even while pending: a
+                // human already corrected this specific commission's amount, and
+                // recalculating base/extra_commission underneath that correction
+                // can still shift the total even though the adjustment itself is
+                // preserved.
                 $baseQuery->where(function ($q) {
                     $q->whereDoesntHave('commissionCalculation')
-                      ->orWhereHas('commissionCalculation', function ($sub) {
-                          $sub->where(function($s) {
-                              $s->where('confirmed_by_manager', false)
-                                ->orWhereNull('confirmed_by_manager');
-                          });
-                      });
+                        ->orWhereHas('commissionCalculation', function ($sub) {
+                            $sub->where('status', 'pending')
+                                ->where('manual_adjustment', 0);
+                        });
                 });
             } else {
                 $baseQuery->whereDoesntHave('commissionCalculation');
@@ -74,11 +83,12 @@ class CalculateMissingCommissions extends Command
 
         if ($totalToProcess === 0) {
             $this->info('No sales orders need commission calculation.');
+
             return Command::SUCCESS;
         }
 
         $this->info("Processing {$totalToProcess} sales orders in chunks of {$chunkSize}...");
-        
+
         $bar = $this->output->createProgressBar($totalToProcess);
         $bar->start();
 
@@ -115,14 +125,14 @@ class CalculateMissingCommissions extends Command
                     } catch (\Exception $e) {
                         $failed++;
                         $errors[] = "Order #{$order->id}: {$e->getMessage()}";
-                        
+
                         // Log the error
                         \Log::warning("Commission calculation failed for order {$order->id}", [
                             'error' => $e->getMessage(),
                             'order_id' => $order->id,
                         ]);
                     }
-                    
+
                     $processed++;
                     $bar->advance();
                 }
@@ -133,14 +143,14 @@ class CalculateMissingCommissions extends Command
 
         // Summary
         $this->info("✓ Successfully calculated: {$successful}");
-        
+
         if ($skipped > 0) {
             $this->warn("⊘ Skipped (no user): {$skipped}");
         }
-        
+
         if ($failed > 0) {
             $this->warn("✗ Failed: {$failed}");
-            
+
             if ($this->option('verbose')) {
                 $this->newLine();
                 $this->error('Errors:');
