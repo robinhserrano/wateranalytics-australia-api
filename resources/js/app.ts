@@ -27,7 +27,7 @@ if (typeof window !== 'undefined' && import.meta.env.VITE_POSTHOG_KEY) {
 }
 
 // Track pageviews on Inertia navigation
-router.on('navigate', (event) => {
+router.on('navigate', () => {
     posthog.capture('$pageview');
 });
 

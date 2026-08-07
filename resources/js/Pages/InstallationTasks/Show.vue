@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ArrowLeft, Calendar, User, MapPin, RefreshCw, AlertCircle, Loader2, FileImage, File, ExternalLink } from 'lucide-vue-next';
+import { ArrowLeft, Calendar, User, MapPin, RefreshCw, AlertCircle, Loader2, File, ExternalLink } from 'lucide-vue-next';
 import { ref, onMounted, computed } from 'vue';
 
 const props = defineProps<{
@@ -121,7 +121,7 @@ const fetchMessages = async () => {
         const attachList: Attachment[] = result?.data?.['ir.attachment'] ?? [];
         attachList.forEach((a) => { attachments.value[a.id] = a; });
 
-    } catch (e) {
+    } catch {
         messagesError.value = 'Failed to load messages. Please try again.';
     } finally {
         loadingMessages.value = false;

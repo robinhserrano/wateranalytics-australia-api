@@ -95,11 +95,6 @@ function getCatName(id: number): string {
 }
 
 // --- Formatting ---
-const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '-';
-    return new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(amount);
-};
-
 const formatQty = (qty: number | null) => {
     if (qty === null || qty === undefined) return '-';
     return new Intl.NumberFormat('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(qty);

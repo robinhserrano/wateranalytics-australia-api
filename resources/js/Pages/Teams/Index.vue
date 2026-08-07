@@ -22,7 +22,7 @@ import { getRoleStyle } from '@/lib/utils';
 import { Users, Plus, Edit, Trash2, Eye, Network, ArrowRight } from 'lucide-vue-next';
 import { format } from 'date-fns';
 
-const props = defineProps<{
+defineProps<{
     teams: any[];
 }>();
 
@@ -30,16 +30,6 @@ const deleteTeam = (teamId: number) => {
     if (confirm('Are you sure you want to delete this team?')) {
         router.delete(route('teams.destroy', teamId));
     }
-};
-
-const getInitials = (name: string) => {
-    if (!name) return '';
-    return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .substring(0, 2);
 };
 
 const formatLatestSale = (dateString: string | null) => {

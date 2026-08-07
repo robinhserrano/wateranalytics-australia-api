@@ -106,11 +106,6 @@ const formatCurrency = (amount: number) => {
     }).format(amount);
 };
 
-const formatDate = (date: string | null) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-AU');
-};
-
 const salesChartData = computed(() =>
     props.monthly.map((m) => ({ month: m.month, label: m.label, value: m.total_sales, active_reps: m.active_reps })),
 );
