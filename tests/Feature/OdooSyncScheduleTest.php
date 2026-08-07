@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\CalculateMissingCommissionsJob;
 use App\Jobs\OdooSyncStepJob;
 use App\Jobs\SyncOdooContactsJob;
 use App\Jobs\SyncOdooInstallationDatesJob;
@@ -31,6 +32,7 @@ test('scheduled odoo sync dispatches a chained job pipeline instead of running s
         SyncOdooStocksJob::class,
         SyncOdooSalesOrdersJob::class,
         SyncOdooInstallationDatesJob::class,
+        CalculateMissingCommissionsJob::class,
     ]);
 
     expect(SyncLog::where('command', 'odoo:sync-all')->where('status', 'running')->exists())->toBeTrue();
