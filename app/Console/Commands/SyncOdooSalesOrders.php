@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\SyncLog;
+use App\Services\CommissionCalculator;
 use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -33,7 +34,7 @@ class SyncOdooSalesOrders extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger)
+    public function handle(Odoo $odoo, SyncLogger $logger, CommissionCalculator $calculator)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Sales Order Sync (Golden Sync)...');
@@ -127,6 +128,7 @@ class SyncOdooSalesOrders extends Command
         $limit = 500;
         $offset = 0;
         $totalSynced = 0;
+        $syncedOdooIds = [];
         $domain = [
             ['tag_ids', 'in', [2]],
             ['state', '=', 'sale'],
@@ -394,18 +396,21 @@ class SyncOdooSalesOrders extends Command
                 }
 
                 $totalSynced += count($orders);
+                array_push($syncedOdooIds, ...$odooIds);
                 $offset += $limit;
 
             } while (count($orders) === $limit);
 
             $this->info("Sync complete. Total records: $totalSynced");
 
-            // Auto-calculate commissions for newly synced orders
-            $this->info('Calculating commissions for sales orders...');
-            $this->call('commissions:calculate-missing', [
-                '--limit' => $totalSynced,
-                '--update-unconfirmed' => true,
-            ]);
+            // Auto-calculate commissions for orders synced this run - only those with
+            // no commission yet, or still pending (status is the source of truth here,
+            // not confirmed_by_manager, which is a separate manager-signoff step and
+            // can be true while status is still pending). Approved/rejected/paid
+            // commissions are left untouched: their numbers may have already been
+            // reviewed/paid out against the prior calculation, so they shouldn't
+            // silently change on the next sync.
+            $this->recalculateCommissionsForSyncedOrders($calculator, array_unique($syncedOdooIds));
 
             $logger->complete($log, $totalSynced, (isset($domain) && ! empty($domain)) ? 'Incremental sync completed.' : 'Full sync completed.');
             Cache::forget('contacts_dashboard_stats');
@@ -418,6 +423,46 @@ class SyncOdooSalesOrders extends Command
             $logger->fail($log, $e);
 
             return 1;
+        }
+    }
+
+    /**
+     * Recalculate commissions for exactly the orders synced this run, skipping
+     * any whose commission is already approved/rejected/paid. Failures are
+     * logged per-order rather than aborting the sync.
+     *
+     * @param  array<int>  $syncedOdooIds
+     */
+    private function recalculateCommissionsForSyncedOrders(CommissionCalculator $calculator, array $syncedOdooIds): void
+    {
+        if (empty($syncedOdooIds)) {
+            return;
+        }
+
+        $orders = SalesOrder::whereIn('odoo_id', $syncedOdooIds)
+            ->where(function ($query) {
+                $query->whereDoesntHave('commissionCalculation')
+                    ->orWhereHas('commissionCalculation', function ($sub) {
+                        $sub->where('status', 'pending');
+                    });
+            })
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return;
+        }
+
+        $this->info("Calculating commissions for {$orders->count()} synced order(s)...");
+
+        foreach ($orders as $order) {
+            try {
+                $calculator->calculateCommission($order);
+            } catch (\Exception $e) {
+                Log::warning("Commission calculation failed for order {$order->id}", [
+                    'error' => $e->getMessage(),
+                    'order_id' => $order->id,
+                ]);
+            }
         }
     }
 
