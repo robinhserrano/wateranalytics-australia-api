@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\SyncOdooContactsJob;
+use App\Jobs\SyncOdooInstallationDatesJob;
 use App\Jobs\SyncOdooProductsJob;
 use App\Jobs\SyncOdooSalesOrdersJob;
 use App\Jobs\SyncOdooStocksJob;
@@ -28,6 +29,7 @@ Schedule::call(function () {
         new SyncOdooProductsJob($log->id),
         new SyncOdooStocksJob($log->id),
         new SyncOdooSalesOrdersJob($log->id),
+        new SyncOdooInstallationDatesJob($log->id),
     ])
         ->onQueue('odoo-sync')
         ->catch(fn (Throwable $e) => app(SyncLogger::class)->fail($log, $e))

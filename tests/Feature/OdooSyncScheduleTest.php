@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\SyncOdooContactsJob;
+use App\Jobs\SyncOdooInstallationDatesJob;
 use App\Jobs\SyncOdooProductsJob;
 use App\Jobs\SyncOdooSalesOrdersJob;
 use App\Jobs\SyncOdooStocksJob;
@@ -23,6 +24,7 @@ test('scheduled odoo sync dispatches a chained job pipeline instead of running s
         SyncOdooProductsJob::class,
         SyncOdooStocksJob::class,
         SyncOdooSalesOrdersJob::class,
+        SyncOdooInstallationDatesJob::class,
     ]);
 
     expect(SyncLog::where('command', 'odoo:sync-all')->where('status', 'running')->exists())->toBeTrue();
