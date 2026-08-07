@@ -16,14 +16,28 @@ WAA Commission is an Inertia (Vue 3 + TypeScript) / Laravel 12 app that manages 
 - `npm run lint` — ESLint with `--fix`.
 - `npm run format` / `npm run format:check` — Prettier over `resources/`.
 - `vendor/bin/pint --dirty --format agent` — format PHP; run after any PHP edit (see Boost rules below).
-- `php artisan odoo:sync-all [--all]` — runs the full Odoo sync pipeline in order: contacts → products → stocks → sales orders. Scheduled every minute in [routes/console.php](routes/console.php); individual steps are also available as `odoo:sync-contacts`, `odoo:sync-products`, `odoo:sync-stocks`, `odoo:sync-sales`.
-- `php artisan commissions:calculate-missing` ([CalculateMissingCommissions](app/Console/Commands/CalculateMissingCommissions.php)) — backfill commission calculations for sales orders that don't have one yet.
+- `php artisan odoo:sync-all [--all]` ([SyncAll](app/Console/Commands/SyncAll.php)) — runs every Odoo sync step sequentially in one process. **This is the manual/backfill entry point only** — the scheduler does *not* call it; it dispatches the equivalent steps as a queued job chain instead (see "Queue & sync pipeline" below). Individual steps are also available as `odoo:sync-contacts`, `odoo:sync-products`, `odoo:sync-stocks`, `odoo:sync-sales`, `odoo:sync-installation-dates`.
+- `php artisan commissions:calculate-missing` ([CalculateMissingCommissions](app/Console/Commands/CalculateMissingCommissions.php)) — calculates commissions for sales orders that have none yet; with `--update-unconfirmed` also recalculates existing ones that are still `pending` with no manual adjustment. Runs automatically as the last step of the queued pipeline, so it's usually only invoked by hand for large backfills (`--all`).
+- `php artisan horizon` — process queued jobs. Requires `pcntl`/`posix`, so it only runs on Linux (the Docker containers) — **not** natively on Windows; local dev uses `queue:listen` via `composer dev` instead.
 
 ## Architecture
 
+### Queue & sync pipeline
+
+Queues run on Redis via Laravel Horizon (`QUEUE_CONNECTION=redis`). [routes/console.php](routes/console.php) schedules a closure every minute that dispatches a `Bus::chain()` of six jobs from `app/Jobs/` onto a dedicated `odoo-sync` queue (isolated supervisor in [config/horizon.php](config/horizon.php) so a stuck Odoo API call can't starve other queued work):
+
+`SyncOdooContactsJob → SyncOdooProductsJob → SyncOdooStocksJob → SyncOdooSalesOrdersJob → SyncOdooInstallationDatesJob → CalculateMissingCommissionsJob`
+
+Each job extends [OdooSyncStepJob](app/Jobs/OdooSyncStepJob.php) and just shells out to its artisan command via `Artisan::call()` — the sync logic and each command's own `SyncLog` entry are unchanged, so the commands remain independently runnable by hand. The chain order is a real dependency order (later steps assume earlier ones ran), which is why it's a chain and not a batch.
+
+Two non-obvious things to preserve when touching this:
+
+- **Overlap is guarded by a manual `Cache::add()`/`Cache::forget()` mutex** (`OdooSyncStepJob::PIPELINE_LOCK_KEY`, 900s TTL), acquired in the scheduler closure and released by the final job (success) or the chain's `->catch()` (failure). Do *not* replace this with `ShouldBeUnique` on the first job — `Bus::chain()` never checks it (Laravel only honors it in `PendingDispatch`), so it silently does nothing and every tick dispatches a duplicate chain. `withoutOverlapping()` on the schedule only guards the near-instant dispatch closure, not the queued run it kicks off.
+- **`config/horizon.php`'s `environments` uses a `'*'` wildcard key**, not `'production'`. Horizon matches `APP_ENV` against those keys and silently deploys *zero* supervisors if nothing matches — the master process starts, logs "started successfully", and reports Active with no workers and no error. `'local'` must stay listed *before* `'*'`, since the first matching key wins.
+
 ### Data sources: Odoo + legacy sync
 
-Sales orders, contacts, products, and stock all originate in Odoo (via `obuchmann/odoo-jsonrpc`, configured in [config/odoo.php](config/odoo.php) / `ODOO_*` env vars) and are synced into local tables by the `app/Console/Commands/Sync*` commands, in the dependency order enforced by [SyncAll](app/Console/Commands/SyncAll.php) (contacts → products → stocks → sales orders — later steps assume earlier ones already ran). `LegacySyncService` / `LegacyEndpointService` pull from an older system for historical/migration data. `SyncLogger` records outcomes to the `SyncLog` model, surfaced at `admin/logs` (Admin-only, see [SyncLogController](app/Http/Controllers/Admin/SyncLogController.php)).
+Sales orders, contacts, products, and stock all originate in Odoo (via `obuchmann/odoo-jsonrpc`, configured in [config/odoo.php](config/odoo.php) / `ODOO_*` env vars) and are synced into local tables by the `app/Console/Commands/Sync*` commands, in the dependency order described under "Queue & sync pipeline" above (contacts → products → stocks → sales orders → installation dates — later steps assume earlier ones already ran). `LegacySyncService` / `LegacyEndpointService` pull from an older system for historical/migration data. `SyncLogger` records outcomes to the `SyncLog` model, surfaced at `admin/logs` (Admin-only, see [SyncLogController](app/Http/Controllers/Admin/SyncLogController.php)).
 
 Because commission calculation and reporting all key off of `SalesOrder`/`Contact`/`Product` records populated by this pipeline, most "data looks wrong" bugs trace back to a sync step, not the calculator itself — check `SyncLog` and the relevant `Sync*` command before assuming the commission math is broken.
 
@@ -31,11 +45,18 @@ Because commission calculation and reporting all key off of `SalesOrder`/`Contac
 
 [CommissionCalculator](app/Services/CommissionCalculator.php) is the core business-logic service — it is not a generic calculator, it encodes specific WAA pricing/commission rules:
 
-- **Salesperson resolution** is a priority-ordered fallback chain (explicit `Contact.user_id` owner → salesperson-partner contact owner → Odoo user/salesperson ID match → name match) — an order with no resolvable user is silently skipped (logged, not calculated). When commissions "aren't appearing" for an order, this resolution chain is usually where to look first.
+- **Salesperson resolution** is a priority-ordered fallback chain (explicit `Contact.user_id` owner → salesperson-partner contact owner → Odoo user/salesperson ID match → name match) — an order with no resolvable user is silently skipped (logged, not calculated) and surfaces in the UI as "Pending Mapping". When commissions "aren't appearing" for an order, this resolution chain is usually where to look first. The lookup maps are memoized per `CommissionCalculator` instance (`loadSalespersonLookupMaps()`), so a whole backfill run costs 2 queries rather than ~5 per order — keep that in mind before injecting a fresh instance per order.
 - **Selling price**: cash payment types use the order total as-is; all other payment types get a 10% discount factor (`NON_CASH_DISCOUNT_FACTOR`).
 - **Additional cost / landing price**: order lines are split into ones with a matching `LandingPrice` record (installation service or supply-only cost, chosen based on whether the order has any supply-only line) vs. everything else (summed with a 10% markup as "additional cost"). A line's landing price is time-scoped by `effective_from` against the order's `create_date`.
 - **Profit** = selling price − additional cost − landing price; commission = a flat base (self-generated vs. company-lead rate, or a hardcoded $200 for the special product `usro-6s1-2w`) + a split of profit (or the full negative profit as a penalty) + any manual adjustment.
 - `applyManualAdjustment()` and `recalculate()` preserve status and manual adjustments across recalculation — always go through these rather than mutating `CommissionCalculation` directly, or you'll lose the audit trail (`CommissionAdjustment` records).
+
+**When recalculation is triggered** — this has been the source of several "commission is stale/missing" bugs, so be careful changing it. There are two automatic paths, and both gate on `status = 'pending' AND manual_adjustment = 0`:
+
+1. `SyncOdooSalesOrders::recalculateCommissionsForSyncedOrders()` recalculates exactly the orders touched by *that* sync run (accumulated by `odoo_id` across all paginated pages). This catches new orders and changed Odoo data (e.g. `x_studio_sales_source` flipping self-gen → company-lead), but by definition cannot catch an order whose Odoo data didn't change.
+2. `CalculateMissingCommissionsJob` (last in the chain) sweeps a bounded batch (`--limit=200`) of *any* order still missing a commission or still pending. This is what catches orders that failed salesperson resolution at sync time but would resolve now because a local `Contact`/`User` mapping was fixed afterward — path 1 can never pick those up.
+
+Anything `approved`/`rejected`/`paid`, or with a non-zero `manual_adjustment`, is deliberately never recalculated automatically: a human has already signed off on or corrected those numbers, and `calculateCommission()` re-derives every `sales_source`-dependent field on each call, so the total would shift underneath them. Note `confirmed_by_manager` is a *separate* sales-manager signoff flag and is **not** a valid substitute for `status` in these gates — it can be true while status is still `pending`, and false on an already-approved commission.
 
 ### Approval workflow & roles
 
