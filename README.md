@@ -79,6 +79,7 @@ Perfect for organizations managing complex sales commission structures with mult
 - **Permissions**: [Spatie Laravel Permission](https://spatie.be/docs/laravel-permission) - Role and permission management
 - **Database**: MySQL 8.4 with full-text search capabilities
 - **Odoo Connector**: [obuchmann/odoo-jsonrpc](https://github.com/obuchmann/php-odoo-jsonrpc) - JSON-RPC Odoo integration
+- **Queues**: [Laravel Horizon](https://laravel.com/docs/12/horizon) on Redis - dashboard, metrics and retries for the background sync pipeline
 - **Backups**: [Spatie Laravel Backup](https://spatie.be/docs/laravel-backup) - Automated backup solutions
 - **API Documentation**: [Scribe](https://scribe.knuckles.rocks/) - Auto-generated API documentation
 
@@ -154,30 +155,32 @@ Perfect for organizations managing complex sales commission structures with mult
                       │ (External SaaS)  │
                       └──────────────────┘
 
-                    ┌──────────────────┐
-                    │ Queue System     │
-                    │ (Background Jobs)│
-                    └──────────────────┘
+    ┌──────────────────────────────────────────────────────┐
+    │ Scheduler (every minute) ─dispatches─► Redis queue   │
+    │   └─► Horizon workers run the 6-job sync chain:      │
+    │       contacts → products → stocks → sales orders    │
+    │       → installation dates → calculate commissions   │
+    └──────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
 
+**Odoo Sync Flow** (polling, not webhooks — Odoo does not push to this app):
+
+1. The scheduler runs every minute and dispatches a `Bus::chain()` of six queued jobs (`app/Jobs/`) onto a dedicated `odoo-sync` Redis queue, processed by Horizon. A cache mutex prevents a new chain starting while one is still running.
+2. Each job runs its artisan command: `sync-contacts` → `sync-products` → `sync-stocks` → `sync-sales` → `sync-installation-dates` → `calculate-missing`. The order is a real dependency order.
+3. Most steps sync incrementally, filtering Odoo by `write_date` against the last successful `SyncLog` entry; `--all` forces a full re-fetch.
+4. Records are batch-upserted by `odoo_id`, with each command's outcome written to `SyncLog` (visible at `admin/logs`).
+
 **Commission Calculation Flow**:
 
-1. Sales Order received via Odoo webhook
-2. System validates and maps commission owner
-3. Commission calculated based on business rules
-4. Record stored with 'pending' status
-5. Manager receives notification for approval
-6. Approved commissions marked for payment processing
+1. After sales orders sync, `SyncOdooSalesOrders` recalculates commissions for exactly the orders that run touched.
+2. `CommissionCalculator` resolves the salesperson via a priority-ordered fallback chain. An order with no resolvable user is skipped and shows as "Pending Mapping" in the UI.
+3. Selling price, additional cost, landing price and profit are derived, then commission = base rate (self-gen vs company-lead) + profit split + any manual adjustment. The record is stored with `pending` status.
+4. The final pipeline job (`commissions:calculate-missing --limit=200 --update-unconfirmed`) sweeps up any order still missing a commission or still pending — this catches orders that failed salesperson resolution earlier but would resolve now that a `Contact`/`User` mapping has been fixed.
+5. Commissions are reviewed and moved through `pending` → `approved` → `paid` by role-gated actions in the UI. Both automatic paths above only ever touch commissions that are still `pending` with no manual adjustment, so approved/paid figures are never silently changed.
 
-**Odoo Sync Flow**:
-
-1. Periodic sync or webhook trigger
-2. Fetch updates from Odoo via JSON-RPC
-3. Local conflict detection
-4. Upsert with audit logging
-5. Notification system updated
+> Approval is a pull-based UI workflow — there is no notification/email system in the app.
 
 ---
 
@@ -297,16 +300,22 @@ npm run build
 ### 6. Start Development Server
 
 ```bash
-# Using Sail (includes Laravel, Queue, and Vite)
+# Runs the Laravel server, a queue listener and Vite concurrently
 composer run dev
 
 # OR manually in separate terminals
-./vendor/bin/sail php artisan serve     # Terminal 1
-./vendor/bin/sail php artisan queue:listen  # Terminal 2 (optional)
-npm run dev                              # Terminal 3
+php artisan serve        # Terminal 1
+php artisan queue:listen # Terminal 2
+npm run dev              # Terminal 3
 ```
 
 The application will be available at: [**http://localhost**](http://localhost/)
+
+> Local dev uses `queue:listen`, **not** Horizon. Horizon requires the `pcntl`
+> and `posix` PHP extensions, which are POSIX-only — `php artisan horizon` will
+> not start on native Windows (it runs fine in the Docker containers, and under
+> WSL/macOS/Linux). Jobs still process normally either way; you just don't get
+> the Horizon dashboard locally on Windows.
 
 ---
 
@@ -316,28 +325,38 @@ The application will be available at: [**http://localhost**](http://localhost/)
 wateranalytics-australia-api/
 ├── app/
 │   ├── Actions/              # Fortify authentication actions
-│   ├── Console/Commands/     # Custom Artisan commands
+│   ├── Console/Commands/     # Sync + commission Artisan commands
+│   ├── Jobs/                # Queued sync pipeline (Horizon)
+│   │   ├── OdooSyncStepJob.php          # Base class for every step
+│   │   ├── SyncOdooContactsJob.php      # 1st in the chain
+│   │   ├── SyncOdooProductsJob.php
+│   │   ├── SyncOdooStocksJob.php
+│   │   ├── SyncOdooSalesOrdersJob.php
+│   │   ├── SyncOdooInstallationDatesJob.php
+│   │   └── CalculateMissingCommissionsJob.php  # last; releases the lock
 │   ├── Http/
 │   │   ├── Controllers/
 │   │   │   ├── Api/         # REST API controllers
 │   │   │   ├── Admin/       # Admin panel controllers
-│   │   │   ├── Web/         # Web controllers
 │   │   │   └── Settings/    # Settings management
 │   │   ├── Middleware/      # HTTP middleware
 │   │   ├── Requests/        # Form request validations
 │   │   └── Resources/       # API response resources
 │   ├── Models/              # Eloquent models
-│   │   ├── Commission.php
+│   │   ├── CommissionCalculation.php
+│   │   ├── CommissionAdjustment.php
+│   │   ├── CommissionApproval.php
 │   │   ├── SalesOrder.php
+│   │   ├── Contact.php
 │   │   ├── Product.php
-│   │   ├── User.php
-│   │   └── Team.php
+│   │   └── SyncLog.php
 │   ├── Services/            # Business logic services
-│   │   ├── CommissionService.php
-│   │   ├── OdooService.php
-│   │   └── SyncService.php
+│   │   ├── CommissionCalculator.php  # the commission engine
+│   │   ├── SyncLogger.php            # writes SyncLog entries
+│   │   ├── LegacySyncService.php
+│   │   └── LegacyEndpointService.php
 │   ├── Listeners/           # Event listeners
-│   └── Providers/           # Service providers
+│   └── Providers/           # Service providers (incl. HorizonServiceProvider)
 │
 ├── bootstrap/               # Application bootstrap
 ├── config/                  # Configuration files
@@ -557,9 +576,19 @@ MAIL_FROM_NAME       # From display name
 ### Queue (for background jobs)
 
 ```
-QUEUE_CONNECTION     # Queue driver (sync, database, redis, sqs)
-QUEUE_RETRIES        # Default retry attempts
+QUEUE_CONNECTION=redis   # Must be redis - Horizon only processes Redis queues
+REDIS_CLIENT=predis
+REDIS_HOST=redis         # Docker service name; 127.0.0.1 if Redis runs on the host
+REDIS_PORT=6379
+REDIS_PASSWORD=null
+HORIZON_PATH=horizon     # Dashboard URI, Admin role only
 ```
+
+> If `QUEUE_CONNECTION` is left on `database`, jobs are queued somewhere Horizon
+> can't see them: the dashboard stays empty and the sync pipeline never runs.
+> Worker counts live in `config/horizon.php` under `environments` — that key is
+> matched against `APP_ENV`, and if nothing matches Horizon starts with **zero
+> workers** while still reporting "Active", so the `'*'` wildcard entry must stay.
 
 ### Permission Configuration
 
@@ -709,13 +738,24 @@ php artisan test --coverage
 ```
 tests/
 ├── Feature/
-│   ├── CommissionTest.php
-│   ├── SalesOrderTest.php
-│   ├── AuthTest.php
-│   └── OdooSyncTest.php
+│   ├── Auth/                             # Login, registration, 2FA, password reset
+│   ├── Settings/                         # Profile & password settings
+│   ├── CommissionControllerTest.php
+│   ├── CalculateMissingCommissionsTest.php  # status/manual-adjustment gating
+│   ├── ManualAdjustmentTest.php
+│   ├── OdooSyncScheduleTest.php          # job chain + overlap lock
+│   ├── SalesOrderControllerTest.php
+│   ├── ReportControllerTest.php
+│   ├── RouteAuthorizationTest.php        # role gating per route
+│   └── DashboardTest.php
 ├── Unit/
-│   ├── CommissionServiceTest.php
-│   └── OdooServiceTest.php
+│   ├── CommissionCalculatorTest.php      # the commission rules
+│   ├── SyncOdooSalesOrdersRecalculateCommissionsTest.php
+│   ├── SyncOdooSalesOrdersPaymentStatusTest.php
+│   ├── CalculateMissingCommissionsJobTest.php
+│   ├── HorizonEnvironmentConfigTest.php  # guards the '*' env key
+│   ├── SalesOrderHasInstallationTest.php
+│   └── UserHierarchyTest.php
 └── Pest.php              # Pest configuration
 ```
 
@@ -783,14 +823,22 @@ docker-compose -f docker-compose.prod.yml exec app php artisan migrate --force
 
 ```bash
 # View application logs
-docker-compose logs -f app
+docker compose -f docker-compose.prod.yml logs -f app
+
+# View queue worker logs (sync pipeline runs here)
+docker compose -f docker-compose.prod.yml logs -f queue
 
 # View database logs
-docker-compose logs -f mysql
+docker compose -f docker-compose.prod.yml logs -f mysql
 
-# Health check
-curl <https://api.wateranalytics.com.au/health>
+# Confirm Horizon actually spawned workers - if this shows only PID 1
+# (php artisan horizon) with no child processes, no queues are being
+# consumed even though the dashboard may report "Active"
+docker compose -f docker-compose.prod.yml exec -T queue ps aux
 ```
+
+Queue health is best checked from the Horizon dashboard at `/horizon` (Admin
+only), and sync outcomes from `/admin/logs`.
 
 ---
 
@@ -805,22 +853,35 @@ Solution: Check CORS configuration in config/cors.php
 Ensure frontend domain is in ALLOWED_ORIGINS
 ```
 
-### Commission Not Calculating
+### Commission Not Calculating / shows "Pending Mapping"
+
+"Pending Mapping" means `CommissionCalculator` could not resolve a salesperson
+for the order, so no commission record was created.
 
 ```
-1. Check CommissionService logic
-2. Verify user has commission rates configured
-3. Check sales order status is 'sale'
-4. Review error logs: storage/logs/laravel.log
+1. Confirm the order's salesperson maps to a User: the Contact whose odoo_id
+   matches the order's salesperson_partner_id (or partner_id) needs its
+   user_id set, or the User needs a matching odoo_user_id/odoo_salesperson_id
+2. Verify that User has commission rates configured (self_gen_base,
+   company_lead_base, commission_split)
+3. Check the sales order state is 'sale' - other states are not synced
+4. Review logs for "Skipping commission calculation for order #X"
+5. After fixing a mapping, the next pipeline run picks it up automatically
+   (or force it: php artisan commissions:calculate-missing --all)
 ```
+
+Already-approved/paid commissions, and any with a manual adjustment, are
+deliberately never recalculated automatically — use the UI's recalculate
+action if one of those genuinely needs updating.
 
 ### Odoo Sync Fails
 
 ```
-1. Verify ODOO credentials in .env
-2. Check Odoo instance is accessible
-3. Review queue logs: storage/logs/queue.log
-4. Run manual sync: php artisan odoo:sync --debug
+1. Verify ODOO_* credentials in .env and that the instance is reachable
+2. Check the sync history at /admin/logs (SyncLog) for the failing step
+3. Check Horizon at /horizon - Failed Jobs shows the exception and payload
+4. Tail the worker: docker compose -f docker-compose.prod.yml logs queue
+5. Run a step manually to reproduce, e.g. php artisan odoo:sync-sales -v
 ```
 
 ### Docker Port Already in Use
@@ -845,19 +906,27 @@ APP_PORT=8080
 ### Debug Commands
 
 ```bash
-# Test Odoo connection
-php artisan odoo:test-connection
+# Test Odoo connectivity (runs one real sync step)
+php artisan odoo:sync-contacts -v
 
 # Clear all caches
 php artisan cache:clear
 php artisan config:clear
 php artisan route:clear
 
-# View queued jobs
-php artisan queue:failed
+# Horizon status and workers
+php artisan horizon:status
+php artisan horizon:list
 
-# Retry failed jobs
+# View / retry failed jobs (also visible at /horizon)
+php artisan queue:failed
 php artisan queue:retry all
+
+# Clear a backed-up queue (e.g. duplicate jobs piled up)
+php artisan horizon:clear --queue=odoo-sync
+
+# Apply new Horizon config - workers only pick it up on restart
+php artisan horizon:terminate
 ```
 
 ---
@@ -866,19 +935,21 @@ php artisan queue:retry all
 
 - **Database Indexing**: All foreign keys and frequently filtered columns are indexed
 - **Query Optimization**: Use `select()` and `with()` for efficient querying
-- **Caching**: Leverage Redis for commission rate caching
-- **Queue System**: Background jobs for sync operations prevent blocking
+- **Queue System**: The Odoo sync pipeline runs as queued Horizon jobs, so a slow or failing sync never blocks the scheduler, and failures get automatic retries with backoff
+- **Batched writes**: Sync commands `upsert()` in batches keyed on `odoo_id` rather than saving row-by-row
+- **Incremental sync**: Steps filter Odoo by `write_date` since the last successful run; stock sync skips warehouses with no movement
+- **Memoized lookups**: `CommissionCalculator` builds its salesperson lookup maps once per instance, so a bulk recalculation costs 2 queries instead of ~5 per order
 - **API Response**: Paginated endpoints default to 50 items per page
 
 ---
 
 ## 🔒 Security
 
-- **Authentication**: JWT tokens with Sanctum
-- **Authorization**: Row-level permissions with spatie/laravel-permission
+- **Authentication**: Session-based auth (Fortify) for the Inertia app; Sanctum tokens guard `routes/api.php`
+- **Authorization**: Role/permission gating with spatie/laravel-permission; the Horizon dashboard is Admin-only via the `viewHorizon` gate
 - **Input Validation**: All user inputs validated with Form Requests
 - **CSRF Protection**: Enabled for all state-changing operations
 - **SQL Injection**: Parameterized queries via Eloquent ORM
 - **XSS Protection**: Vue 3 automatic escaping + Tailwind sanitization
-- **Rate Limiting**: API endpoints limited to prevent abuse
+- **Rate Limiting**: Applied to sensitive endpoints (e.g. two-factor confirmation); not yet applied globally across the API
 - **Audit Logging**: All commission changes tracked with user attribution
