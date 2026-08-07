@@ -3,13 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Models\ProductStock;
-use App\Models\Warehouse;
 use App\Models\SyncLog;
+use App\Models\Warehouse;
+use App\Services\SyncLogger;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Obuchmann\OdooJsonRpc\Odoo;
-use App\Services\SyncLogger;
-use Carbon\Carbon;
 
 class SyncStocks extends Command
 {
@@ -55,26 +55,68 @@ class SyncStocks extends Command
 
             // Delete product stocks for excluded warehouses
             $excludedWarehouseIds = Warehouse::where('is_excluded', true)->pluck('id')->toArray();
-            if (!empty($excludedWarehouseIds)) {
+            if (! empty($excludedWarehouseIds)) {
                 ProductStock::whereIn('warehouse_id', $excludedWarehouseIds)->delete();
-                $this->info("Deleted obsolete stocks for excluded warehouses.");
+                $this->info('Deleted obsolete stocks for excluded warehouses.');
             }
 
-            // Step 3: Sync Product Stocks for each warehouse
+            // Step 3: Sync Product Stocks for each warehouse.
+            // Quantities are computed fields (from stock.quant), so unlike
+            // contacts/products/sales orders there's no safe write_date filter
+            // on product.product itself - a stock move never touches it. Instead,
+            // do a cheap stock.quant existence check per warehouse first, and
+            // only pay for the full product scan when something actually moved.
+            $lastSync = SyncLog::where('command', $this->signature)
+                ->where('status', 'completed')
+                ->latest('completed_at')
+                ->first()?->completed_at;
+
             foreach ($warehouses as $warehouse) {
-                if ($warehouse->odoo_id === 0 || $warehouse->is_excluded) continue;
-                
+                if ($warehouse->odoo_id === 0 || $warehouse->is_excluded) {
+                    continue;
+                }
+
+                if ($lastSync && ! $this->hasQuantActivitySince($odoo, $warehouse, $lastSync)) {
+                    $this->info("No stock movement since last sync for warehouse: {$warehouse->name} - skipping.");
+
+                    continue;
+                }
+
                 $this->info("Syncing stocks for warehouse: {$warehouse->name} (ID: {$warehouse->odoo_id})");
                 $totalSynced += $this->syncProductStocks($odoo, $warehouse);
             }
 
             $this->info('Sync complete!');
             $logger->complete($log, $totalSynced);
+
             return 0;
         } catch (\Exception $e) {
-            $this->error("Sync failed: " . $e->getMessage());
+            $this->error('Sync failed: '.$e->getMessage());
             $logger->fail($log, $e);
+
             return 1;
+        }
+    }
+
+    /**
+     * Cheap pre-check: has any stock.quant for this warehouse changed since
+     * $lastSync? Used to skip the expensive per-product web_search_read scan
+     * for warehouses that are provably untouched. Fails open (returns true,
+     * i.e. "sync it") on any error - this must never cause a stale skip.
+     */
+    protected function hasQuantActivitySince(Odoo $odoo, Warehouse $warehouse, Carbon $lastSync): bool
+    {
+        try {
+            $count = $odoo->model('stock.quant')
+                ->where('warehouse_id', '=', $warehouse->odoo_id)
+                ->where('write_date', '>', $lastSync->toDateTimeString())
+                ->count();
+
+            return $count > 0;
+        } catch (\Exception $e) {
+            $this->warn("Could not check quant activity for warehouse {$warehouse->name}, syncing anyway: ".$e->getMessage());
+
+            return true;
         }
     }
 
@@ -97,11 +139,13 @@ class SyncStocks extends Command
                 $warehouses[] = $warehouse;
             }
 
-            $this->info('Synced ' . count($warehouses) . ' warehouses');
+            $this->info('Synced '.count($warehouses).' warehouses');
+
             return $warehouses;
         } catch (\Exception $e) {
-            $this->error("Failed to fetch warehouses: " . $e->getMessage());
-            Log::error("Odoo Warehouse Sync Error: " . $e->getMessage());
+            $this->error('Failed to fetch warehouses: '.$e->getMessage());
+            Log::error('Odoo Warehouse Sync Error: '.$e->getMessage());
+
             return [];
         }
     }
@@ -129,7 +173,7 @@ class SyncStocks extends Command
             // Prepare specification for web_search_read
             $specification = [];
             foreach ($fields as $field) {
-                $specification[$field] = (object)[];
+                $specification[$field] = (object) [];
             }
 
             while (true) {
@@ -147,9 +191,9 @@ class SyncStocks extends Command
                     $specification,
                     $offset,
                     $limit,
-                    'id desc'
+                    'id desc',
                 ]);
-                
+
                 // Restore original context
                 $odoo->setContext($originalContext);
 
@@ -161,7 +205,7 @@ class SyncStocks extends Command
 
                 $syncData = [];
                 foreach ($products as $product) {
-                    $product = (object)$product;
+                    $product = (object) $product;
                     $syncedOdooIds[] = $product->id;
 
                     $categId = $product->categ_id->id ?? null;
@@ -188,11 +232,11 @@ class SyncStocks extends Command
                     ];
                 }
 
-                $this->info(" Upserting " . count($syncData) . " product stocks...");
+                $this->info(' Upserting '.count($syncData).' product stocks...');
                 ProductStock::upsert($syncData, ['odoo_id', 'warehouse_id'], [
-                    'display_name', 'categ_id', 'categ_name', 'cost_method', 'avg_cost', 
-                    'total_value', 'qty_available', 'free_qty', 'incoming_qty', 
-                    'outgoing_qty', 'virtual_available', 'updated_at'
+                    'display_name', 'categ_id', 'categ_name', 'cost_method', 'avg_cost',
+                    'total_value', 'qty_available', 'free_qty', 'incoming_qty',
+                    'outgoing_qty', 'virtual_available', 'updated_at',
                 ]);
 
                 if (count($products) < $limit) {
@@ -210,11 +254,13 @@ class SyncStocks extends Command
                 $this->warn(" Deleted $deletedCount obsolete stock records for warehouse: {$warehouse->name}");
             }
 
-            $this->info(" Synced " . count($syncedOdooIds) . " products for warehouse " . $warehouse->name);
+            $this->info(' Synced '.count($syncedOdooIds).' products for warehouse '.$warehouse->name);
+
             return count($syncedOdooIds);
         } catch (\Exception $e) {
-            $this->error("Failed to fetch stocks for warehouse {$warehouse->name}: " . $e->getMessage());
-            Log::error("Odoo Stock Sync Error for warehouse {$warehouse->odoo_id}: " . $e->getMessage());
+            $this->error("Failed to fetch stocks for warehouse {$warehouse->name}: ".$e->getMessage());
+            Log::error("Odoo Stock Sync Error for warehouse {$warehouse->odoo_id}: ".$e->getMessage());
+
             return 0;
         }
     }
