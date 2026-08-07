@@ -6,9 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { type BreadcrumbItem } from '@/types';
-import { computed } from 'vue';
 
-const props = defineProps<{
+defineProps<{
     logs: {
         data: Array<{
             id: number;
@@ -56,19 +55,6 @@ const formatDuration = (seconds: number | null) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}m ${remainingSeconds}s`;
-};
-
-const getStatusVariant = (status: string) => {
-    switch (status) {
-        case 'completed':
-            return 'default'; // or specific success/emerald variant if available in your badge component
-        case 'failed':
-            return 'destructive';
-        case 'running':
-            return 'secondary';
-        default:
-            return 'outline';
-    }
 };
 
 const getStatusClass = (status: string) => {
@@ -151,7 +137,7 @@ const getStatusClass = (status: string) => {
                                 :disabled="!link.url"
                                 as-child
                             >
-                                <Link v-if="link.url" :href="link.url" v-html="link.label" />
+                                <Link v-if="link.url" :href="link.url"><span v-html="link.label"></span></Link>
                                 <span v-else v-html="link.label"></span>
                             </Button>
                         </template>

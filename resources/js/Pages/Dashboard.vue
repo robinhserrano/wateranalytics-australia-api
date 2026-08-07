@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Clock, CheckCircle, Bell } from 'lucide-vue-next';
+import { Clock, CheckCircle, Bell } from 'lucide-vue-next';
 
 interface DashboardStats {
     overview: {
@@ -35,7 +35,7 @@ interface DashboardStats {
     }>;
 }
 
-const props = defineProps<{
+defineProps<{
     stats: DashboardStats;
     isManager: boolean;
 }>();
@@ -46,13 +46,6 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: dashboard().url,
     },
 ];
-
-const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-AU', {
-        style: 'currency',
-        currency: 'AUD',
-    }).format(amount);
-};
 
 const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-AU', {

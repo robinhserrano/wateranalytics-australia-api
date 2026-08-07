@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { BarChart3, BookOpen, Box, DollarSign, Folder, LayoutGrid, Package, ShoppingCart, Users, Shield, Activity } from 'lucide-vue-next';
+import { BarChart3, Box, DollarSign, LayoutGrid, Package, ShoppingCart, Users, Shield, Activity } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 import { computed } from 'vue';
 

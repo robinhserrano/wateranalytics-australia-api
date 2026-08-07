@@ -28,17 +28,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { ref } from 'vue';
 import {
     ArrowLeft,
-    DollarSign,
-    TrendingUp,
-    TrendingDown,
     CheckCircle2,
     XCircle,
     Calculator,
     Edit,
-    Check,
-    X,
     Info,
-    History,
     RotateCcw,
 } from 'lucide-vue-next';
 import {

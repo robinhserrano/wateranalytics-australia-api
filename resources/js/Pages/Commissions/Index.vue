@@ -19,10 +19,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ref, watch } from 'vue';
 import { useDebounceFn } from '@vueuse/core';
-import { Search, DollarSign, TrendingUp, CheckCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Search, DollarSign, CheckCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 const props = defineProps<{
     commissions: {
@@ -92,11 +92,6 @@ const formatCurrency = (amount: number | null) => {
         style: 'currency',
         currency: 'AUD',
     }).format(amount);
-};
-
-const formatDate = (date: string | null) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('en-AU');
 };
 
 const getStatusBadgeVariant = (status: string) => {

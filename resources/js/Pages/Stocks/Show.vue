@@ -11,14 +11,6 @@ defineProps<{
     dataSource: 'live' | 'cached';
 }>();
 
-const formatCurrency = (amount: number | null) => {
-    if (amount === null) return '-';
-    return new Intl.NumberFormat('en-AU', {
-        style: 'currency',
-        currency: 'AUD',
-    }).format(amount);
-};
-
 const formatQty = (qty: number | null) => {
     if (qty === null) return '-';
     return new Intl.NumberFormat('en-AU', {
