@@ -26,6 +26,10 @@ services:
         image: nginx:alpine
         container_name: nginx-web
         restart: unless-stopped
+        # certbot renews certs on its own schedule but has no way to tell nginx
+        # to pick them up. Reloading nginx every 6h is a harmless no-op when the
+        # cert hasn't changed, and is what actually applies a renewed cert.
+        entrypoint: /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
         ports:
             - "80:80"
             - "443:443"
