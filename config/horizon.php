@@ -229,18 +229,28 @@ return [
         ],
     ],
 
+    // '*' is a wildcard (matched via Str::is in ProvisioningPlan::deploy) so this
+    // applies regardless of what APP_ENV actually is - 'production' alone left
+    // every non-production, non-local environment (staging included) with zero
+    // matching supervisors, meaning Horizon deployed no workers at all: the
+    // master process started and reported "Active" with no errors, since it
+    // legitimately just had nothing configured to supervise.
+    //
+    // 'local' MUST stay listed before '*': ProvisioningPlan::deploy() takes the
+    // first matching key in array order, so if '*' came first it would always
+    // win and 'local' would never be reached.
     'environments' => [
-        'production' => [
+        'local' => [
+            'supervisor-1' => [
+                'maxProcesses' => 3,
+            ],
+        ],
+
+        '*' => [
             'supervisor-1' => [
                 'maxProcesses' => 10,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
-            ],
-        ],
-
-        'local' => [
-            'supervisor-1' => [
-                'maxProcesses' => 3,
             ],
         ],
     ],
