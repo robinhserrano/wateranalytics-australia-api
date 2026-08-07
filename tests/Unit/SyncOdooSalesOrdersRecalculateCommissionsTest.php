@@ -25,7 +25,7 @@ function callRecalculateCommissionsForSyncedOrders(array $syncedOdooIds): void
     $method->invoke($command, new CommissionCalculator, $syncedOdooIds);
 }
 
-function makeOrderWithUser(int $odooId, ?string $existingCommissionStatus = null): SalesOrder
+function makeOrderWithUser(int $odooId, ?string $existingCommissionStatus = null, float $manualAdjustment = 0): SalesOrder
 {
     $user = User::factory()->create(['self_gen_base' => 1000, 'company_lead_base' => 500, 'commission_split' => 50]);
     $contact = Contact::create(['odoo_id' => $odooId + 10000, 'display_name' => 'Contact '.$odooId, 'user_id' => $user->id]);
@@ -50,8 +50,8 @@ function makeOrderWithUser(int $odooId, ?string $existingCommissionStatus = null
             'profit' => 1000,
             'base_commission' => 1000, // stale self-gen base, order is now company_lead
             'extra_commission' => 500,
-            'manual_adjustment' => 0,
-            'final_commission' => 1500,
+            'manual_adjustment' => $manualAdjustment,
+            'final_commission' => 1500 + $manualAdjustment,
             'status' => $existingCommissionStatus,
         ]);
     }
@@ -95,6 +95,16 @@ test('does not touch an order whose commission is already paid', function () {
 
     expect((float) $order->fresh()->commissionCalculation->base_commission)->toBe((float) $before)
         ->and($order->fresh()->commissionCalculation->status)->toBe('paid');
+});
+
+test('does not touch a pending order that already has a manual adjustment', function () {
+    $order = makeOrderWithUser(6, 'pending', manualAdjustment: 100);
+    $before = $order->fresh()->commissionCalculation->base_commission;
+
+    callRecalculateCommissionsForSyncedOrders([6]);
+
+    expect((float) $order->fresh()->commissionCalculation->base_commission)->toBe((float) $before)
+        ->and((float) $order->fresh()->commissionCalculation->manual_adjustment)->toBe(100.0);
 });
 
 test('ignores orders not in the synced batch', function () {

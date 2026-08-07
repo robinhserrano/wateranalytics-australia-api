@@ -428,8 +428,12 @@ class SyncOdooSalesOrders extends Command
 
     /**
      * Recalculate commissions for exactly the orders synced this run, skipping
-     * any whose commission is already approved/rejected/paid. Failures are
-     * logged per-order rather than aborting the sync.
+     * any whose commission is already approved/rejected/paid, or that a human
+     * has already manually adjusted (even while still pending - the adjustment
+     * dollar amount is preserved across a recalculation, but the total can
+     * still shift underneath it if base/extra_commission change, which could
+     * surprise whoever added that adjustment). Failures are logged per-order
+     * rather than aborting the sync.
      *
      * @param  array<int>  $syncedOdooIds
      */
@@ -443,7 +447,8 @@ class SyncOdooSalesOrders extends Command
             ->where(function ($query) {
                 $query->whereDoesntHave('commissionCalculation')
                     ->orWhereHas('commissionCalculation', function ($sub) {
-                        $sub->where('status', 'pending');
+                        $sub->where('status', 'pending')
+                            ->where('manual_adjustment', 0);
                     });
             })
             ->get();

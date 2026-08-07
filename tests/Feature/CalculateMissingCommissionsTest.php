@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-function makeCalcMissingOrder(int $odooId, ?string $existingStatus = null, bool $confirmedByManager = false): SalesOrder
+function makeCalcMissingOrder(int $odooId, ?string $existingStatus = null, bool $confirmedByManager = false, float $manualAdjustment = 0): SalesOrder
 {
     $user = User::factory()->create(['self_gen_base' => 1000, 'company_lead_base' => 500, 'commission_split' => 50]);
     $contact = Contact::create(['odoo_id' => $odooId + 20000, 'display_name' => 'Contact '.$odooId, 'user_id' => $user->id]);
@@ -33,8 +33,8 @@ function makeCalcMissingOrder(int $odooId, ?string $existingStatus = null, bool 
             'profit' => 1000,
             'base_commission' => 1000, // stale self-gen base, order is now company_lead
             'extra_commission' => 500,
-            'manual_adjustment' => 0,
-            'final_commission' => 1500,
+            'manual_adjustment' => $manualAdjustment,
+            'final_commission' => 1500 + $manualAdjustment,
             'status' => $existingStatus,
             'confirmed_by_manager' => $confirmedByManager,
         ]);
@@ -81,6 +81,16 @@ test('does not touch a paid commission', function () {
     $this->artisan('commissions:calculate-missing', ['--update-unconfirmed' => true])->assertExitCode(0);
 
     expect((float) $order->fresh()->commissionCalculation->base_commission)->toBe((float) $before);
+});
+
+test('does not touch a pending commission that already has a manual adjustment', function () {
+    $order = makeCalcMissingOrder(7, 'pending', manualAdjustment: 100);
+    $before = $order->fresh()->commissionCalculation->base_commission;
+
+    $this->artisan('commissions:calculate-missing', ['--update-unconfirmed' => true])->assertExitCode(0);
+
+    expect((float) $order->fresh()->commissionCalculation->base_commission)->toBe((float) $before)
+        ->and((float) $order->fresh()->commissionCalculation->manual_adjustment)->toBe(100.0);
 });
 
 test('without --update-unconfirmed, only orders with no commission at all are touched', function () {

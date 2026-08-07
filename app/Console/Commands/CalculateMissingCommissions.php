@@ -52,10 +52,16 @@ class CalculateMissingCommissions extends Command
                 // commission is safe to leave stale. status is the actual signal
                 // for "has anyone signed off on the final numbers" (approved/
                 // rejected/paid should never be silently recalculated).
+                // manual_adjustment != 0 is excluded too, even while pending: a
+                // human already corrected this specific commission's amount, and
+                // recalculating base/extra_commission underneath that correction
+                // can still shift the total even though the adjustment itself is
+                // preserved.
                 $baseQuery->where(function ($q) {
                     $q->whereDoesntHave('commissionCalculation')
                         ->orWhereHas('commissionCalculation', function ($sub) {
-                            $sub->where('status', 'pending');
+                            $sub->where('status', 'pending')
+                                ->where('manual_adjustment', 0);
                         });
                 });
             } else {
