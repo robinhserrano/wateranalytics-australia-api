@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Contact;
 use App\Models\SalesOrder;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class UserController extends Controller
 {
@@ -56,8 +57,24 @@ class UserController extends Controller
 
         $partnerIds = $user->contacts->pluck('odoo_id')->toArray();
 
-        // Fetch Sales activity
-        $salesOrders = SalesOrder::whereIn('salesperson_partner_id', $partnerIds)
+        // Fetch Sales activity. Mirrors CommissionCalculator::resolveSalesperson()'s
+        // fallback chain so an order attributed to this user via any rung (not just
+        // a direct Contact/salesperson_partner_id match) still shows up here.
+        $salesOrders = SalesOrder::where(function ($query) use ($partnerIds, $user) {
+            $query->whereIn('salesperson_partner_id', $partnerIds);
+
+            if ($user->odoo_user_id) {
+                $query->orWhere('user_id', $user->odoo_user_id);
+            }
+
+            if ($user->odoo_salesperson_id) {
+                $query->orWhere('user_id', $user->odoo_salesperson_id);
+            }
+
+            if ($user->name) {
+                $query->orWhere('user_name', $user->name);
+            }
+        })
             ->orderBy('create_date', 'desc')
             ->limit(50)
             ->get();
@@ -94,7 +111,7 @@ class UserController extends Controller
                 ->where('odoo_user_ids', '!=', '[]')
                 ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids', 'email')
                 ->get(),
-            'roles' => \Spatie\Permission\Models\Role::all(),
+            'roles' => Role::all(),
         ]);
 
         /**
@@ -119,7 +136,7 @@ class UserController extends Controller
             'contact_ids.*' => 'exists:contacts,odoo_id',
         ]);
 
-        $user = DB::transaction(function () use ($validated, $request) {
+        $user = DB::transaction(function () use ($validated) {
             $contactIds = $validated['contact_ids'] ?? null;
             $roleNames = $validated['role_names'] ?? [];
 
@@ -131,7 +148,7 @@ class UserController extends Controller
 
             $user = User::create($validated);
 
-            if (!empty($roleNames)) {
+            if (! empty($roleNames)) {
                 $user->assignRole($roleNames);
             }
 
@@ -158,7 +175,7 @@ class UserController extends Controller
                 ->where('odoo_user_ids', '!=', '[]')
                 ->select('odoo_id', 'display_name', 'user_id', 'odoo_user_ids', 'email')
                 ->get(),
-            'roles' => \Spatie\Permission\Models\Role::all(),
+            'roles' => Role::all(),
         ]);
     }
 
@@ -172,7 +189,7 @@ class UserController extends Controller
         // Only admins may edit another user's record or change privileged fields
         // (role, manager, commission rates). Everyone else may only update their
         // own name/email/password.
-        if (!$isAdmin) {
+        if (! $isAdmin) {
             if (auth()->id() !== $user->id) {
                 abort(403, 'Unauthorized action.');
             }
@@ -187,7 +204,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+            'email' => 'required|email|max:255|unique:users,email,'.$user->id,
             'password' => 'nullable|string|min:6',
             'role_names' => 'nullable|array',
             'role_names.*' => 'exists:roles,name',
@@ -195,7 +212,7 @@ class UserController extends Controller
             'commission_split' => 'nullable|numeric|min:0|max:100',
             'company_lead_base' => 'nullable|numeric|min:0',
             'self_gen_base' => 'nullable|numeric|min:0',
-            'legacy_id' => 'nullable|integer|unique:users,legacy_id,' . $user->id,
+            'legacy_id' => 'nullable|integer|unique:users,legacy_id,'.$user->id,
             'contact_ids' => 'nullable|array',
             'contact_ids.*' => 'exists:contacts,odoo_id',
         ]);
@@ -218,7 +235,7 @@ class UserController extends Controller
             $user->syncRoles($roleNames);
 
             // Clear Spatie permission cache so next page load reflects new roles
-            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
             if ($request->has('contact_ids')) {
 
@@ -228,7 +245,7 @@ class UserController extends Controller
                     ->update(['user_id' => null]);
 
                 // Then assign the selected contacts
-                if (!empty($contactIds)) {
+                if (! empty($contactIds)) {
                     DB::table('contacts')
                         ->whereIn('odoo_id', $contactIds)
                         ->update(['user_id' => $user->id]);
@@ -250,7 +267,7 @@ class UserController extends Controller
         }
 
         // Check if user is admin (using spatie permission)
-        if (!auth()->user()->hasRole('Admin')) {
+        if (! auth()->user()->hasRole('Admin')) {
             abort(403, 'Only admins can delete users.');
         }
 
@@ -262,23 +279,23 @@ class UserController extends Controller
     public function export(Request $request)
     {
         // Only allow admins
-        if (!auth()->user()->hasRole('Admin')) {
+        if (! auth()->user()->hasRole('Admin')) {
             abort(403, 'Unauthorized action.');
         }
 
         $filename = $request->query('filename', 'Commission Users.csv');
-        if (!str_ends_with(strtolower($filename), '.csv')) {
+        if (! str_ends_with(strtolower($filename), '.csv')) {
             $filename .= '.csv';
         }
 
         $users = User::with('roles', 'contacts')->orderBy('name')->get();
 
         $headers = [
-            "Content-type" => "text/csv",
-            "Content-Disposition" => "attachment; filename=\"{$filename}\"",
-            "Pragma" => "no-cache",
-            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
-            "Expires" => "0"
+            'Content-type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
         ];
 
         $columns = [
@@ -290,7 +307,7 @@ class UserController extends Controller
             'Commission Split (%)',
             'Company Lead Base ($)',
             'Self Gen Base ($)',
-            'Linked Contacts'
+            'Linked Contacts',
         ];
 
         $callback = function () use ($users, $columns) {
@@ -301,6 +318,7 @@ class UserController extends Controller
                 $roles = $user->roles->pluck('name')->join(', ');
                 $contacts = $user->contacts->map(function ($c) {
                     $uid = $c->odoo_user_ids[0] ?? 'N/A';
+
                     return "[{$uid}] {$c->display_name}";
                 })->join(' | ');
 
@@ -313,7 +331,7 @@ class UserController extends Controller
                     $user->commission_split ?? 0,
                     $user->company_lead_base ?? 0,
                     $user->self_gen_base ?? 0,
-                    $contacts ?: 'None'
+                    $contacts ?: 'None',
                 ]);
             }
             fclose($file);
