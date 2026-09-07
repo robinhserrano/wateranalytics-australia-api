@@ -894,6 +894,8 @@ const isSalesPerson = computed(() =>
                             <TableHead>Salesperson</TableHead>
                             <TableHead>Commission Owner</TableHead>
                             <TableHead>Sales Source</TableHead>
+                            <TableHead>Referred By</TableHead>
+                            <TableHead class="text-center">Referrer Processed</TableHead>
                             <TableHead class="text-center">Comm. Paid</TableHead>
                             <TableHead class="text-center">Confirmed By Manager</TableHead>
                             <TableHead class="text-center">Entered to Odoo</TableHead>
@@ -942,6 +944,12 @@ const isSalesPerson = computed(() =>
                                     {{ formatSource(order.commission_calculation.sales_source) }}
                                 </Badge>
                                 <span v-else class="text-muted-foreground">-</span>
+                            </TableCell>
+                            <TableCell>{{ order.x_studio_referred_by || '-' }}</TableCell>
+                            <TableCell>
+                                <div class="flex justify-center">
+                                    <Checkbox :model-value="!!order.x_studio_referrer_processed" disabled />
+                                </div>
                             </TableCell>
                             <TableCell>
                                 <div class="flex justify-center">
@@ -1014,7 +1022,7 @@ const isSalesPerson = computed(() =>
                             </TableCell>
                         </TableRow>
                         <TableRow v-if="salesOrders.data.length === 0">
-                            <TableCell :colspan="canViewInstaller ? 15 : 14" class="h-24 text-center">
+                            <TableCell :colspan="canViewInstaller ? 17 : 16" class="h-24 text-center">
                                 No results.
                             </TableCell>
                         </TableRow>
