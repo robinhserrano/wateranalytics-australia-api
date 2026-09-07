@@ -22,6 +22,7 @@ class SalesOrder extends Model
         'is_subscription' => 'boolean',
         'has_commission_calculation' => 'boolean',
         'x_studio_commission_paid' => 'boolean',
+        'x_studio_referrer_processed' => 'boolean',
         'legacy_confirmed_by_manager' => 'boolean',
         'legacy_is_entered_odoo' => 'boolean',
     ];

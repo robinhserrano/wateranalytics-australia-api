@@ -495,6 +495,14 @@ const formatFileSize = (bytes: number) => {
                                 <span class="font-medium ml-2 capitalize">{{ salesOrder.x_studio_sales_source || 'N/A' }}</span>
                             </div>
                             <div>
+                                <span class="text-muted-foreground">Referred By:</span>
+                                <span class="font-medium ml-2">{{ salesOrder.x_studio_referred_by || 'N/A' }}</span>
+                            </div>
+                            <div>
+                                <span class="text-muted-foreground">Referrer Processed:</span>
+                                <span class="font-medium ml-2">{{ salesOrder.x_studio_referrer_processed ? 'Yes' : 'No' }}</span>
+                            </div>
+                            <div>
                                 <span class="text-muted-foreground">Sales Manager:</span>
                                 <span class="font-medium ml-2">{{ salesOrder.commissionCalculation?.sales_manager?.name || 'Not assigned' }}</span>
                             </div>
