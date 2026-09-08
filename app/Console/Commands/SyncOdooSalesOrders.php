@@ -88,7 +88,7 @@ class SyncOdooSalesOrders extends Command
             'x_studio_sales_rep_1' => (object) [],
             'x_studio_sales_source' => (object) [],
             'x_studio_commission_paid' => (object) [],
-            'x_studio_referred_by' => (object) [],
+            'x_studio_referred_by' => (object) ['fields' => (object) ['display_name' => (object) []]],
             'x_studio_referrer_processed' => (object) [],
             'x_studio_payment_type' => (object) [],
             'installer' => (object) ['fields' => (object) ['id' => (object) [], 'display_name' => (object) []]],
@@ -206,7 +206,7 @@ class SyncOdooSalesOrders extends Command
                         'x_studio_sales_rep_1' => is_array($order->x_studio_sales_rep_1) ? $order->x_studio_sales_rep_1[1] : ($order->x_studio_sales_rep_1 ?? null),
                         'x_studio_sales_source' => is_array($order->x_studio_sales_source) ? $order->x_studio_sales_source[1] : ($order->x_studio_sales_source ?? null),
                         'x_studio_commission_paid' => $order->x_studio_commission_paid ?? null,
-                        'x_studio_referred_by' => is_array($order->x_studio_referred_by) ? $order->x_studio_referred_by[1] : ($order->x_studio_referred_by ?? null),
+                        'x_studio_referred_by' => $order->x_studio_referred_by->display_name ?? null,
                         'x_studio_referrer_processed' => $order->x_studio_referrer_processed ?? null,
                         'x_studio_payment_type' => is_array($order->x_studio_payment_type) ? $order->x_studio_payment_type[1] : ($order->x_studio_payment_type ?? null),
 
