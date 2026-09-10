@@ -41,6 +41,8 @@ Sales orders, contacts, products, and stock all originate in Odoo (via `obuchman
 
 Because commission calculation and reporting all key off of `SalesOrder`/`Contact`/`Product` records populated by this pipeline, most "data looks wrong" bugs trace back to a sync step, not the calculator itself — check `SyncLog` and the relevant `Sync*` command before assuming the commission math is broken.
 
+For a per-page breakdown of exactly which Inertia props come from these synced local tables vs. a live Odoo call on the request (e.g. `Stocks/Index` and the Sales Order detail page's Installation tab), see [docs/odoo-data-map.md](docs/odoo-data-map.md).
+
 ### Commission calculation engine
 
 [CommissionCalculator](app/Services/CommissionCalculator.php) is the core business-logic service — it is not a generic calculator, it encodes specific WAA pricing/commission rules:
