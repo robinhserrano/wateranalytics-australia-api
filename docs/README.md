@@ -19,6 +19,7 @@
 - [Why this exists](#-why-this-exists)
 - [How to read it](#-how-to-read-it)
 - [The sync pipeline](#-the-sync-pipeline)
+- [Commission calculation](#-commission-calculation)
 - [Page inventory](#-page-inventory)
 - [Live Odoo endpoints](#-live-odoo-endpoints)
 - [Maintaining this doc](#-maintaining-this-doc)
@@ -69,6 +70,30 @@ Orchestrated end-to-end by `SyncAll`. Five commands, five Odoo models, five loca
 
 ---
 
+## 💰 Commission calculation
+
+`CommissionCalculator` turns a synced sales order into a commission row — the same seven steps, every time, whether it runs during a sync or a manual recalculate:
+
+```
+selling_price          cash → amount_total, else amount_total × 0.9
+− additional_cost       lines with no LandingPrice match, × 1.1 markup
+− landing_price         lines matching a LandingPrice, supply-only or install cost
+= profit
+base_commission         self_gen or company_lead rate — $200 flat for the one special product
++ extra_commission      profit × commission_split%, or the full negative profit as a penalty
++ manual_adjustment      preserved across every recalculation
+= final_commission
+```
+
+Two things that make the automatic recalculation deliberately narrow:
+
+- **Salesperson resolution is a 6-step fallback chain** (contact owner → salesperson-partner owner → Odoo user ID → name → …). No match → the order is skipped and shows as "Pending Mapping" rather than blocking the sync.
+- **Anything `approved`, `rejected`, `paid`, or manually adjusted is never recalculated automatically** — both triggers (a sync run, and the nightly `CalculateMissingCommissionsJob` sweep) gate on `status = 'pending' AND manual_adjustment = 0`.
+
+Full formula, every rule, and exactly when each recalculation path fires is in [§2 of the data map](./odoo-data-map.md#2-commission-calculation).
+
+---
+
 ## 🗺️ Page inventory
 
 25 Inertia pages, grouped the way the app is navigated:
@@ -80,7 +105,7 @@ Orchestrated end-to-end by `SyncAll`. Five commands, five Odoo models, five loca
 | **People & Access** | Contacts, Products, Users, Roles, Teams, My Team | All 🟫. Roles/Permissions is the only other page with real content tabs, and both tabs are local. |
 | **Admin & Settings** | Sync Logs, Profile, Password, Two-Factor, Appearance | All 🟫. No Odoo contact anywhere in this group. |
 
-Full detail — route, controller@method, every Inertia prop, eager-loaded relations, and tab-by-tab data sources — is in [§2–§5 of the data map](./odoo-data-map.md#2-sales--commissions).
+Full detail — route, controller@method, every Inertia prop, eager-loaded relations, and tab-by-tab data sources — is in [§3–§6 of the data map](./odoo-data-map.md#3-sales--commissions).
 
 ---
 
@@ -96,7 +121,7 @@ Five routes touch Odoo on the request path. Three are load-bearing; two are unau
 | `GET /odoo-test` | 🔴 unauthed, unused |
 | `GET /odoo-sales` | 🔴 unauthed, unused |
 
-The last two are worth a deliberate call — remove them, or gate them like every other Odoo route in the app. See [§6 of the data map](./odoo-data-map.md#6-live-odoo-endpoints-reference) for exact fields and the reasoning.
+The last two are worth a deliberate call — remove them, or gate them like every other Odoo route in the app. See [§7 of the data map](./odoo-data-map.md#7-live-odoo-endpoints-reference) for exact fields and the reasoning.
 
 ---
 
