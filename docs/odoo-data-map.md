@@ -33,7 +33,83 @@ odoo:sync-contacts → odoo:sync-products → odoo:sync-stocks → odoo:sync-sal
 
 ---
 
-## 2. Sales & commissions
+## 2. Commission calculation
+
+[`CommissionCalculator`](../app/Services/CommissionCalculator.php) turns a synced `SalesOrder` into a `CommissionCalculation` row. It runs automatically at the end of the sync pipeline (§1) and is never computed on the frontend — every number on the Commissions / Sales Order pages is this service's output, read straight from the local `commission_calculations` table.
+
+### Step 1 — Resolve the salesperson
+
+A priority-ordered fallback chain, first match wins:
+
+1. The order's customer (`Contact`) has an explicit `user_id` owner.
+2. The resolved `salesperson_partner_id` maps to a `Contact` owner.
+3. The order's Odoo `user_id` matches a `User.odoo_user_id` / `odoo_salesperson_id`.
+4. The order's `user_name` matches a `User.name`.
+5. The order's `user_name` matches a `Contact.display_name`, resolved to that contact's owner.
+6. The order's Odoo `user_id` matches a `Contact.odoo_id`, resolved to that contact's owner.
+
+No match at any step → the order is skipped (logged, not calculated) and shows as **"Pending Mapping"** in the UI.
+
+### Step 2 — Selling price
+
+| Payment type | Selling price |
+|---|---|
+| `cash` / `cash or online payment` | `amount_total` (no discount) |
+| anything else | `amount_total × 0.9` (10% discount) |
+
+### Step 3 — Additional cost & landing price
+
+Every order line is checked against `LandingPrice` (time-scoped by `effective_from` vs. the order's `create_date`):
+
+- **Has a matching `LandingPrice`** → contributes to **landing price**, not additional cost:
+  - order contains any *supply only* line → sum of `landing_price.supply_only`
+  - otherwise → sum of `landing_price.installation_service`
+- **No matching `LandingPrice`**, and not itself an *installation service* / *supply only* line → contributes to **additional cost**:
+  `additional_cost += tax_exclusive_amount × 1.1` (10% markup)
+
+### Step 4 — Profit
+
+```
+profit = selling_price − additional_cost − landing_price
+```
+
+### Step 5 — Base commission
+
+| Condition | Base commission |
+|---|---|
+| Order contains the special product `usro-6s1-2w` | flat **$200**, overrides everything else |
+| `x_studio_sales_source` contains "self" → `self_gen` | `User.self_gen_base` |
+| otherwise → `company_lead` | `User.company_lead_base` |
+
+### Step 6 — Extra commission (profit split)
+
+```
+if profit > 0:  extra_commission = profit × (User.commission_split / 100)
+if profit ≤ 0:  extra_commission = profit   // full negative profit, as a penalty
+```
+
+### Step 7 — Final commission
+
+```
+final_commission = base_commission + extra_commission + manual_adjustment
+```
+
+`manual_adjustment` and `status` are preserved from any existing `CommissionCalculation` on recalculation — every field above is re-derived from scratch each time, but a human-entered adjustment or an already-approved status is never silently overwritten. Adjustments always go through `applyManualAdjustment()`, which records the delta as a `CommissionAdjustment` for the audit trail rather than just overwriting the number.
+
+### When it recalculates
+
+Both automatic paths gate on the **same condition**: `status = 'pending' AND manual_adjustment = 0`. Anything `approved`, `rejected`, or `paid` — or carrying a non-zero manual adjustment — is never touched automatically, at any point:
+
+| Trigger | Scope |
+|---|---|
+| `SyncOdooSalesOrders::recalculateCommissionsForSyncedOrders()` | Exactly the orders touched by that sync run. Catches new orders and Odoo-side data changes (e.g. sales source flipping self-gen ↔ company-lead). |
+| `CalculateMissingCommissionsJob` (last step of the queued sync chain, §1) | A bounded sweep (`--limit=200`) of *any* order still missing a commission or still pending. Catches orders that failed salesperson resolution at sync time but can resolve now (a `Contact`/`User` mapping fixed afterward). |
+
+`confirmed_by_manager` is a separate sales-manager sign-off flag, **not** a substitute for `status` in either gate — it can be `true` while `status` is still `pending`, and `false` on an already-`approved` commission.
+
+---
+
+## 3. Sales & commissions
 
 All local-table reads except the Installation tab on an order's detail page, which fetches Odoo log notes live.
 
@@ -76,7 +152,7 @@ All local-table reads except the Installation tab on an order's detail page, whi
 
 ---
 
-## 3. Operations
+## 4. Operations
 
 Stock pages skip the local cache entirely on a normal load — the controller itself calls Odoo before rendering, and only falls back to the local table if that call fails.
 
@@ -96,7 +172,7 @@ Stock pages skip the local cache entirely on a normal load — the controller it
 
 ---
 
-## 4. People & access
+## 5. People & access
 
 Contacts, products, users, roles, and teams — all read from local tables kept current by the sync pipeline in §1. None of these query Odoo mid-request.
 
@@ -145,7 +221,7 @@ Contacts, products, users, roles, and teams — all read from local tables kept 
 
 ---
 
-## 5. Admin & settings
+## 6. Admin & settings
 
 Sync history and account settings — no Odoo calls of any kind.
 
@@ -164,7 +240,7 @@ Sync history and account settings — no Odoo calls of any kind.
 
 ---
 
-## 6. Live Odoo endpoints (reference)
+## 7. Live Odoo endpoints (reference)
 
 Every route in the app that talks to Odoo on the request path, in one place — the last two aren't wired into any page and carry no auth middleware.
 
