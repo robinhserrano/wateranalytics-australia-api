@@ -33,6 +33,9 @@ class SyncOdooInstallationDates extends Command
      */
     private ?array $knownOrderNames = null;
 
+    /** Logged as started_at; the next incremental run's watermark (see SyncLog::watermarkFor). */
+    private Carbon $runStartedAt;
+
     // -------------------------------------------------------------------------
     // Odoo field spec
     // -------------------------------------------------------------------------
@@ -211,16 +214,13 @@ class SyncOdooInstallationDates extends Command
     public function handle(Odoo $odoo): int
     {
         $this->info('Starting Odoo Installation Date Sync...');
+        $this->runStartedAt = now();
 
         $lastSync = null;
         if (!$this->option('all')) {
-            $lastSyncRecord = \App\Models\SyncLog::where('command', $this->getName())
-                ->where('status', 'success')
-                ->latest('completed_at')
-                ->first();
+            $lastSync = \App\Models\SyncLog::watermarkFor($this->getName(), 'success');
 
-            if ($lastSyncRecord) {
-                $lastSync = $lastSyncRecord->completed_at;
+            if ($lastSync) {
                 $this->info('Performing delta sync since: ' . $lastSync->toDateTimeString());
             }
         }
@@ -268,9 +268,9 @@ class SyncOdooInstallationDates extends Command
 
             \App\Models\SyncLog::create([
                 'command' => $this->getName(),
-                'started_at' => now()->subSeconds(now()->diffInSeconds($lastSync)),
+                'started_at' => $this->runStartedAt,
                 'completed_at' => now(),
-                'duration' => now()->diffInSeconds($lastSync),
+                'duration' => $this->runStartedAt->diffInSeconds(now()),
                 'records_processed' => $updatesCount,
                 'status' => 'success',
                 'message' => "Incremental sync: processed {$totalFound} moves, updated {$updatesCount} local orders.",
@@ -375,7 +375,7 @@ class SyncOdooInstallationDates extends Command
 
         \App\Models\SyncLog::create([
             'command' => $this->getName(),
-            'started_at' => now(),
+            'started_at' => $this->runStartedAt,
             'completed_at' => now(),
             'status' => 'success',
             'records_processed' => $totalUpdates,

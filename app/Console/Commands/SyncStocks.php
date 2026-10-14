@@ -66,10 +66,7 @@ class SyncStocks extends Command
             // on product.product itself - a stock move never touches it. Instead,
             // do a cheap stock.quant existence check per warehouse first, and
             // only pay for the full product scan when something actually moved.
-            $lastSync = SyncLog::where('command', $this->signature)
-                ->where('status', 'completed')
-                ->latest('completed_at')
-                ->first()?->completed_at;
+            $lastSync = SyncLog::watermarkFor($this->signature);
 
             foreach ($warehouses as $warehouse) {
                 if ($warehouse->odoo_id === 0 || $warehouse->is_excluded) {
