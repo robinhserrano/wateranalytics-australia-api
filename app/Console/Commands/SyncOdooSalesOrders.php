@@ -136,13 +136,10 @@ class SyncOdooSalesOrders extends Command
 
         // Incremental Sync logic
         if (! $this->option('all')) {
-            $lastSuccessfulSync = SyncLog::where('command', $this->signature)
-                ->where('status', 'completed')
-                ->latest('completed_at')
-                ->first();
+            $watermark = SyncLog::watermarkFor($this->signature);
 
-            if ($lastSuccessfulSync) {
-                $lastSyncDate = $lastSuccessfulSync->completed_at->toDateTimeString();
+            if ($watermark) {
+                $lastSyncDate = $watermark->toDateTimeString();
                 // Payment/invoice status changes on the linked invoice don't always
                 // bump sale.order.write_date, so also catch orders whose invoices
                 // were modified since the last sync (e.g. a payment being registered).

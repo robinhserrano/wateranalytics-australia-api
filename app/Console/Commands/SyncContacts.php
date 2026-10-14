@@ -39,13 +39,9 @@ class SyncContacts extends Command
 
         $lastSync = null;
         if (! $this->option('all')) {
-            $lastSyncRecord = SyncLog::where('command', $this->signature)
-                ->where('status', 'completed')
-                ->latest('completed_at')
-                ->first();
+            $lastSync = SyncLog::watermarkFor($this->signature);
 
-            if ($lastSyncRecord) {
-                $lastSync = $lastSyncRecord->completed_at;
+            if ($lastSync) {
                 $this->info('Performing delta sync since: '.$lastSync->toDateTimeString());
             }
         }
