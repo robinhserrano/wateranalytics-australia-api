@@ -40,4 +40,8 @@ return [
         'token' => env('LEGACY_API_TOKEN'),
     ],
 
+    'sync_health' => [
+        'token' => env('SYNC_HEALTH_TOKEN'),
+    ],
+
 ];

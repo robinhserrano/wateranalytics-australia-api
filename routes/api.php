@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Models\SalesOrder;
+use App\Models\SyncLog;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,6 +25,22 @@ use App\Http\Controllers\Api\DashboardController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
+
+// Read-only sync health for the n8n Odoo-sync monitor (machine caller, so a shared bearer token
+// instead of Sanctum). Unset SYNC_HEALTH_TOKEN = endpoint disabled.
+// ?ids=1,2,3 returns those Odoo sale.order ids as stored locally, so n8n can diff them against Odoo.
+Route::get('/sync-health', function (Request $request) {
+    $token = (string) config('services.sync_health.token');
+    abort_unless($token !== '' && hash_equals($token, (string) $request->bearerToken()), 401);
+
+    $ids = array_slice(array_filter(array_map('intval', explode(',', (string) $request->query('ids')))), 0, 200);
+
+    return [
+        'runs' => SyncLog::latest('id')->limit(5)->get(['command', 'status', 'started_at', 'completed_at', 'records_processed', 'message']),
+        'counts' => ['sale_orders' => SalesOrder::count()],
+        'records' => SalesOrder::whereIn('odoo_id', $ids)->get(['odoo_id', 'state', 'amount_total']),
+    ];
+});
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
