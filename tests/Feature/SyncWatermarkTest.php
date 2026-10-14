@@ -30,5 +30,7 @@ test('watermark is null before the first successful run, and honours a custom su
     SyncLog::create(['command' => 'odoo:sync-installation-dates', 'status' => 'success',
         'started_at' => '2026-10-14 10:00:00', 'completed_at' => '2026-10-14 10:02:00']);
 
-    expect(SyncLog::watermarkFor('odoo:sync-installation-dates', 'success')->toDateTimeString())->toBe('2026-10-14 09:59:00');
+    expect(SyncLog::watermarkFor('odoo:sync-installation-dates', 'success')->toDateTimeString())->toBe('2026-10-14 09:59:00')
+        ->and(SyncLog::watermarkFor('odoo:sync-installation-dates', ['completed', 'success']))->not->toBeNull()
+        ->and(SyncLog::watermarkFor('odoo:sync-installation-dates'))->toBeNull();
 });

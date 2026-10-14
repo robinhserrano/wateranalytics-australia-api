@@ -5,6 +5,8 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Obuchmann\OdooJsonRpc\Odoo;
 use App\Models\SalesOrder;
+use App\Models\SyncLog;
+use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -33,8 +35,7 @@ class SyncOdooInstallationDates extends Command
      */
     private ?array $knownOrderNames = null;
 
-    /** Logged as started_at; the next incremental run's watermark (see SyncLog::watermarkFor). */
-    private Carbon $runStartedAt;
+    private const PAGE_SIZE = 2000;
 
     // -------------------------------------------------------------------------
     // Odoo field spec
@@ -115,38 +116,35 @@ class SyncOdooInstallationDates extends Command
             return [];
         }
 
-        try {
-            $response = $odoo->executeKw('project.task', 'web_search_read', [
-                [['sale_order_id.name', 'in', $orderNames]],
-                [
-                    'id' => (object) [],
-                    'date_deadline' => (object) [],
-                    'sale_order_id' => (object) ['fields' => (object) ['name' => (object) []]],
-                ],
-                0,
-                \count($orderNames) * 5,
-                'id desc',
-            ]);
+        // No try/catch: on a failed call this used to return [] and the caller then wrote
+        // odoo_task_id = NULL for every order in the batch. Let it fail the run instead.
+        $response = $odoo->executeKw('project.task', 'web_search_read', [
+            [['sale_order_id.name', 'in', $orderNames]],
+            [
+                'id' => (object) [],
+                'date_deadline' => (object) [],
+                'sale_order_id' => (object) ['fields' => (object) ['name' => (object) []]],
+            ],
+            0,
+            \count($orderNames) * 5,
+            'id desc',
+        ]);
 
-            $tasks = $this->unpackRecords($response);
-            $map = [];
+        $tasks = $this->unpackRecords($response);
+        $map = [];
 
-            foreach ($tasks as $task) {
-                $task = (object) $task;
-                $soName = $task->sale_order_id->name ?? null;
-                if ($soName && !isset($map[$soName])) {
-                    $map[$soName] = [
-                        'task_id' => (int) $task->id,
-                        'deadline' => $task->date_deadline ?? null,
-                    ];
-                }
+        foreach ($tasks as $task) {
+            $task = (object) $task;
+            $soName = $task->sale_order_id->name ?? null;
+            if ($soName && !isset($map[$soName])) {
+                $map[$soName] = [
+                    'task_id' => (int) $task->id,
+                    'deadline' => $task->date_deadline ?? null,
+                ];
             }
-
-            return $map;
-        } catch (\Exception $e) {
-            Log::warning('Could not fetch task IDs for orders: ' . $e->getMessage());
-            return [];
         }
+
+        return $map;
     }
 
     /**
@@ -200,7 +198,7 @@ class SyncOdooInstallationDates extends Command
             SET
                 installation_date = CASE {$dateCases} ELSE installation_date END,
                 odoo_task_id      = CASE {$taskCases} ELSE odoo_task_id END,
-                updated_at        = NOW()
+                updated_at        = CURRENT_TIMESTAMP
             WHERE name IN ({$placeholders})
         ", $bindings);
 
@@ -211,38 +209,44 @@ class SyncOdooInstallationDates extends Command
     // Entry point
     // -------------------------------------------------------------------------
 
-    public function handle(Odoo $odoo): int
+    public function handle(Odoo $odoo, SyncLogger $logger): int
     {
         $this->info('Starting Odoo Installation Date Sync...');
-        $this->runStartedAt = now();
 
-        $lastSync = null;
-        if (!$this->option('all')) {
-            $lastSync = \App\Models\SyncLog::watermarkFor($this->getName(), 'success');
+        // ponytail: 'success' is the status this command logged before it moved to SyncLogger; kept so the
+        // first run after deploy stays incremental. Drop it once those rows are old.
+        $lastSync = $this->option('all') ? null : SyncLog::watermarkFor($this->getName(), ['completed', 'success']);
+        $log = $logger->start($this->getName());
 
+        // Failures must reach the exit code: the queued pipeline step only notices (and retries) a non-zero
+        // exit, and a swallowed failure used to be logged as a run the next watermark built on.
+        try {
             if ($lastSync) {
-                $this->info('Performing delta sync since: ' . $lastSync->toDateTimeString());
+                $this->info('Performing incremental sync from Odoo since: ' . $lastSync->toDateTimeString());
+                $updated = $this->performIncrementalSync($odoo, $lastSync);
+            } else {
+                $this->info('Performing full sync of local orders...');
+                $updated = $this->performFullSync($odoo);
             }
+        } catch (\Throwable $e) {
+            Log::error('Installation date sync failed: ' . $e->getMessage());
+            $this->error('Error: ' . $e->getMessage());
+            $logger->fail($log, $e);
+
+            return self::FAILURE;
         }
 
-        if ($this->option('all') || !$lastSync) {
-            $this->info('Performing full sync of local orders...');
-            $this->performFullSync($odoo);
-        } else {
-            $this->info('Performing incremental sync from Odoo...');
-            $this->performIncrementalSync($odoo, $lastSync);
-        }
-
+        $logger->complete($log, $updated, $lastSync ? 'Incremental sync completed.' : 'Full sync completed.');
         $this->info('Installation Date Sync Complete.');
 
-        return 0;
+        return self::SUCCESS;
     }
 
     // -------------------------------------------------------------------------
     // Sync strategies
     // -------------------------------------------------------------------------
 
-    protected function performIncrementalSync(Odoo $odoo, Carbon $lastSync): void
+    protected function performIncrementalSync(Odoo $odoo, Carbon $lastSync): int
     {
         $domain = [
             ['state', '=', 'done'],
@@ -250,47 +254,31 @@ class SyncOdooInstallationDates extends Command
             ['product_id.categ_id', 'in', [4, 5, 16]],
         ];
 
-        try {
-            $response = $odoo->executeKw('stock.move.line', 'web_search_read', [
+        // Page through everything changed since the watermark - a single capped call silently dropped the
+        // rest while the watermark still advanced past them. 'id' order keeps pages stable (write_date has
+        // ties). All pages are collected first because processMovesAndSave keeps the latest date per SO.
+        $moves = [];
+        for ($offset = 0; ; $offset += self::PAGE_SIZE) {
+            $page = $this->unpackRecords($odoo->executeKw('stock.move.line', 'web_search_read', [
                 $domain,
                 $this->getSpecification(),
-                0,
-                2000,
-                'write_date desc',
-            ]);
+                $offset,
+                self::PAGE_SIZE,
+                'id',
+            ]));
+            \array_push($moves, ...$page);
 
-            $moves = $this->unpackRecords($response);
-            $totalFound = \count($moves);
-
-            $this->info("Found {$totalFound} updated moves in Odoo.");
-
-            $updatesCount = $this->processMovesAndSave($odoo, $moves);
-
-            \App\Models\SyncLog::create([
-                'command' => $this->getName(),
-                'started_at' => $this->runStartedAt,
-                'completed_at' => now(),
-                'duration' => $this->runStartedAt->diffInSeconds(now()),
-                'records_processed' => $updatesCount,
-                'status' => 'success',
-                'message' => "Incremental sync: processed {$totalFound} moves, updated {$updatesCount} local orders.",
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed incremental sync: ' . $e->getMessage());
-            $this->error('Error: ' . $e->getMessage());
-
-            \App\Models\SyncLog::create([
-                'command' => $this->getName(),
-                'started_at' => now(),
-                'completed_at' => now(),
-                'status' => 'error',
-                'message' => 'Incremental sync failed: ' . $e->getMessage(),
-            ]);
+            if (\count($page) < self::PAGE_SIZE) {
+                break;
+            }
         }
+
+        $this->info('Found ' . \count($moves) . ' updated moves in Odoo.');
+
+        return $this->processMovesAndSave($odoo, $moves);
     }
 
-    protected function performFullSync(Odoo $odoo): void
+    protected function performFullSync(Odoo $odoo): int
     {
         $query = SalesOrder::query();
 
@@ -303,10 +291,11 @@ class SyncOdooInstallationDates extends Command
 
         $bar = $this->output->createProgressBar($totalToProcess);
         $totalUpdates = 0;
+        $failedChunks = 0;
 
         // Select only columns we need — avoids hydrating full Eloquent models
         $query->select(['id', 'name', 'odoo_task_id', 'installation_date'])
-            ->chunk(100, function ($orders) use ($odoo, $bar, &$totalUpdates) {
+            ->chunk(100, function ($orders) use ($odoo, $bar, &$totalUpdates, &$failedChunks) {
                 $orderNames = $orders->pluck('name')->toArray();
 
                 // --- Task sync (one Odoo call, one bulk DB update per chunk) ----
@@ -365,6 +354,7 @@ class SyncOdooInstallationDates extends Command
 
                 } catch (\Exception $e) {
                     Log::error('Failed chunk in full sync: ' . $e->getMessage());
+                    $failedChunks++;
                 }
 
                 $bar->advance($orders->count());
@@ -373,14 +363,12 @@ class SyncOdooInstallationDates extends Command
         $bar->finish();
         $this->newLine();
 
-        \App\Models\SyncLog::create([
-            'command' => $this->getName(),
-            'started_at' => $this->runStartedAt,
-            'completed_at' => now(),
-            'status' => 'success',
-            'records_processed' => $totalUpdates,
-            'message' => "Full sync completed, updated {$totalUpdates} orders.",
-        ]);
+        // Keep going past a bad chunk so the rest still sync, but don't report the run as a success.
+        if ($failedChunks > 0) {
+            throw new \RuntimeException("{$failedChunks} chunk(s) failed (updated {$totalUpdates} orders); see laravel.log");
+        }
+
+        return $totalUpdates;
     }
 
     // -------------------------------------------------------------------------

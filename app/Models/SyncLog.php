@@ -28,10 +28,10 @@ class SyncLog extends Model
      * are older than completed_at and would never be fetched. Re-fetching the overlap is harmless
      * since every sync upserts by odoo_id.
      */
-    public static function watermarkFor(string $command, string $successStatus = 'completed'): ?Carbon
+    public static function watermarkFor(string $command, string|array $successStatus = 'completed'): ?Carbon
     {
         return static::where('command', $command)
-            ->where('status', $successStatus)
+            ->whereIn('status', (array) $successStatus)
             ->latest('completed_at')
             ->first()
             ?->started_at
