@@ -45,6 +45,8 @@ return [
             // Exclude these routes even if they matched the rules above.
             'exclude' => [
                 // 'GET /health', 'admin.*'
+                // internal n8n monitor endpoint (closure route - Scribe can't document closures and aborts the deploy)
+                'GET /api/sync-health',
             ],
         ],
     ],
