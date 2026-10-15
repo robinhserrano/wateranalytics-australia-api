@@ -6,7 +6,7 @@ echo "=============================================================="
 
 # Try to extract domain from .env if not provided
 if [ -z "$1" ] && [ -f ".env" ]; then
-    DOMAIN=$(grep "^APP_URL=" .env | cut -d'=' -f2 | sed 's|https\?://||' | sed 's|/.*||' | tr -d '"')
+    DOMAIN=$(grep "^APP_URL=" .env | cut -d'=' -f2 | tr -d "\"'" | sed 's|https\?://||' | sed 's|/.*||')
     if [ -n "$DOMAIN" ]; then
         echo "📌 Using domain from .env: $DOMAIN"
     fi
