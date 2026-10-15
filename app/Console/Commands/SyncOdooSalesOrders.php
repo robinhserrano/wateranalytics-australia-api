@@ -45,21 +45,10 @@ class SyncOdooSalesOrders extends Command
         // same mapping as Contact.odoo_user_ids, so this avoids a full,
         // paginated res.users round-trip every single sync run.
         $this->info('Building Odoo User → Partner ID mapping from synced contacts...');
-        $userToPartnerMap = [];
-        try {
-            Contact::query()
-                ->whereNotNull('odoo_user_ids')
-                ->pluck('odoo_user_ids', 'odoo_id')
-                ->each(function ($userIdsJson, $partnerId) use (&$userToPartnerMap) {
-                    foreach ((json_decode((string) $userIdsJson, true) ?: []) as $userId) {
-                        $userToPartnerMap[(int) rtrim((string) $userId, '-G')] = $partnerId;
-                    }
-                });
-            $this->info('Mapped '.count($userToPartnerMap).' Odoo users to partner IDs.');
-        } catch (\Exception $e) {
-            $this->warn('Could not build user→partner map: '.$e->getMessage());
-            $this->warn('salesperson_partner_id will be null for this sync run.');
-        }
+        // No try/catch: a broken map used to be swallowed here, and every synced order then had its
+        // salesperson_partner_id overwritten with NULL. Better to fail the run than corrupt that.
+        $userToPartnerMap = $this->buildUserToPartnerMap();
+        $this->info('Mapped '.count($userToPartnerMap).' Odoo users to partner IDs.');
 
         $specification = [
             'name' => (object) [],
@@ -434,6 +423,31 @@ class SyncOdooSalesOrders extends Command
      *
      * @param  array<int>  $syncedOdooIds
      */
+    /**
+     * Odoo user_id => partner (Contact) odoo_id, from Contact.odoo_user_ids as persisted by SyncContacts.
+     * odoo_user_ids is cast to `array` on Contact, so pluck() already returns arrays - casting those to
+     * string threw "Array to string conversion" and left this map empty on every run. A raw JSON string
+     * is still accepted in case any row was written without the cast.
+     *
+     * @return array<int, int>
+     */
+    private function buildUserToPartnerMap(): array
+    {
+        $map = [];
+
+        Contact::query()
+            ->whereNotNull('odoo_user_ids')
+            ->pluck('odoo_user_ids', 'odoo_id')
+            ->each(function ($userIds, $partnerId) use (&$map) {
+                $userIds = is_array($userIds) ? $userIds : (json_decode((string) $userIds, true) ?: []);
+                foreach ($userIds as $userId) {
+                    $map[(int) rtrim((string) $userId, '-G')] = $partnerId;
+                }
+            });
+
+        return $map;
+    }
+
     private function recalculateCommissionsForSyncedOrders(CommissionCalculator $calculator, array $syncedOdooIds): void
     {
         if (empty($syncedOdooIds)) {
