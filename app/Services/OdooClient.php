@@ -75,6 +75,16 @@ class OdooClient
         return (array) $this->executeKw($model, 'read', [$ids], ['fields' => $fields]);
     }
 
+    /**
+     * Ids only: the cheapest way to compare what exists in Odoo with what's stored locally.
+     *
+     * @return array<int>
+     */
+    public function search(string $model, array $domain = []): array
+    {
+        return (array) $this->executeKw($model, 'search', [$domain]);
+    }
+
     public function searchCount(string $model, array $domain = []): int
     {
         return (int) $this->executeKw($model, 'search_count', [$domain]);
