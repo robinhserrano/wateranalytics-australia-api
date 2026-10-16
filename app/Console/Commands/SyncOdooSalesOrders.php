@@ -8,12 +8,12 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\SyncLog;
 use App\Services\CommissionCalculator;
+use App\Services\OdooClient;
 use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Obuchmann\OdooJsonRpc\Odoo;
 
 class SyncOdooSalesOrders extends Command
 {
@@ -34,7 +34,7 @@ class SyncOdooSalesOrders extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger, CommissionCalculator $calculator)
+    public function handle(OdooClient $odoo, SyncLogger $logger, CommissionCalculator $calculator)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Sales Order Sync (Golden Sync)...');
