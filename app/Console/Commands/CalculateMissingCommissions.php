@@ -110,6 +110,8 @@ class CalculateMissingCommissions extends Command
                 &$errors,
                 $bar
             ) {
+                $orders->load(CommissionCalculator::relationsToLoad());
+
                 foreach ($orders as $order) {
                     if ($processed >= $totalToProcess) {
                         return false;
