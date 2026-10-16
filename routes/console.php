@@ -67,3 +67,10 @@ Schedule::command('backup:run')
 Schedule::command('backup:clean')
     ->dailyAt('01:30')
     ->onOneServer();
+
+// Fix orders that left the Odoo sync scope (cancelled / untagged / deleted). After the 1:00 backup on
+// purpose, so a fresh backup always exists before it changes anything.
+Schedule::command('odoo:reconcile-sales')
+    ->dailyAt('02:15')
+    ->withoutOverlapping()
+    ->onOneServer();

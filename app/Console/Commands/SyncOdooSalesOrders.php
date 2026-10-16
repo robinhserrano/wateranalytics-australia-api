@@ -18,6 +18,15 @@ use Illuminate\Support\Facades\Log;
 class SyncOdooSalesOrders extends Command
 {
     /**
+     * The Odoo orders this app tracks: tagged 2 and confirmed. Shared with odoo:reconcile-sales,
+     * which fixes local orders that have since left this scope (cancelled, untagged, deleted).
+     */
+    public const SCOPE_DOMAIN = [
+        ['tag_ids', 'in', [2]],
+        ['state', '=', 'sale'],
+    ];
+
+    /**
      * The name and signature of the console command.
      *
      * @var string
@@ -118,10 +127,7 @@ class SyncOdooSalesOrders extends Command
         $offset = 0;
         $totalSynced = 0;
         $syncedOdooIds = [];
-        $domain = [
-            ['tag_ids', 'in', [2]],
-            ['state', '=', 'sale'],
-        ];
+        $domain = self::SCOPE_DOMAIN;
 
         // Incremental Sync logic
         if (! $this->option('all')) {
@@ -169,6 +175,7 @@ class SyncOdooSalesOrders extends Command
 
                     $syncData[] = [
                         'odoo_id' => $order->id,
+                        'odoo_missing_at' => null, // back in Odoo's scope: clear a reconcile "missing" flag
                         'name' => $order->name,
                         'create_date' => $order->create_date,
                         'write_date' => $order->write_date,
@@ -315,6 +322,7 @@ class SyncOdooSalesOrders extends Command
                     'x_studio_invoice_payment_status',
                     'state',
                     'tag_ids',
+                    'odoo_missing_at',
                     'is_subscription',
                     'subscription_state',
                     'start_date',
