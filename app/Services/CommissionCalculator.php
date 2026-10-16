@@ -51,17 +51,26 @@ class CommissionCalculator
     private ?Collection $usersById = null;
 
     /**
+     * Relations calculateCommission() reads. Callers that loop over many orders load these once
+     * for the whole collection ($orders->load(CommissionCalculator::relationsToLoad())) - otherwise
+     * every order costs ~5 extra read queries (N+1).
+     */
+    public static function relationsToLoad(): array
+    {
+        return [
+            'lines.product.landingPrices' => fn ($query) => $query->orderBy('effective_from', 'desc'),
+            'lines.landingPrice',
+            'commissionCalculation',
+        ];
+    }
+
+    /**
      * Main method to calculate commission for a sales order
      */
     public function calculateCommission(SalesOrder $salesOrder): ?CommissionCalculation
     {
-        // Load necessary relationships
-        $salesOrder->load([
-            'lines.product.landingPrices' => function ($query) {
-                $query->orderBy('effective_from', 'desc');
-            },
-            'lines.landingPrice',
-        ]);
+        // loadMissing: a no-op when a batch caller already eager-loaded these (see relationsToLoad())
+        $salesOrder->loadMissing(self::relationsToLoad());
 
         $user = $this->resolveSalesperson($salesOrder);
 

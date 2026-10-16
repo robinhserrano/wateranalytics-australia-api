@@ -374,11 +374,6 @@ class SyncOdooSalesOrders extends Command
                         'is_installation_service',
                         'updated_at',
                     ]);
-
-                    // Refresh denormalized data for affected contacts
-                    $affectedSalesOrderIds = array_unique(array_column($finalLineData, 'sales_order_id'));
-                    $partnerOdooIds = SalesOrder::whereIn('id', $affectedSalesOrderIds)->pluck('partner_id')->unique()->toArray();
-                    Contact::whereIn('odoo_id', $partnerOdooIds)->get()->each->refreshDenormalizedData();
                 }
 
                 $totalSynced += count($orders);
@@ -469,6 +464,8 @@ class SyncOdooSalesOrders extends Command
         }
 
         $this->info("Calculating commissions for {$orders->count()} synced order(s)...");
+
+        $orders->load(CommissionCalculator::relationsToLoad());
 
         foreach ($orders as $order) {
             try {
