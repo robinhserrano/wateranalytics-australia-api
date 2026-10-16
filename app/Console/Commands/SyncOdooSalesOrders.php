@@ -8,15 +8,24 @@ use App\Models\SalesOrder;
 use App\Models\SalesOrderLine;
 use App\Models\SyncLog;
 use App\Services\CommissionCalculator;
+use App\Services\OdooClient;
 use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Obuchmann\OdooJsonRpc\Odoo;
 
 class SyncOdooSalesOrders extends Command
 {
+    /**
+     * The Odoo orders this app tracks: tagged 2 and confirmed. Shared with odoo:reconcile-sales,
+     * which fixes local orders that have since left this scope (cancelled, untagged, deleted).
+     */
+    public const SCOPE_DOMAIN = [
+        ['tag_ids', 'in', [2]],
+        ['state', '=', 'sale'],
+    ];
+
     /**
      * The name and signature of the console command.
      *
@@ -34,7 +43,7 @@ class SyncOdooSalesOrders extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger, CommissionCalculator $calculator)
+    public function handle(OdooClient $odoo, SyncLogger $logger, CommissionCalculator $calculator)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Sales Order Sync (Golden Sync)...');
@@ -118,10 +127,7 @@ class SyncOdooSalesOrders extends Command
         $offset = 0;
         $totalSynced = 0;
         $syncedOdooIds = [];
-        $domain = [
-            ['tag_ids', 'in', [2]],
-            ['state', '=', 'sale'],
-        ];
+        $domain = self::SCOPE_DOMAIN;
 
         // Incremental Sync logic
         if (! $this->option('all')) {
@@ -169,6 +175,7 @@ class SyncOdooSalesOrders extends Command
 
                     $syncData[] = [
                         'odoo_id' => $order->id,
+                        'odoo_missing_at' => null, // back in Odoo's scope: clear a reconcile "missing" flag
                         'name' => $order->name,
                         'create_date' => $order->create_date,
                         'write_date' => $order->write_date,
@@ -315,6 +322,7 @@ class SyncOdooSalesOrders extends Command
                     'x_studio_invoice_payment_status',
                     'state',
                     'tag_ids',
+                    'odoo_missing_at',
                     'is_subscription',
                     'subscription_state',
                     'start_date',
@@ -374,11 +382,6 @@ class SyncOdooSalesOrders extends Command
                         'is_installation_service',
                         'updated_at',
                     ]);
-
-                    // Refresh denormalized data for affected contacts
-                    $affectedSalesOrderIds = array_unique(array_column($finalLineData, 'sales_order_id'));
-                    $partnerOdooIds = SalesOrder::whereIn('id', $affectedSalesOrderIds)->pluck('partner_id')->unique()->toArray();
-                    Contact::whereIn('odoo_id', $partnerOdooIds)->get()->each->refreshDenormalizedData();
                 }
 
                 $totalSynced += count($orders);
@@ -469,6 +472,8 @@ class SyncOdooSalesOrders extends Command
         }
 
         $this->info("Calculating commissions for {$orders->count()} synced order(s)...");
+
+        $orders->load(CommissionCalculator::relationsToLoad());
 
         foreach ($orders as $order) {
             try {

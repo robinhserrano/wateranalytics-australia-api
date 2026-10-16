@@ -89,9 +89,3 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Note: index/create/store/destroy remain Admin only above.
 });
 
-Route::get('/odoo-test', [App\Http\Controllers\OdooController::class, 'index']);
-Route::get('/odoo-sales', [App\Http\Controllers\OdooController::class, 'salesOrders']);
-
-require __DIR__.'/debug.php';
-require __DIR__.'/debug_comm.php';
-require __DIR__.'/debug_lines.php';
