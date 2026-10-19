@@ -2,12 +2,20 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CommissionCalculation extends Model
 {
+    /**
+     * Written by odoo:reconcile-sales when it rejects a pending commission because its order was cancelled
+     * or deleted in Odoo (rejected_by stays null = the system). The sales sync uses it to recognise - and
+     * undo - an auto-rejection if the order is reinstated; a rejection made by a person is never undone.
+     */
+    public const AUTO_REJECT_REASON = 'Auto-rejected: order cancelled or deleted in Odoo';
+
     protected $fillable = [
         'sales_order_id',
         'user_id',
@@ -56,6 +64,11 @@ class CommissionCalculation extends Model
     /**
      * Get the sales order that owns the commission calculation.
      */
+    public function scopeAutoRejected(Builder $query): Builder
+    {
+        return $query->where('status', 'rejected')->whereNull('rejected_by')->where('rejection_reason', self::AUTO_REJECT_REASON);
+    }
+
     public function salesOrder(): BelongsTo
     {
         return $this->belongsTo(SalesOrder::class);
