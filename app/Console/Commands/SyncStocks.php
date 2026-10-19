@@ -18,7 +18,7 @@ class SyncStocks extends Command
      *
      * @var string
      */
-    protected $signature = 'odoo:sync-stocks';
+    protected $signature = 'odoo:sync-stocks {--all : Re-sync every warehouse, even without stock movement since the last run}';
 
     /**
      * The console command description.
@@ -32,7 +32,9 @@ class SyncStocks extends Command
      */
     public function handle(OdooClient $odoo, SyncLogger $logger)
     {
-        $log = $logger->start($this->signature);
+        // getName() (not $this->signature, which now carries --all) so the logged name stays
+        // "odoo:sync-stocks" and the watermark lookup below keeps matching existing sync_logs rows
+        $log = $logger->start($this->getName());
         $this->info('Starting Odoo Warehouse and Stock Sync (Optimized)...');
         $totalSynced = 0;
 
@@ -66,14 +68,14 @@ class SyncStocks extends Command
             // on product.product itself - a stock move never touches it. Instead,
             // do a cheap stock.quant existence check per warehouse first, and
             // only pay for the full product scan when something actually moved.
-            $lastSync = SyncLog::watermarkFor($this->signature);
+            $lastSync = SyncLog::watermarkFor($this->getName());
 
             foreach ($warehouses as $warehouse) {
                 if ($warehouse->odoo_id === 0 || $warehouse->is_excluded) {
                     continue;
                 }
 
-                if ($lastSync && ! $this->hasQuantActivitySince($odoo, $warehouse, $lastSync)) {
+                if ($lastSync && ! $this->option('all') && ! $this->hasQuantActivitySince($odoo, $warehouse, $lastSync)) {
                     $this->info("No stock movement since last sync for warehouse: {$warehouse->name} - skipping.");
 
                     continue;
@@ -172,8 +174,10 @@ class SyncStocks extends Command
             }
 
             // A specific warehouse (not "All Warehouses") makes Odoo compute qty_available etc. for that
-            // warehouse only. Sent as the call's context kwarg (obuchmann used to hold it as client state).
-            $kwargs = $warehouse->odoo_id > 0 ? ['context' => ['warehouse' => $warehouse->odoo_id]] : [];
+            // warehouse only. The context key is `warehouse_id`: the old `warehouse` key was silently
+            // ignored by this Odoo version, so every warehouse stored the company-wide total (verified live
+            // 2026-10-19: POE 3 Bypass = 1104 total vs 36 in Sydney with warehouse_id).
+            $kwargs = $warehouse->odoo_id > 0 ? ['context' => ['warehouse_id' => $warehouse->odoo_id]] : [];
 
             while (true) {
                 $this->info(" Fetching batch (offset: $offset)...");

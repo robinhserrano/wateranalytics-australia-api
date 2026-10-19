@@ -76,15 +76,15 @@ test('warehouses sync from object-shaped results, as they did with obuchmann', f
         && $r['params']['args'][6]['fields'] === ['id', 'name', 'code']);
 });
 
-test('odoo:sync-stocks runs end to end and asks Odoo for per-warehouse quantities via the call context', function () {
-    // obuchmann held the warehouse context as client state (getContext/setContext); the shared client has no
-    // such methods, which crashed every stocks run after #46. Run the real command against a fake Odoo.
-    Http::fake(['odoo.test/*' => function ($request) {
+// A fake Odoo with one warehouse (odoo id 3) and one product; $quantMoves = stock.quant changes since last run
+function fakeStocksOdoo(int $quantMoves = 1): void
+{
+    Http::fake(['odoo.test/*' => function ($request) use ($quantMoves) {
         $args = $request['params']['args'];
         $result = match (true) {
             $request['params']['service'] === 'common' => 7,
             ($args[4] ?? null) === 'search_read' && $args[3] === 'stock.warehouse' => [['id' => 3, 'name' => 'Sydney', 'code' => 'SYD']],
-            ($args[4] ?? null) === 'search_count' => 1,
+            ($args[4] ?? null) === 'search_count' => $quantMoves,
             ($args[4] ?? null) === 'web_search_read' => ['length' => 1, 'records' => $args[5][2] === 0 ? [[
                 'id' => 501, 'display_name' => 'Filter Cartridge', 'categ_id' => ['id' => 4, 'display_name' => 'Filters'],
                 'cost_method' => 'standard', 'standard_price' => 10, 'qty_available' => 7, 'free_qty' => 7,
@@ -95,14 +95,32 @@ test('odoo:sync-stocks runs end to end and asks Odoo for per-warehouse quantitie
 
         return Http::response(['result' => $result]);
     }]);
+}
+
+test('odoo:sync-stocks runs end to end and asks Odoo for per-warehouse quantities via warehouse_id', function () {
+    // obuchmann held the warehouse context as client state (getContext/setContext); the shared client has no
+    // such methods, which crashed every stocks run after #46. And the key was `warehouse`, which this Odoo
+    // ignores - every warehouse stored the company-wide total. Run the real command against a fake Odoo.
+    fakeStocksOdoo();
 
     $this->artisan('odoo:sync-stocks')->assertExitCode(0);
 
     $warehouse = Warehouse::where('odoo_id', 3)->firstOrFail();
     expect(ProductStock::where('warehouse_id', $warehouse->id)->where('odoo_id', 501)->exists())->toBeTrue()
-        ->and(SyncLog::latest('id')->first()->status)->toBe('completed');
+        ->and(SyncLog::latest('id')->first())->status->toBe('completed')->command->toBe('odoo:sync-stocks');
     Http::assertSent(fn ($r) => ($r['params']['args'][4] ?? null) === 'web_search_read'
-        && ($r['params']['args'][6]['context']['warehouse'] ?? null) === 3);
+        && ($r['params']['args'][6]['context'] ?? null) === ['warehouse_id' => 3]);
+});
+
+test('--all re-syncs a warehouse even without stock movement since the last run', function () {
+    SyncLog::create(['command' => 'odoo:sync-stocks', 'status' => 'completed', 'started_at' => now()->subMinutes(5), 'completed_at' => now()->subMinutes(4)]);
+    fakeStocksOdoo(quantMoves: 0);
+
+    $this->artisan('odoo:sync-stocks')->assertExitCode(0);
+    Http::assertNotSent(fn ($r) => ($r['params']['args'][4] ?? null) === 'web_search_read'); // skipped: nothing moved
+
+    $this->artisan('odoo:sync-stocks', ['--all' => true])->assertExitCode(0);
+    Http::assertSent(fn ($r) => ($r['params']['args'][4] ?? null) === 'web_search_read');
 });
 
 test('the removed debug and Odoo test routes are gone', function (string $url) {
