@@ -77,6 +77,10 @@ class SyncProducts extends Command
                 foreach ($fields as $field) {
                     $specification[$field] = (object) [];
                 }
+                // an empty spec makes Odoo return a many2one as a bare id, so these ids and names were always stored null
+                foreach (['categ_id', 'currency_id', 'uom_id'] as $field) {
+                    $specification[$field] = ['fields' => ['display_name' => (object) []]];
+                }
 
                 $response = $odoo->executeKw('product.template', 'web_search_read', [
                     $domain,

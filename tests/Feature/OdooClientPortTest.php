@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\SyncStocks;
+use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\SyncLog;
 use App\Models\Warehouse;
@@ -123,6 +124,23 @@ test('--all re-syncs a warehouse even without stock movement since the last run'
 
     $this->artisan('odoo:sync-stocks', ['--all' => true])->assertExitCode(0);
     Http::assertSent(fn ($r) => ($r['params']['args'][4] ?? null) === 'web_search_read');
+});
+
+test('odoo:sync-products stores many2one ids and names, asking Odoo for them with a sub-spec', function () {
+    // with an empty spec Odoo returns categ_id/currency_id/uom_id as bare ids, and every product stored nulls
+    Http::fake(['odoo.test/*' => fn ($request) => Http::response(['result' => $request['params']['service'] === 'common' ? 7 : ['length' => 1, 'records' => [[
+        'id' => 30, 'name' => 'Filter Cartridge', 'categ_id' => ['id' => 9, 'display_name' => 'All / Filters'],
+        'currency_id' => ['id' => 20, 'display_name' => 'AUD'], 'uom_id' => ['id' => 1, 'display_name' => 'Units'],
+        'product_properties' => [], 'write_date' => '2026-10-19 00:00:00',
+    ]]]])]);
+
+    $this->artisan('odoo:sync-products', ['--all' => true])->assertExitCode(0);
+
+    expect(Product::where('odoo_id', 30)->first())
+        ->categ_id->toBe(9)->categ_name->toBe('All / Filters')
+        ->currency_name->toBe('AUD')->uom_name->toBe('Units');
+    Http::assertSent(fn ($r) => ($r['params']['args'][4] ?? null) === 'web_search_read'
+        && isset($r['params']['args'][5][1]['categ_id']['fields']['display_name'], $r['params']['args'][5][1]['uom_id']['fields']['display_name']));
 });
 
 test('the removed debug and Odoo test routes are gone', function (string $url) {
