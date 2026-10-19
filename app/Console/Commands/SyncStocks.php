@@ -18,7 +18,7 @@ class SyncStocks extends Command
      *
      * @var string
      */
-    protected $signature = 'odoo:sync-stocks';
+    protected $signature = 'odoo:sync-stocks {--all : Re-sync every warehouse, even without stock movement since the last run}';
 
     /**
      * The console command description.
@@ -32,7 +32,9 @@ class SyncStocks extends Command
      */
     public function handle(OdooClient $odoo, SyncLogger $logger)
     {
-        $log = $logger->start($this->signature);
+        // getName() (not $this->signature, which now carries --all) so the logged name stays
+        // "odoo:sync-stocks" and the watermark lookup below keeps matching existing sync_logs rows
+        $log = $logger->start($this->getName());
         $this->info('Starting Odoo Warehouse and Stock Sync (Optimized)...');
         $totalSynced = 0;
 
@@ -66,14 +68,14 @@ class SyncStocks extends Command
             // on product.product itself - a stock move never touches it. Instead,
             // do a cheap stock.quant existence check per warehouse first, and
             // only pay for the full product scan when something actually moved.
-            $lastSync = SyncLog::watermarkFor($this->signature);
+            $lastSync = SyncLog::watermarkFor($this->getName());
 
             foreach ($warehouses as $warehouse) {
                 if ($warehouse->odoo_id === 0 || $warehouse->is_excluded) {
                     continue;
                 }
 
-                if ($lastSync && ! $this->hasQuantActivitySince($odoo, $warehouse, $lastSync)) {
+                if ($lastSync && ! $this->option('all') && ! $this->hasQuantActivitySince($odoo, $warehouse, $lastSync)) {
                     $this->info("No stock movement since last sync for warehouse: {$warehouse->name} - skipping.");
 
                     continue;
@@ -170,16 +172,16 @@ class SyncStocks extends Command
             foreach ($fields as $field) {
                 $specification[$field] = (object) [];
             }
+            // an empty spec makes Odoo return a many2one as a bare id, so categ_name was always stored null
+            $specification['categ_id'] = ['fields' => ['display_name' => (object) []]];
+
+            // A specific warehouse (not "All Warehouses") makes Odoo compute qty_available etc. for that
+            // warehouse only. The context key is `warehouse_id`: the old `warehouse` key was silently
+            // ignored by this Odoo version, so every warehouse stored the company-wide total (verified live
+            // 2026-10-19: POE 3 Bypass = 1104 total vs 36 in Sydney with warehouse_id).
+            $kwargs = $warehouse->odoo_id > 0 ? ['context' => ['warehouse_id' => $warehouse->odoo_id]] : [];
 
             while (true) {
-                // If this is a specific warehouse (not "All Warehouses"), set the context
-                $originalContext = $odoo->getContext();
-                if ($warehouse->odoo_id > 0) {
-                    $newContext = clone $originalContext;
-                    $newContext->setContextArg('warehouse', $warehouse->odoo_id);
-                    $odoo->setContext($newContext);
-                }
-
                 $this->info(" Fetching batch (offset: $offset)...");
                 $response = $odoo->executeKw('product.product', 'web_search_read', [
                     [['is_storable', '=', true]],
@@ -187,10 +189,7 @@ class SyncStocks extends Command
                     $offset,
                     $limit,
                     'id desc',
-                ]);
-
-                // Restore original context
-                $odoo->setContext($originalContext);
+                ], $kwargs);
 
                 $products = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
 
