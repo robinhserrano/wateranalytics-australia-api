@@ -4,11 +4,11 @@ namespace App\Console\Commands;
 
 use App\Models\Product;
 use App\Models\SyncLog;
+use App\Services\OdooClient;
+use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
-use Obuchmann\OdooJsonRpc\Odoo;
-use App\Services\SyncLogger;
 
 class SyncProducts extends Command
 {
@@ -29,17 +29,17 @@ class SyncProducts extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger)
+    public function handle(OdooClient $odoo, SyncLogger $logger)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Products Sync (Optimized)...');
 
         $lastSync = null;
-        if (!$this->option('all')) {
+        if (! $this->option('all')) {
             $lastSync = SyncLog::watermarkFor($this->signature);
 
             if ($lastSync) {
-                $this->info("Performing delta sync since: " . $lastSync->toDateTimeString());
+                $this->info('Performing delta sync since: '.$lastSync->toDateTimeString());
             }
         }
 
@@ -75,7 +75,7 @@ class SyncProducts extends Command
 
                 $specification = [];
                 foreach ($fields as $field) {
-                    $specification[$field] = (object)[];
+                    $specification[$field] = (object) [];
                 }
 
                 $response = $odoo->executeKw('product.template', 'web_search_read', [
@@ -83,7 +83,7 @@ class SyncProducts extends Command
                     $specification,
                     $offset,
                     $limit,
-                    'id desc'
+                    'id desc',
                 ]);
 
                 $products = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
@@ -94,7 +94,7 @@ class SyncProducts extends Command
 
                 $syncData = [];
                 foreach ($products as $product) {
-                    $product = (object)$product;
+                    $product = (object) $product;
 
                     // Extract category info
                     $categId = $product->categ_id->id ?? null;
@@ -130,12 +130,12 @@ class SyncProducts extends Command
                     ];
                 }
 
-                $this->info("Upserting " . count($syncData) . " products...");
+                $this->info('Upserting '.count($syncData).' products...');
                 Product::upsert($syncData, ['odoo_id'], [
                     'name', 'default_code', 'product_variant_count', 'categ_id', 'categ_name',
                     'currency_id', 'currency_name', 'uom_id', 'uom_name', 'list_price',
                     'qty_available', 'product_properties', 'type', 'activity_state',
-                    'show_on_hand_qty_status_button', 'write_date', 'updated_at'
+                    'show_on_hand_qty_status_button', 'write_date', 'updated_at',
                 ]);
 
                 $totalSynced += count($products);
@@ -146,14 +146,16 @@ class SyncProducts extends Command
                 }
             } while (true);
 
-            $this->info('Successfully synced all products. Total records: ' . $totalSynced);
-            $logger->complete($log, $totalSynced, $lastSync ? "Incremental sync completed." : "Full sync completed.");
+            $this->info('Successfully synced all products. Total records: '.$totalSynced);
+            $logger->complete($log, $totalSynced, $lastSync ? 'Incremental sync completed.' : 'Full sync completed.');
+
             return 0;
 
         } catch (\Exception $e) {
-            $this->error('Error syncing products: ' . $e->getMessage());
-            Log::error('Odoo Products Sync Error: ' . $e->getMessage());
+            $this->error('Error syncing products: '.$e->getMessage());
+            Log::error('Odoo Products Sync Error: '.$e->getMessage());
             $logger->fail($log, $e);
+
             return 1;
         }
     }

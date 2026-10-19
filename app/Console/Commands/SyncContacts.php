@@ -5,13 +5,13 @@ namespace App\Console\Commands;
 use App\Models\Contact;
 use App\Models\SyncLog;
 use App\Models\Tag;
+use App\Services\OdooClient;
 use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Obuchmann\OdooJsonRpc\Odoo;
 
 class SyncContacts extends Command
 {
@@ -32,7 +32,7 @@ class SyncContacts extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger)
+    public function handle(OdooClient $odoo, SyncLogger $logger)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Contact Sync...');
@@ -74,9 +74,7 @@ class SyncContacts extends Command
             // Fetch all categories from Odoo once to map them
             $this->info('Fetching categories from Odoo...');
             try {
-                $odooCategories = $odoo->model('res.partner.category')
-                    ->fields(['name', 'color'])
-                    ->get();
+                $odooCategories = $odoo->searchRead('res.partner.category', [], ['name', 'color']);
 
                 if (! empty($odooCategories)) {
                     $now = Carbon::now();

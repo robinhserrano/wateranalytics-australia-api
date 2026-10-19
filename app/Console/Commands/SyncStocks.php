@@ -5,11 +5,11 @@ namespace App\Console\Commands;
 use App\Models\ProductStock;
 use App\Models\SyncLog;
 use App\Models\Warehouse;
+use App\Services\OdooClient;
 use App\Services\SyncLogger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
-use Obuchmann\OdooJsonRpc\Odoo;
 
 class SyncStocks extends Command
 {
@@ -30,7 +30,7 @@ class SyncStocks extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Odoo $odoo, SyncLogger $logger)
+    public function handle(OdooClient $odoo, SyncLogger $logger)
     {
         $log = $logger->start($this->signature);
         $this->info('Starting Odoo Warehouse and Stock Sync (Optimized)...');
@@ -101,13 +101,13 @@ class SyncStocks extends Command
      * for warehouses that are provably untouched. Fails open (returns true,
      * i.e. "sync it") on any error - this must never cause a stale skip.
      */
-    protected function hasQuantActivitySince(Odoo $odoo, Warehouse $warehouse, Carbon $lastSync): bool
+    protected function hasQuantActivitySince(OdooClient $odoo, Warehouse $warehouse, Carbon $lastSync): bool
     {
         try {
-            $count = $odoo->model('stock.quant')
-                ->where('warehouse_id', '=', $warehouse->odoo_id)
-                ->where('write_date', '>', $lastSync->toDateTimeString())
-                ->count();
+            $count = $odoo->searchCount('stock.quant', [
+                ['warehouse_id', '=', $warehouse->odoo_id],
+                ['write_date', '>', $lastSync->toDateTimeString()],
+            ]);
 
             return $count > 0;
         } catch (\Exception $e) {
@@ -117,12 +117,10 @@ class SyncStocks extends Command
         }
     }
 
-    protected function syncWarehouses(Odoo $odoo): array
+    protected function syncWarehouses(OdooClient $odoo): array
     {
         try {
-            $warehouseData = $odoo->model('stock.warehouse')
-                ->fields(['id', 'name', 'code'])
-                ->get();
+            $warehouseData = $odoo->searchRead('stock.warehouse', [], ['id', 'name', 'code']);
 
             $warehouses = [];
             foreach ($warehouseData as $data) {
@@ -147,7 +145,7 @@ class SyncStocks extends Command
         }
     }
 
-    protected function syncProductStocks(Odoo $odoo, Warehouse $warehouse)
+    protected function syncProductStocks(OdooClient $odoo, Warehouse $warehouse)
     {
         try {
             $fields = [

@@ -2,7 +2,7 @@
 
 use App\Models\SalesOrder;
 use App\Models\SyncLog;
-use Obuchmann\OdooJsonRpc\Odoo;
+use App\Services\OdooClient;
 
 // odoo:sync-installation-dates used to (1) swallow Odoo errors - exit 0, run logged as fine, and a failed
 // task lookup nulled odoo_task_id - and (2) fetch at most 2000 changed moves per run while the watermark
@@ -27,7 +27,7 @@ test('incremental sync pages past the first 2000 changed moves', function () {
     SalesOrder::create(['odoo_id' => 1, 'name' => 'S001']);
 
     $offsets = [];
-    $this->mock(Odoo::class, function ($mock) use (&$offsets) {
+    $this->mock(OdooClient::class, function ($mock) use (&$offsets) {
         $mock->shouldReceive('executeKw')->andReturnUsing(function ($model, $method, $args) use (&$offsets) {
             if ($model === 'project.task') {
                 return ['records' => []];
@@ -49,7 +49,7 @@ test('incremental sync pages past the first 2000 changed moves', function () {
 
 test('an Odoo failure fails the command and its sync log instead of passing silently', function () {
     installSyncPreviousRun();
-    $this->mock(Odoo::class, fn ($mock) => $mock->shouldReceive('executeKw')->andThrow(new RuntimeException('Odoo down')));
+    $this->mock(OdooClient::class, fn ($mock) => $mock->shouldReceive('executeKw')->andThrow(new RuntimeException('Odoo down')));
 
     $this->artisan('odoo:sync-installation-dates')->assertExitCode(1);
 
@@ -62,7 +62,7 @@ test('a failed task lookup fails the run instead of nulling odoo_task_id', funct
     installSyncPreviousRun();
     SalesOrder::create(['odoo_id' => 1, 'name' => 'S001', 'odoo_task_id' => 77]);
 
-    $this->mock(Odoo::class, function ($mock) {
+    $this->mock(OdooClient::class, function ($mock) {
         $mock->shouldReceive('executeKw')->andReturnUsing(function ($model) {
             if ($model === 'project.task') {
                 throw new RuntimeException('task lookup timed out');

@@ -7,14 +7,14 @@ return [
     | Must start with http:// or https:// and include port
     |--------------------------------------------------------------------------
     */
-    'host' => env('ODOO_HOST',''),
+    'host' => env('ODOO_HOST', ''),
 
     /*
     |--------------------------------------------------------------------------
     | Database name
     |--------------------------------------------------------------------------
     */
-    'database' => env('ODOO_DATABASE',''),
+    'database' => env('ODOO_DATABASE', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -32,22 +32,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Fixed User ID (optional)
-    | If set, authentication will be skipped and this User ID will be used.
+    | App\Services\OdooClient
+    | The same client as waa_filter_subscriptions, which names its settings
+    | url/db/login/api_key. Mapped onto the ODOO_* vars above so no .env changes
+    | are needed. The password works as the "api key" (same authenticate call).
+    | as_objects: return decoded objects ($order->partner_id->id), the shape the
+    | sync commands were written against with obuchmann/odoo-jsonrpc.
     |--------------------------------------------------------------------------
     */
-    'fixed_user_id' => env('ODOO_FIXED_USER_ID', null),
-
-    'context' => [
-        'lang' => env('ODOO_LANG', null),
-        'timezone' => env('ODOO_TIMEZONE', null),
-        'companyId' => env('ODOO_COMPANY_ID', null),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Use SSL Verify
-    |--------------------------------------------------------------------------
-    */
-    'ssl_verify' => (bool) env('ODOO_SSL_VERIFY', true)
+    'url' => env('ODOO_HOST', ''),
+    'db' => env('ODOO_DATABASE', ''),
+    'login' => env('ODOO_USERNAME', ''),
+    'api_key' => env('ODOO_PASSWORD', ''),
+    'as_objects' => true,
 ];

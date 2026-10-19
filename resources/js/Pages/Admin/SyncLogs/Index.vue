@@ -111,7 +111,8 @@ const getStatusClass = (status: string) => {
                                         {{ log.status.toUpperCase() }}
                                     </Badge>
                                 </TableCell>
-                                <TableCell class="font-mono text-xs">{{ log.command }}</TableCell>
+                                <!-- stored value is the full signature ("odoo:sync-sales {--all : Force ...}"), which read like a forced full sync -->
+                                <TableCell class="font-mono text-xs">{{ log.command.split(' ')[0] }}</TableCell>
                                 <TableCell>{{ formatDate(log.started_at) }}</TableCell>
                                 <TableCell>{{ formatDuration(log.duration) }}</TableCell>
                                 <TableCell class="text-right">{{ log.records_processed }}</TableCell>

@@ -2,12 +2,12 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Obuchmann\OdooJsonRpc\Odoo;
 use App\Models\SalesOrder;
 use App\Models\SyncLog;
+use App\Services\OdooClient;
 use App\Services\SyncLogger;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -72,6 +72,7 @@ class SyncOdooInstallationDates extends Command
         if (\is_object($response)) {
             return (array) ($response->records ?? []);
         }
+
         return [];
     }
 
@@ -86,6 +87,7 @@ class SyncOdooInstallationDates extends Command
         if (\is_array($field)) {
             return isset($field[0]) ? (int) $field[0] : null;
         }
+
         return null;
     }
 
@@ -100,6 +102,7 @@ class SyncOdooInstallationDates extends Command
         if ($this->knownOrderNames === null) {
             $this->knownOrderNames = SalesOrder::pluck('id', 'name')->toArray();
         }
+
         return $this->knownOrderNames;
     }
 
@@ -110,7 +113,7 @@ class SyncOdooInstallationDates extends Command
      * @param  string[]  $orderNames
      * @return array<string, array{task_id: int, deadline: string|null}>
      */
-    private function fetchTaskIdsForOrders(Odoo $odoo, array $orderNames): array
+    private function fetchTaskIdsForOrders(OdooClient $odoo, array $orderNames): array
     {
         if (empty($orderNames)) {
             return [];
@@ -136,7 +139,7 @@ class SyncOdooInstallationDates extends Command
         foreach ($tasks as $task) {
             $task = (object) $task;
             $soName = $task->sale_order_id->name ?? null;
-            if ($soName && !isset($map[$soName])) {
+            if ($soName && ! isset($map[$soName])) {
                 $map[$soName] = [
                     'task_id' => (int) $task->id,
                     'deadline' => $task->date_deadline ?? null,
@@ -165,7 +168,7 @@ class SyncOdooInstallationDates extends Command
         $knownNames = $this->getKnownOrderNames();
 
         // Only keep names that actually exist locally
-        $filtered = \array_filter($updates, fn($name) => isset($knownNames[$name]), ARRAY_FILTER_USE_KEY);
+        $filtered = \array_filter($updates, fn ($name) => isset($knownNames[$name]), ARRAY_FILTER_USE_KEY);
 
         if (empty($filtered)) {
             return 0;
@@ -209,7 +212,7 @@ class SyncOdooInstallationDates extends Command
     // Entry point
     // -------------------------------------------------------------------------
 
-    public function handle(Odoo $odoo, SyncLogger $logger): int
+    public function handle(OdooClient $odoo, SyncLogger $logger): int
     {
         $this->info('Starting Odoo Installation Date Sync...');
 
@@ -222,15 +225,15 @@ class SyncOdooInstallationDates extends Command
         // exit, and a swallowed failure used to be logged as a run the next watermark built on.
         try {
             if ($lastSync) {
-                $this->info('Performing incremental sync from Odoo since: ' . $lastSync->toDateTimeString());
+                $this->info('Performing incremental sync from Odoo since: '.$lastSync->toDateTimeString());
                 $updated = $this->performIncrementalSync($odoo, $lastSync);
             } else {
                 $this->info('Performing full sync of local orders...');
                 $updated = $this->performFullSync($odoo);
             }
         } catch (\Throwable $e) {
-            Log::error('Installation date sync failed: ' . $e->getMessage());
-            $this->error('Error: ' . $e->getMessage());
+            Log::error('Installation date sync failed: '.$e->getMessage());
+            $this->error('Error: '.$e->getMessage());
             $logger->fail($log, $e);
 
             return self::FAILURE;
@@ -246,7 +249,7 @@ class SyncOdooInstallationDates extends Command
     // Sync strategies
     // -------------------------------------------------------------------------
 
-    protected function performIncrementalSync(Odoo $odoo, Carbon $lastSync): int
+    protected function performIncrementalSync(OdooClient $odoo, Carbon $lastSync): int
     {
         $domain = [
             ['state', '=', 'done'],
@@ -273,16 +276,16 @@ class SyncOdooInstallationDates extends Command
             }
         }
 
-        $this->info('Found ' . \count($moves) . ' updated moves in Odoo.');
+        $this->info('Found '.\count($moves).' updated moves in Odoo.');
 
         return $this->processMovesAndSave($odoo, $moves);
     }
 
-    protected function performFullSync(Odoo $odoo): int
+    protected function performFullSync(OdooClient $odoo): int
     {
         $query = SalesOrder::query();
 
-        if (!$this->option('all')) {
+        if (! $this->option('all')) {
             $query->whereNull('installation_date');
         }
 
@@ -304,7 +307,7 @@ class SyncOdooInstallationDates extends Command
 
                 foreach ($orders as $order) {
                     $orderName = $order->name;
-                    if (!isset($taskMap[$orderName])) {
+                    if (! isset($taskMap[$orderName])) {
                         continue;
                     }
 
@@ -353,7 +356,7 @@ class SyncOdooInstallationDates extends Command
                     $totalUpdates += $this->processMovesAndSave($odoo, $moves);
 
                 } catch (\Exception $e) {
-                    Log::error('Failed chunk in full sync: ' . $e->getMessage());
+                    Log::error('Failed chunk in full sync: '.$e->getMessage());
                     $failedChunks++;
                 }
 
@@ -375,7 +378,7 @@ class SyncOdooInstallationDates extends Command
     // Core move processing
     // -------------------------------------------------------------------------
 
-    protected function processMovesAndSave(Odoo $odoo, array $moves): int
+    protected function processMovesAndSave(OdooClient $odoo, array $moves): int
     {
         $knownNames = $this->getKnownOrderNames();
 
@@ -391,7 +394,7 @@ class SyncOdooInstallationDates extends Command
                 ? ($move->picking_id->origin ?? $move->origin ?? null)
                 : ($move->origin ?? null);
 
-            if (!$soName || !isset($knownNames[$soName])) {
+            if (! $soName || ! isset($knownNames[$soName])) {
                 continue;
             }
 
@@ -399,12 +402,12 @@ class SyncOdooInstallationDates extends Command
                 ? ($move->scheduled_date ?? null)
                 : ($move->picking_id->date_done ?? $move->scheduled_date ?? null);
 
-            if (!$installationDate) {
+            if (! $installationDate) {
                 continue;
             }
 
             // Keep latest date among all moves for the same SO
-            if (!isset($updates[$soName]) || Carbon::parse($installationDate)->gt(Carbon::parse($updates[$soName]))) {
+            if (! isset($updates[$soName]) || Carbon::parse($installationDate)->gt(Carbon::parse($updates[$soName]))) {
                 $updates[$soName] = $installationDate;
             }
         }

@@ -7,6 +7,7 @@ use App\Jobs\SyncOdooInstallationDatesJob;
 use App\Jobs\SyncOdooProductsJob;
 use App\Jobs\SyncOdooSalesOrdersJob;
 use App\Jobs\SyncOdooStocksJob;
+use App\Models\SyncLog;
 use App\Services\SyncLogger;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -66,4 +67,18 @@ Schedule::command('backup:run')
 // Cleanup old backups (retention policy) at 1:30 AM
 Schedule::command('backup:clean')
     ->dailyAt('01:30')
+    ->onOneServer();
+
+// Delete sync_logs older than SyncLog::KEEP_DAYS (keeps each command's latest successful run for the
+// watermark). After the 1:00 backup, before the 2:15 reconcile.
+Schedule::command('model:prune', ['--model' => [SyncLog::class]])
+    ->dailyAt('01:45')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Fix orders that left the Odoo sync scope (cancelled / untagged / deleted). After the 1:00 backup on
+// purpose, so a fresh backup always exists before it changes anything.
+Schedule::command('odoo:reconcile-sales')
+    ->dailyAt('02:15')
+    ->withoutOverlapping()
     ->onOneServer();
