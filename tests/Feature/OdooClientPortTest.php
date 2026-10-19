@@ -1,6 +1,8 @@
 <?php
 
 use App\Console\Commands\SyncStocks;
+use App\Models\ProductStock;
+use App\Models\SyncLog;
 use App\Models\Warehouse;
 use App\Services\OdooClient;
 use Illuminate\Console\OutputStyle;
@@ -72,6 +74,35 @@ test('warehouses sync from object-shaped results, as they did with obuchmann', f
     Http::assertSent(fn ($r) => ($r['params']['args'][4] ?? null) === 'search_read'
         && $r['params']['args'][3] === 'stock.warehouse'
         && $r['params']['args'][6]['fields'] === ['id', 'name', 'code']);
+});
+
+test('odoo:sync-stocks runs end to end and asks Odoo for per-warehouse quantities via the call context', function () {
+    // obuchmann held the warehouse context as client state (getContext/setContext); the shared client has no
+    // such methods, which crashed every stocks run after #46. Run the real command against a fake Odoo.
+    Http::fake(['odoo.test/*' => function ($request) {
+        $args = $request['params']['args'];
+        $result = match (true) {
+            $request['params']['service'] === 'common' => 7,
+            ($args[4] ?? null) === 'search_read' && $args[3] === 'stock.warehouse' => [['id' => 3, 'name' => 'Sydney', 'code' => 'SYD']],
+            ($args[4] ?? null) === 'search_count' => 1,
+            ($args[4] ?? null) === 'web_search_read' => ['length' => 1, 'records' => $args[5][2] === 0 ? [[
+                'id' => 501, 'display_name' => 'Filter Cartridge', 'categ_id' => ['id' => 4, 'display_name' => 'Filters'],
+                'cost_method' => 'standard', 'standard_price' => 10, 'qty_available' => 7, 'free_qty' => 7,
+                'incoming_qty' => 0, 'outgoing_qty' => 0, 'virtual_available' => 7,
+            ]] : []],
+            default => [],
+        };
+
+        return Http::response(['result' => $result]);
+    }]);
+
+    $this->artisan('odoo:sync-stocks')->assertExitCode(0);
+
+    $warehouse = Warehouse::where('odoo_id', 3)->firstOrFail();
+    expect(ProductStock::where('warehouse_id', $warehouse->id)->where('odoo_id', 501)->exists())->toBeTrue()
+        ->and(SyncLog::latest('id')->first()->status)->toBe('completed');
+    Http::assertSent(fn ($r) => ($r['params']['args'][4] ?? null) === 'web_search_read'
+        && ($r['params']['args'][6]['context']['warehouse'] ?? null) === 3);
 });
 
 test('the removed debug and Odoo test routes are gone', function (string $url) {

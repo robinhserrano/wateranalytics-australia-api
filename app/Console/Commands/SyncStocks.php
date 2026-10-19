@@ -171,15 +171,11 @@ class SyncStocks extends Command
                 $specification[$field] = (object) [];
             }
 
-            while (true) {
-                // If this is a specific warehouse (not "All Warehouses"), set the context
-                $originalContext = $odoo->getContext();
-                if ($warehouse->odoo_id > 0) {
-                    $newContext = clone $originalContext;
-                    $newContext->setContextArg('warehouse', $warehouse->odoo_id);
-                    $odoo->setContext($newContext);
-                }
+            // A specific warehouse (not "All Warehouses") makes Odoo compute qty_available etc. for that
+            // warehouse only. Sent as the call's context kwarg (obuchmann used to hold it as client state).
+            $kwargs = $warehouse->odoo_id > 0 ? ['context' => ['warehouse' => $warehouse->odoo_id]] : [];
 
+            while (true) {
                 $this->info(" Fetching batch (offset: $offset)...");
                 $response = $odoo->executeKw('product.product', 'web_search_read', [
                     [['is_storable', '=', true]],
@@ -187,10 +183,7 @@ class SyncStocks extends Command
                     $offset,
                     $limit,
                     'id desc',
-                ]);
-
-                // Restore original context
-                $odoo->setContext($originalContext);
+                ], $kwargs);
 
                 $products = $response->records ?? (is_array($response) ? ($response['records'] ?? []) : []);
 
