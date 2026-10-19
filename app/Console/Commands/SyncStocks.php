@@ -172,6 +172,8 @@ class SyncStocks extends Command
             foreach ($fields as $field) {
                 $specification[$field] = (object) [];
             }
+            // an empty spec makes Odoo return a many2one as a bare id, so categ_name was always stored null
+            $specification['categ_id'] = ['fields' => ['display_name' => (object) []]];
 
             // A specific warehouse (not "All Warehouses") makes Odoo compute qty_available etc. for that
             // warehouse only. The context key is `warehouse_id`: the old `warehouse` key was silently

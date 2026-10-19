@@ -106,10 +106,12 @@ test('odoo:sync-stocks runs end to end and asks Odoo for per-warehouse quantitie
     $this->artisan('odoo:sync-stocks')->assertExitCode(0);
 
     $warehouse = Warehouse::where('odoo_id', 3)->firstOrFail();
-    expect(ProductStock::where('warehouse_id', $warehouse->id)->where('odoo_id', 501)->exists())->toBeTrue()
+    expect(ProductStock::where('warehouse_id', $warehouse->id)->where('odoo_id', 501)->value('categ_name'))->toBe('Filters')
         ->and(SyncLog::latest('id')->first())->status->toBe('completed')->command->toBe('odoo:sync-stocks');
     Http::assertSent(fn ($r) => ($r['params']['args'][4] ?? null) === 'web_search_read'
-        && ($r['params']['args'][6]['context'] ?? null) === ['warehouse_id' => 3]);
+        && ($r['params']['args'][6]['context'] ?? null) === ['warehouse_id' => 3]
+        // many2one needs a sub-spec, or Odoo returns the bare id and categ_name is lost
+        && isset($r['params']['args'][5][1]['categ_id']['fields']['display_name']));
 });
 
 test('--all re-syncs a warehouse even without stock movement since the last run', function () {
