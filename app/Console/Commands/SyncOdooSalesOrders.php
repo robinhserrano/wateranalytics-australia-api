@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\CommissionCalculation;
 use App\Models\Contact;
 use App\Models\Product;
 use App\Models\SalesOrder;
@@ -456,6 +457,13 @@ class SyncOdooSalesOrders extends Command
         if (empty($syncedOdooIds)) {
             return;
         }
+
+        // An order reinstated in Odoo is back in scope: give its auto-rejected commission (see
+        // CommissionCalculation::AUTO_REJECT_REASON) back to pending so it's recalculated below. A rejection
+        // made by a person keeps rejected_by set and is never touched.
+        CommissionCalculation::autoRejected()
+            ->whereIn('sales_order_id', SalesOrder::whereIn('odoo_id', $syncedOdooIds)->select('id'))
+            ->update(['status' => 'pending', 'rejected_at' => null, 'rejection_reason' => null]);
 
         $orders = SalesOrder::whereIn('odoo_id', $syncedOdooIds)
             ->where(function ($query) {
