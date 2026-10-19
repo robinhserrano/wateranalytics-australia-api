@@ -1,6 +1,14 @@
 node_modules
 vendor
 .env
+# editor/backup copies of .env on the server (..env.swp, .env.save) hold the same secrets
+.env.*
+!.env.example
+*.swp
+*.save
+# Let's Encrypt certs + private keys (root-owned, written by the certbot container). Never bake them
+# into the app image - and the build user can't read them anyway, which failed the deploy.
+certbot
 .git
 .github
 storage/*.key

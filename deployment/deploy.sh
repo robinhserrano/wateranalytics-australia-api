@@ -48,7 +48,10 @@ sed "s/yourdomain.com/$DOMAIN/g" deployment/nginx.conf > deployment/nginx-$DOMAI
 
 # Step 2: SSL Check and Container Startup
 echo "🔍 Step 2/7: Checking for SSL certificates..."
-if [ ! -f "certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
+# certbot runs as root and keeps certbot/conf/live root-only, so a non-root deploy can't see the cert
+# and would needlessly re-run the HTTP bootstrap below. Check through passwordless sudo when available.
+CERT="certbot/conf/live/$DOMAIN/fullchain.pem"
+if [ ! -f "$CERT" ] && ! sudo -n test -f "$CERT" 2>/dev/null; then
     echo "⚠️  SSL certificates not found. Bootstrapping with HTTP-only..."
     
     # Start app and mysql first
