@@ -142,7 +142,8 @@ class SyncOdooInstallationDates extends Command
             if ($soName && ! isset($map[$soName])) {
                 $map[$soName] = [
                     'task_id' => (int) $task->id,
-                    'deadline' => $task->date_deadline ?? null,
+                    // Odoo sends false for an unset date; Carbon::parse(false) would store today
+                    'deadline' => $task->date_deadline ?: null,
                 ];
             }
         }
@@ -278,7 +279,61 @@ class SyncOdooInstallationDates extends Command
 
         $this->info('Found '.\count($moves).' updated moves in Odoo.');
 
-        return $this->processMovesAndSave($odoo, $moves);
+        return $this->processMovesAndSave($odoo, $moves) + $this->syncChangedTaskDeadlines($odoo, $lastSync);
+    }
+
+    /**
+     * Orders whose installation task deadline changed since the watermark. Installers set the deadline
+     * before the stock is picked up, so waiting for a done stock move left those orders with no date.
+     */
+    protected function syncChangedTaskDeadlines(OdooClient $odoo, Carbon $lastSync): int
+    {
+        $domain = [
+            ['write_date', '>', $lastSync->toDateTimeString()],
+            ['sale_order_id', '!=', false],
+            ['date_deadline', '!=', false],
+        ];
+
+        $knownNames = $this->getKnownOrderNames();
+        $names = [];
+        for ($offset = 0; ; $offset += self::PAGE_SIZE) {
+            $page = $this->unpackRecords($odoo->executeKw('project.task', 'web_search_read', [
+                $domain,
+                ['sale_order_id' => (object) ['fields' => (object) ['name' => (object) []]]],
+                $offset,
+                self::PAGE_SIZE,
+                'id',
+            ]));
+            foreach ($page as $task) {
+                $name = ((object) $task)->sale_order_id->name ?? null;
+                if ($name && isset($knownNames[$name])) {
+                    $names[$name] = true;
+                }
+            }
+
+            if (\count($page) < self::PAGE_SIZE) {
+                break;
+            }
+        }
+
+        $this->info('Found '.\count($names).' orders with a changed task deadline.');
+
+        // Re-read through fetchTaskIdsForOrders so an order with several tasks resolves to the same one as elsewhere
+        $updated = 0;
+        foreach (\array_chunk(\array_keys($names), 100) as $chunk) {
+            $updates = [];
+            foreach ($this->fetchTaskIdsForOrders($odoo, $chunk) as $name => $task) {
+                if ($task['deadline']) {
+                    $updates[$name] = [
+                        'installation_date' => Carbon::parse($task['deadline'])->toDateTimeString(),
+                        'odoo_task_id' => $task['task_id'],
+                    ];
+                }
+            }
+            $updated += $this->bulkUpdateOrders($updates);
+        }
+
+        return $updated;
     }
 
     protected function performFullSync(OdooClient $odoo): int

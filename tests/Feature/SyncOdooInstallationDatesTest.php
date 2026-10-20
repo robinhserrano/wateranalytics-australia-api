@@ -76,3 +76,44 @@ test('a failed task lookup fails the run instead of nulling odoo_task_id', funct
 
     expect(SalesOrder::where('name', 'S001')->value('odoo_task_id'))->toBe(77);
 });
+
+// Installers set the task deadline at "Scheduled (Not Picked Up)", days before any stock move is done.
+// The incremental run only looked at done moves, so those orders showed "Not Set" until pickup.
+test('incremental sync picks up a changed task deadline with no done stock move', function () {
+    installSyncPreviousRun();
+    SalesOrder::create(['odoo_id' => 1, 'name' => 'S21532']);
+
+    $this->mock(OdooClient::class, function ($mock) {
+        $mock->shouldReceive('executeKw')->andReturnUsing(function ($model, $method, $args) {
+            if ($model === 'stock.move.line') {
+                return ['records' => []];
+            }
+            $task = ['id' => 8657, 'date_deadline' => '2026-10-22 06:00:00', 'sale_order_id' => (object) ['name' => 'S21532']];
+
+            return ['records' => $args[0][0][0] === 'write_date' || $args[0][0][2] === ['S21532'] ? [$task] : []];
+        });
+    });
+
+    $this->artisan('odoo:sync-installation-dates')->assertExitCode(0);
+
+    $order = SalesOrder::where('name', 'S21532')->first();
+    expect((string) $order->installation_date)->toStartWith('2026-10-22')
+        ->and($order->odoo_task_id)->toBe(8657);
+});
+
+test('a task without a deadline falls back to the stock move date instead of today', function () {
+    installSyncPreviousRun();
+    SalesOrder::create(['odoo_id' => 1, 'name' => 'S001']);
+
+    $this->mock(OdooClient::class, function ($mock) {
+        $mock->shouldReceive('executeKw')->andReturnUsing(fn ($model, $method, $args) => ['records' => match (true) {
+            $model === 'stock.move.line' => [installSyncMove('S001', '2026-10-01 09:00:00')],
+            $args[0][0][0] === 'write_date' => [],
+            default => [['id' => 5, 'date_deadline' => false, 'sale_order_id' => (object) ['name' => 'S001']]],
+        }]);
+    });
+
+    $this->artisan('odoo:sync-installation-dates')->assertExitCode(0);
+
+    expect((string) SalesOrder::where('name', 'S001')->first()->installation_date)->toStartWith('2026-10-01');
+});
